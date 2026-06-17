@@ -1,0 +1,23 @@
+# Dependency
+node_modules/
+jspm_packages/
+
+# Production build
+dist/
+build/
+
+# Backup & Archive files
+*.7z
+*.zip
+*.tar.gz
+
+# Environment & Secrets
+.env
+*.local
+
+# System files & Trash
+.vscode/
+.DS_Store
+Thumbs.db
+New folder/
+Untitled-1.md

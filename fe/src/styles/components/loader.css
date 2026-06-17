@@ -1,0 +1,370 @@
+/* fe/src/styles/components/loader.css */
+.app-loader-page {
+  position: fixed;
+  top: 0;
+  left: 0;
+  width: 100vw;
+  height: 100vh;
+  background: radial-gradient(circle at 50% 50%, #0d284a 0%, #030e1d 100%);
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  z-index: 99999;
+  overflow: hidden;
+  font-family: 'Inter', sans-serif;
+  color: #ffffff;
+}
+
+/* Technical Grid Overlay */
+.app-loader-page::before {
+  content: '';
+  position: absolute;
+  top: 0;
+  left: 0;
+  right: 0;
+  bottom: 0;
+  background-image: 
+    linear-gradient(rgba(22, 148, 209, 0.04) 1px, transparent 1px),
+    linear-gradient(90deg, rgba(22, 148, 209, 0.04) 1px, transparent 1px);
+  background-size: 50px 50px;
+  background-position: center;
+  pointer-events: none;
+  z-index: 1;
+}
+
+/* Perspective Grid Effect like in image (grid curves or globe lines) */
+.loader-perspective-grid {
+  position: absolute;
+  width: 150%;
+  height: 150%;
+  background: 
+    radial-gradient(circle, transparent 30%, rgba(3, 14, 29, 0.9) 70%),
+    repeating-linear-gradient(0deg, rgba(22, 148, 209, 0.02) 0px, rgba(22, 148, 209, 0.02) 1px, transparent 1px, transparent 40px),
+    repeating-linear-gradient(90deg, rgba(22, 148, 209, 0.02) 0px, rgba(22, 148, 209, 0.02) 1px, transparent 1px, transparent 40px);
+  transform: perspective(500px) rotateX(60deg);
+  opacity: 0.6;
+  z-index: 1;
+  top: -25%;
+  pointer-events: none;
+}
+
+/* Logo pulse & glow background */
+.loader-center-content {
+  position: relative;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  text-align: center;
+  z-index: 5;
+  width: 100%;
+  max-width: 600px;
+  padding: 20px;
+}
+
+.loader-logo-container {
+  position: relative;
+  width: 220px;
+  height: 220px;
+  display: flex;
+  justify-content: center;
+  align-items: center;
+  margin-bottom: 24px;
+}
+
+/* Cybernetic outer rings */
+.loader-logo-ring-outer {
+  position: absolute;
+  width: 260px;
+  height: 260px;
+  border: 1px dashed rgba(22, 148, 209, 0.15);
+  border-radius: 50%;
+  animation: rotateClockwise 30s linear infinite;
+  pointer-events: none;
+}
+
+.loader-logo-ring-inner {
+  position: absolute;
+  width: 230px;
+  height: 230px;
+  border: 1px solid rgba(22, 148, 209, 0.08);
+  border-radius: 50%;
+  pointer-events: none;
+}
+
+.loader-logo-glow {
+  position: absolute;
+  width: 180px;
+  height: 180px;
+  background: radial-gradient(circle, rgba(22, 148, 209, 0.35) 0%, transparent 70%);
+  filter: blur(12px);
+  animation: pulseGlow 3s infinite ease-in-out;
+  pointer-events: none;
+}
+
+.loader-logo-img {
+  width: 200px;
+  height: 200px;
+  object-fit: contain;
+  filter: drop-shadow(0 0 25px rgba(22, 148, 209, 0.5));
+  animation: floatLogo 4s infinite ease-in-out;
+}
+
+/* Texts styling */
+.loader-brand-title {
+  font-size: 56px;
+  font-weight: 800;
+  color: #ffffff;
+  letter-spacing: 2px;
+  margin: 10px 0 6px 0 !important;
+  text-shadow: 0 0 30px rgba(22, 148, 209, 0.4);
+  display: flex;
+  justify-content: center;
+  align-items: center;
+}
+
+.loader-brand-title .amp {
+  color: #ff9b2f; /* Orange color exactly like the logo */
+  margin: 0 2px;
+  text-shadow: 0 0 20px rgba(255, 155, 47, 0.5);
+}
+
+.loader-brand-subtitle {
+  font-size: 19px;
+  font-weight: 600;
+  color: #e2f1ff;
+  letter-spacing: 1px;
+  margin-bottom: 12px;
+  text-shadow: 0 2px 4px rgba(0, 0, 0, 0.4);
+}
+
+.loader-brand-desc {
+  font-size: 13.5px;
+  color: #8ea7be;
+  max-width: 480px;
+  margin: 0 auto 36px auto;
+  line-height: 1.6;
+  text-shadow: 0 1px 2px rgba(0, 0, 0, 0.3);
+}
+
+/* Progress bar styles */
+.loader-progress-container {
+  width: 100%;
+  max-width: 460px;
+  margin: 0 auto;
+}
+
+.loader-progress-track {
+  width: 100%;
+  height: 12px;
+  border: 1px solid rgba(67, 121, 160, 0.3);
+  border-radius: 99px;
+  background: rgba(8, 21, 34, 0.65);
+  overflow: hidden;
+  position: relative;
+  box-shadow: inset 0 2px 4px rgba(0, 0, 0, 0.4);
+}
+
+.loader-progress-bar {
+  height: 100%;
+  border-radius: 99px;
+  background: linear-gradient(90deg, #1d74ff, #15c7d8);
+  box-shadow: 0 0 14px rgba(21, 199, 216, 0.8), 0 0 4px rgba(21, 199, 216, 0.4);
+  transition: width 0.15s ease-out;
+  position: relative;
+}
+
+/* Add a glowing wave edge inside the progress bar */
+.loader-progress-bar::after {
+  content: '';
+  position: absolute;
+  top: 0;
+  right: 0;
+  bottom: 0;
+  width: 20px;
+  background: linear-gradient(90deg, transparent, #ffffff);
+  opacity: 0.8;
+  filter: blur(2px);
+  animation: barGlowPulse 1.5s infinite alternate;
+}
+
+/* Footer locking */
+.loader-footer {
+  position: absolute;
+  bottom: 32px;
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  color: #5b7993;
+  font-size: 12px;
+  letter-spacing: 0.5px;
+  z-index: 5;
+  text-shadow: 0 1px 2px rgba(0, 0, 0, 0.4);
+}
+
+.loader-lock-icon {
+  font-size: 13px;
+  color: #5b7993;
+}
+
+/* Decorative Sparkle at Bottom Right */
+.loader-sparkle {
+  position: absolute;
+  bottom: 24px;
+  right: 24px;
+  z-index: 5;
+  opacity: 0.65;
+  animation: sparklePulse 3s infinite ease-in-out;
+}
+
+.loader-sparkle-star {
+  width: 28px;
+  height: 28px;
+  fill: #8fb2cf;
+  filter: drop-shadow(0 0 8px rgba(143, 178, 207, 0.6));
+}
+
+/* Keyframe animations */
+@keyframes pulseGlow {
+  0%, 100% {
+    transform: scale(0.9);
+    opacity: 0.6;
+  }
+  50% {
+    transform: scale(1.1);
+    opacity: 0.95;
+  }
+}
+
+@keyframes floatLogo {
+  0%, 100% {
+    transform: translateY(0);
+  }
+  50% {
+    transform: translateY(-8px);
+  }
+}
+
+@keyframes rotateClockwise {
+  from {
+    transform: rotate(0deg);
+  }
+  to {
+    transform: rotate(360deg);
+  }
+}
+
+@keyframes barGlowPulse {
+  0% {
+    opacity: 0.3;
+  }
+  100% {
+    opacity: 0.9;
+  }
+}
+
+@keyframes sparklePulse {
+  0%, 100% {
+    transform: scale(0.9) rotate(0deg);
+    opacity: 0.4;
+  }
+  50% {
+    transform: scale(1.15) rotate(15deg);
+    opacity: 0.9;
+  }
+}
+
+/* Responsive adjustments */
+@media (max-width: 576px) {
+  .loader-logo-container {
+    width: 170px;
+    height: 170px;
+  }
+  .loader-logo-img {
+    width: 150px;
+    height: 150px;
+  }
+  .loader-logo-ring-outer {
+    width: 200px;
+    height: 200px;
+  }
+  .loader-logo-ring-inner {
+    width: 175px;
+    height: 175px;
+  }
+  .loader-brand-title {
+    font-size: 42px;
+  }
+  .loader-brand-subtitle {
+    font-size: 16px;
+  }
+  .loader-brand-desc {
+    font-size: 12px;
+    padding: 0 16px;
+  }
+  .loader-progress-container {
+    padding: 0 20px;
+  }
+}
+
+/* Page Loader styles */
+.page-loader-container {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  width: 100%;
+  height: 100vh;
+  min-height: 200px;
+  background: var(--bg-dashboard, #f4f7fb);
+  color: var(--text-primary, #1e293b);
+}
+
+.page-loader-spinner-wrapper {
+  position: relative;
+  width: 48px;
+  height: 48px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  margin-bottom: 16px;
+}
+
+.page-loader-ring {
+  position: absolute;
+  width: 100%;
+  height: 100%;
+  border: 3px solid rgba(22, 148, 209, 0.1);
+  border-top-color: #1694d1;
+  border-radius: 50%;
+  animation: pageLoaderSpin 1s linear infinite;
+}
+
+.page-loader-icon {
+  font-size: 20px;
+  color: #1694d1;
+}
+
+.page-loader-text {
+  font-size: 14px;
+  font-weight: 500;
+  color: #64748b;
+  letter-spacing: 0.5px;
+  animation: pageLoaderPulse 2s ease-in-out infinite;
+}
+
+@keyframes pageLoaderSpin {
+  to {
+    transform: rotate(360deg);
+  }
+}
+
+@keyframes pageLoaderPulse {
+  0%, 100% {
+    opacity: 0.6;
+  }
+  50% {
+    opacity: 1;
+  }
+}

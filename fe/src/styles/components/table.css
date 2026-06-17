@@ -1,0 +1,78 @@
+/* fe/src/styles/components/table.css */
+.ant-table {
+  background: transparent !important;
+  color: var(--text) !important;
+}
+
+.ant-table-wrapper {
+  width: 100%;
+  overflow-x: auto;
+}
+
+.ant-table-thead > tr > th {
+  background: rgba(15, 110, 168, 0.1) !important;
+  color: var(--muted) !important;
+  border-bottom: 2px solid var(--line) !important;
+  font-weight: 700 !important;
+  text-transform: uppercase;
+  font-size: 12px;
+  letter-spacing: 0.5px;
+}
+
+.ant-table-tbody > tr > td {
+  border-bottom: 1px solid var(--line) !important;
+  padding: 16px !important;
+}
+
+.ant-table-tbody > tr:hover > td {
+  background: rgba(255, 255, 255, 0.03) !important;
+}
+
+.ant-table-row-expand-icon {
+  color: var(--primary) !important;
+}
+
+.ant-table-row-selected > td {
+  background: rgba(15, 110, 168, 0.08) !important;
+}
+
+.ant-table-placeholder {
+  color: var(--muted) !important;
+}
+
+.ant-table-empty .ant-empty-description {
+  color: var(--muted) !important;
+}
+
+.ant-pagination {
+  color: var(--text-secondary) !important;
+}
+
+.ant-pagination-item {
+  border-radius: var(--radius-sm) !important;
+}
+
+.ant-pagination-item-active {
+  border-color: var(--primary) !important;
+  background: var(--primary) !important;
+}
+
+.ant-pagination-item-active a {
+  color: var(--white) !important;
+}
+
+.ant-pagination-prev .ant-pagination-item-link,
+.ant-pagination-next .ant-pagination-item-link {
+  border-radius: var(--radius-sm) !important;
+}
+
+@media (max-width: 768px) {
+  .ant-table-thead > tr > th {
+    font-size: 11px;
+    letter-spacing: 0.4px;
+  }
+
+  .ant-table-tbody > tr > td {
+    padding: 12px !important;
+  }
+}

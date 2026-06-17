@@ -1,0 +1,51 @@
+.budget-asset-page {
+  padding: 24px;
+  min-height: 100vh;
+}
+
+.page-header {
+  display: flex;
+  justify-content: space-between;
+  align-items: flex-start;
+  margin-bottom: 24px;
+}
+
+.budget-card {
+  border-radius: 12px;
+  box-shadow: 0 4px 20px rgba(0, 0, 0, 0.03);
+}
+
+.table-toolbar {
+  margin-bottom: 24px;
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+}
+
+/* Make headers look cleaner */
+.budget-table .ant-table-thead > tr > th {
+  background-color: #f8fafc;
+  color: #334155;
+  font-weight: 600;
+  text-align: center;
+}
+
+/* Fix left columns styles to avoid double border */
+.budget-table .ant-table-cell-fix-left,
+.budget-table .ant-table-cell-fix-right {
+  background-color: #ffffff;
+}
+
+.budget-table .ant-table-thead > tr > th.ant-table-cell-fix-left,
+.budget-table .ant-table-thead > tr > th.ant-table-cell-fix-right {
+  background-color: #f8fafc;
+}
+
+/* Right align numeric data */
+.budget-table .ant-table-tbody > tr > td[data-index^="month_"],
+.budget-table .ant-table-tbody > tr > td[data-index="initialBudget"],
+.budget-table .ant-table-tbody > tr > td[data-index="total"] {
+  text-align: right;
+  font-family: 'JetBrains Mono', 'Courier New', Courier, monospace;
+  font-size: 13px;
+}

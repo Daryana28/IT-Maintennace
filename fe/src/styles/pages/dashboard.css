@@ -1,0 +1,410 @@
+/* fe/src/styles/pages/dashboard.css */
+.dashboard-page {
+  width: 100%;
+  display: flex;
+  flex-direction: column;
+  gap: 24px;
+}
+
+/* HEADER STYLE */
+.dashboard-page-head {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  margin-bottom: 8px;
+  width: 100%;
+}
+
+.dashboard-page-title {
+  font-size: 28px !important;
+  font-weight: 800 !important;
+  color: #0f2851 !important;
+  margin: 0 !important;
+}
+
+.dashboard-page-subtitle {
+  font-size: 14px;
+  color: #64748b;
+  margin-top: 4px;
+}
+
+.dashboard-actions {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+}
+
+.dashboard-status-badge {
+  display: inline-flex;
+  align-items: center;
+  gap: 8px;
+  padding: 8px 16px;
+  background: #ecfdf5;
+  border: 1px solid #d1fae5;
+  border-radius: 99px;
+  color: #10b981;
+  font-size: 13px;
+  font-weight: 700;
+  box-shadow: 0 1px 2px rgba(16, 185, 129, 0.05);
+}
+
+.dashboard-status-badge .status-dot {
+  width: 8px;
+  height: 8px;
+  border-radius: 50%;
+  background: #10b981;
+  animation: statusPulse 2s infinite ease-in-out;
+}
+
+@keyframes statusPulse {
+  0%, 100% { opacity: 0.6; }
+  50% { opacity: 1; }
+}
+
+.dashboard-refresh-btn {
+  height: 38px !important;
+  border-radius: 8px !important;
+  border: 1px solid #cbd5e1 !important;
+  background: #ffffff !important;
+  color: #334155 !important;
+  font-weight: 600 !important;
+  font-size: 13.5px !important;
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  box-shadow: 0 1px 2px rgba(0, 0, 0, 0.02) !important;
+  transition: all 0.2s ease !important;
+}
+
+.dashboard-refresh-btn:hover {
+  border-color: #94a3b8 !important;
+  background: #f8fafc !important;
+  color: #0f172a !important;
+}
+
+.dashboard-add-btn {
+  height: 38px !important;
+  border-radius: 8px !important;
+  font-weight: 600 !important;
+  background: linear-gradient(135deg, #2563eb, #1d4ed8) !important;
+  border: none !important;
+  color: #ffffff !important;
+  box-shadow: 0 4px 10px rgba(37, 99, 235, 0.15) !important;
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  transition: all 0.2s ease !important;
+}
+
+.dashboard-add-btn:hover {
+  background: linear-gradient(135deg, #1d4ed8, #1e40af) !important;
+  color: #ffffff !important;
+  transform: translateY(-1px);
+}
+
+
+/* SECTION HEADER STYLE */
+.section-head-wrap {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+  margin-top: 24px;
+  margin-bottom: 16px;
+}
+
+.section-head-icon-box {
+  width: 40px;
+  height: 40px;
+  border-radius: 50%;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  font-size: 20px;
+  background: #eff6ff;
+  color: #3b82f6;
+  box-shadow: 0 2px 8px rgba(59, 130, 246, 0.05);
+}
+
+.section-head-text-wrap {
+  display: flex;
+  flex-direction: column;
+  text-align: left;
+}
+
+.section-head-title {
+  font-size: 18px;
+  font-weight: 800;
+  color: #0f2851;
+  margin: 0;
+}
+
+.section-head-subtitle {
+  font-size: 12.5px;
+  color: #64748b;
+  margin: 2px 0 0 0;
+}
+
+
+/* RESPONSIVE GRIDS */
+.dashboard-grid-3 {
+  display: grid;
+  gap: 20px;
+  grid-template-columns: repeat(3, minmax(0, 1fr));
+}
+
+.dashboard-grid-4 {
+  display: grid;
+  gap: 20px;
+  grid-template-columns: repeat(4, minmax(0, 1fr));
+}
+
+.dashboard-grid-5 {
+  display: grid;
+  gap: 20px;
+  grid-template-columns: repeat(5, minmax(0, 1fr));
+}
+
+
+/* CARDS STYLE */
+.dashboard-card {
+  background: #ffffff;
+  border: 1px solid #eef2f6;
+  border-radius: 18px;
+  padding: 20px;
+  box-shadow: 0 4px 12px rgba(15, 23, 42, 0.015), 0 1px 2px rgba(15, 23, 42, 0.005);
+  display: flex;
+  flex-direction: column;
+  justify-content: space-between;
+  min-height: 184px;
+  position: relative;
+  overflow: hidden;
+  transition: all 0.25s cubic-bezier(0.4, 0, 0.2, 1);
+}
+
+.dashboard-card:hover {
+  transform: translateY(-4px);
+  box-shadow: 0 16px 36px rgba(15, 23, 42, 0.04), 0 4px 10px rgba(15, 23, 42, 0.02);
+  border-color: #e2e8f0;
+}
+
+/* Card Themes for Asset */
+.dashboard-card.card-theme-blue {
+  background: #f0f7ff;
+  border-color: #e0effe;
+}
+
+.dashboard-card.card-theme-red {
+  background: #fff5f5;
+  border-color: #ffe8e8;
+}
+
+.dashboard-card.card-theme-yellow {
+  background: #fffcf0;
+  border-color: #fff9d6;
+}
+
+/* Card Icons */
+.card-icon-box {
+  width: 40px;
+  height: 40px;
+  border-radius: 12px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  font-size: 20px;
+  flex-shrink: 0;
+}
+
+.card-theme-blue .card-icon-box {
+  background: #2563eb;
+  color: #ffffff;
+}
+
+.card-theme-red .card-icon-box {
+  background: #ef4444;
+  color: #ffffff;
+}
+
+.card-theme-yellow .card-icon-box {
+  background: #f59e0b;
+  color: #ffffff;
+}
+
+.card-theme-green .card-icon-box {
+  background: #10b981;
+  color: #ffffff;
+}
+
+.card-theme-purple .card-icon-box {
+  background: #8b5cf6;
+  color: #ffffff;
+}
+
+.card-theme-orange .card-icon-box {
+  background: #f97316;
+  color: #ffffff;
+}
+
+.card-top-row {
+  display: flex;
+  align-items: flex-start;
+  gap: 12px;
+}
+
+.card-title-text {
+  font-size: 13.5px;
+  font-weight: 700;
+  color: #1e293b;
+  line-height: 1.35;
+  text-align: left;
+  white-space: pre-line;
+}
+
+/* Value & Sparklines Rows */
+.card-middle-row {
+  display: flex;
+  justify-content: space-between;
+  align-items: flex-end;
+  margin-top: 16px;
+  margin-bottom: 6px;
+  width: 100%;
+}
+
+.card-value-box {
+  display: flex;
+  flex-direction: column;
+  align-items: flex-start;
+}
+
+.card-value-num {
+  font-size: 32px;
+  font-weight: 800;
+  color: #0f2851;
+  line-height: 1.1;
+}
+
+.card-value-lbl {
+  font-size: 12px;
+  color: #64748b;
+  font-weight: 600;
+  margin-top: 2px;
+}
+
+/* Sparklines graphic (pure CSS) */
+.card-sparklines {
+  display: flex;
+  align-items: flex-end;
+  gap: 3px;
+  height: 38px;
+  padding-bottom: 2px;
+}
+
+.card-sparklines .bar {
+  width: 5px;
+  border-radius: 99px;
+  display: inline-block;
+}
+
+.card-theme-blue .card-sparklines .bar { background: rgba(37, 99, 235, 0.25); }
+.card-theme-red .card-sparklines .bar { background: rgba(239, 68, 68, 0.25); }
+.card-theme-yellow .card-sparklines .bar { background: rgba(245, 158, 11, 0.25); }
+.card-theme-green .card-sparklines .bar { background: rgba(16, 185, 129, 0.25); }
+.card-theme-purple .card-sparklines .bar { background: rgba(139, 92, 246, 0.25); }
+.card-theme-orange .card-sparklines .bar { background: rgba(249, 115, 22, 0.25); }
+
+/* Schedule Details for Preventive Maintenance */
+.card-schedule-info {
+  display: flex;
+  flex-direction: column;
+  align-items: flex-start;
+  padding-left: 12px;
+  border-left: 2px solid #e2e8f0;
+  margin-bottom: 2px;
+  max-width: 160px;
+  text-align: left;
+}
+
+.schedule-lbl {
+  font-size: 10.5px;
+  color: #94a3b8;
+  text-transform: uppercase;
+  font-weight: 700;
+  letter-spacing: 0.3px;
+}
+
+.schedule-val {
+  font-size: 12px;
+  color: #475569;
+  font-weight: 700;
+  margin-top: 2px;
+}
+
+/* Bottom Links */
+.card-bottom-row {
+  border-top: 1px solid rgba(226, 232, 240, 0.5);
+  padding-top: 12px;
+  margin-top: 6px;
+  display: flex;
+  justify-content: flex-start;
+}
+
+.card-link-btn {
+  font-size: 12.5px;
+  font-weight: 700;
+  cursor: pointer;
+  transition: all 0.2s ease;
+  display: inline-flex;
+  align-items: center;
+}
+
+.card-theme-blue .card-link-btn { color: #2563eb; }
+.card-theme-red .card-link-btn { color: #ef4444; }
+.card-theme-yellow .card-link-btn { color: #d97706; }
+.card-theme-green .card-link-btn { color: #10b981; }
+.card-theme-purple .card-link-btn { color: #8b5cf6; }
+.card-theme-orange .card-link-btn { color: #f97316; }
+
+.card-link-btn:hover {
+  opacity: 0.8;
+  transform: translateX(2px);
+}
+
+
+/* MEDIA RESPONSIVE */
+@media (max-width: 1200px) {
+  .dashboard-grid-4 {
+    grid-template-columns: repeat(2, minmax(0, 1fr));
+  }
+  .dashboard-grid-5 {
+    grid-template-columns: repeat(3, minmax(0, 1fr));
+  }
+}
+
+@media (max-width: 992px) {
+  .dashboard-grid-3 {
+    grid-template-columns: repeat(2, minmax(0, 1fr));
+  }
+  .dashboard-grid-5 {
+    grid-template-columns: repeat(2, minmax(0, 1fr));
+  }
+}
+
+@media (max-width: 768px) {
+  .dashboard-page-head {
+    flex-direction: column;
+    align-items: flex-start;
+    gap: 14px;
+  }
+  .dashboard-actions {
+    width: 100%;
+    justify-content: space-between;
+  }
+  .dashboard-grid-3,
+  .dashboard-grid-4,
+  .dashboard-grid-5 {
+    grid-template-columns: 1fr;
+  }
+  .dashboard-card {
+    min-height: auto;
+  }
+}

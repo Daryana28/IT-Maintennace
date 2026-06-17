@@ -1,0 +1,6 @@
+/* fe\src\styles\utilities\index.css */
+@import "./display.css";
+@import "./flex.css";
+@import "./grid.css";
+@import "./spacing.css";
+@import "./text.css";

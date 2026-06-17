@@ -1,0 +1,110 @@
+/* StandardMaintenancePage.css */
+
+.page-shell {
+  margin: -24px;
+  padding: 24px;
+  background-color: #f4f7fe;
+  min-height: calc(100vh - 64px);
+}
+
+.desc-text {
+  font-size: 13px;
+}
+
+.periodik-tag {
+  border-radius: 12px;
+}
+
+.action-btn-view {
+  color: #1677ff;
+}
+
+.action-btn-edit {
+  color: #fa8c16;
+}
+
+.header-section {
+  background: #fff;
+  padding: 20px 24px;
+  border-radius: 8px;
+  box-shadow: 0 1px 3px rgba(0, 0, 0, 0.05);
+  margin-bottom: 24px;
+}
+
+.header-title {
+  margin: 0;
+  font-weight: 700;
+  color: #1e293b;
+}
+
+.header-breadcrumb {
+  color: #64748b;
+  margin-top: 4px;
+  font-size: 13px;
+}
+
+.btn-tambah {
+  background: #1677ff;
+}
+
+.main-card {
+  border-radius: 8px;
+  box-shadow: 0 1px 3px rgba(0, 0, 0, 0.05);
+}
+
+.main-card .ant-card-body {
+  padding: 20px 24px;
+}
+
+.filter-section {
+  margin-bottom: 20px;
+}
+
+.search-icon {
+  color: #94a3b8;
+}
+
+.search-input {
+  width: 260px;
+  border-radius: 6px;
+}
+
+.filter-select-kat {
+  width: 150px;
+}
+
+.filter-select-sub {
+  width: 180px;
+}
+
+.btn-refresh {
+  border-radius: 6px;
+}
+
+/* Table overrides */
+.optimized-table .ant-table-thead > tr > th {
+  background-color: #f1f5f9 !important;
+  color: #334155;
+  font-weight: 600;
+  border-bottom: 1px solid #e2e8f0;
+}
+
+.optimized-table .ant-table-thead > tr > th[colspan] {
+  text-align: center;
+  border-bottom: 1px solid #cbd5e1;
+  background-color: #e2e8f0 !important;
+  color: #0f172a;
+}
+
+.optimized-table .ant-table-tbody > tr.custom-table-row > td {
+  border-bottom: 1px solid #f1f5f9;
+  transition: all 0.2s;
+}
+
+.optimized-table .ant-table-tbody > tr.custom-table-row:hover > td {
+  background-color: #f8fafc !important;
+}
+
+.optimized-table .ant-table-pagination {
+  margin-top: 20px !important;
+}

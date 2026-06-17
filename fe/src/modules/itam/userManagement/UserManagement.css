@@ -1,0 +1,91 @@
+/* fe/src/modules/itam/userManagement/UserManagement.css */
+
+/* ---- Avatar ---- */
+.user-avatar {
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+    width: 32px;
+    height: 32px;
+    border-radius: 50%;
+    background: var(--brand-gradient, linear-gradient(135deg, #1aa8ff, #52d0ff));
+    color: #fff;
+    font-size: 12px;
+    font-weight: 700;
+    flex-shrink: 0;
+}
+
+.user-avatar+.user-name {
+    font-weight: 600;
+    color: var(--text-primary);
+}
+
+/* ---- Table text ---- */
+.text-fullname {
+    color: var(--text);
+}
+
+.text-email {
+    color: var(--text-secondary);
+}
+
+/* ---- Tags ---- */
+.user-tag {
+    border-radius: var(--radius-pill);
+    font-weight: 600;
+}
+
+/* ---- Page header spacing ---- */
+.um-page-head {
+    margin-bottom: var(--space-6);
+}
+
+/* ---- Search bar ---- */
+.um-search-wrap {
+    flex: 1 1 auto;
+    max-width: 400px;
+}
+
+.um-search-wrap .ant-input-search {
+    border-radius: var(--radius-sm);
+}
+
+/* ---- Button primary gradient ---- */
+.btn-primary-gradient {
+    border-radius: var(--radius-sm);
+    background: var(--primary-gradient, linear-gradient(135deg, #1677ff, #4096ff));
+    border: none;
+    box-shadow: var(--shadow-sm);
+    font-weight: 600;
+}
+
+.btn-primary-gradient:hover {
+    opacity: 0.9;
+}
+
+/* ---- Modal ---- */
+.um-modal-form {
+    margin-top: var(--space-4);
+}
+
+.um-modal-input {
+    border-radius: var(--radius-sm);
+}
+
+.um-modal-footer {
+    display: flex;
+    justify-content: flex-end;
+    gap: var(--space-3);
+    margin-top: var(--space-6);
+    border-top: 1px solid var(--line);
+    padding-top: var(--space-5);
+}
+
+.um-modal-footer .ant-btn {
+    border-radius: var(--radius-sm);
+}
+
+/* ---- Flex gap helper ---- */
+.um-card-body {
+    margin-bottom: var(--space-5);
+}
