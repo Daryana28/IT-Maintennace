@@ -19,17 +19,17 @@
   *Status*: 🟢 Done | *Started*: 2026-06-23 20:40 | *Done*: 2026-06-23 20:42 | *Commit*: [e12d8aa](https://github.com/Daryana28/IT-Maintennace/commit/e12d8aa)
 - [x] **T-007**: Monthly Schedule Matrix API  
   *Status*: 🟢 Done | *Started*: 2026-06-23 20:42 | *Done*: 2026-06-23 20:44 | *Commit*: [205c5e3](https://github.com/Daryana28/IT-Maintennace/commit/205c5e3)
-- [ ] **T-008**: CategoryTabs & Router Refactor  
-  *Status*: 🟡 In Progress | *Started*: 2026-06-23 20:44 | *Done*: - | *Commit*: -
-- [ ] **T-009**: Standard Maintenance Excel Table  
-  *Status*: 🔴 Not Started | *Started*: - | *Done*: - | *Commit*: -
-- [ ] **T-010**: Checkbox Matrix View & Legend  
-  *Status*: 🔴 Not Started | *Started*: - | *Done*: - | *Commit*: -
-- [ ] **T-011**: Abnormal Input Modal  
-  *Status*: 🔴 Not Started | *Started*: - | *Done*: - | *Commit*: -
-- [ ] **T-012**: Sheet Abnormal List View  
-  *Status*: 🔴 Not Started | *Started*: - | *Done*: - | *Commit*: -
+- [x] **T-008**: CategoryTabs & Router Refactor  
+  *Status*: 🟢 Done | *Started*: 2026-06-23 20:44 | *Done*: 2026-06-23 20:45 | *Commit*: [7c1b7ae](https://github.com/Daryana28/IT-Maintennace/commit/7c1b7ae)
+- [x] **T-009**: Standard Maintenance Excel Table  
+  *Status*: 🟢 Done | *Started*: 2026-06-23 20:45 | *Done*: 2026-06-23 20:46 | *Commit*: [90c5a21](https://github.com/Daryana28/IT-Maintennace/commit/90c5a21)
+- [x] **T-010**: Checkbox Matrix View & Legend  
+  *Status*: 🟢 Done | *Started*: 2026-06-23 20:46 | *Done*: 2026-06-23 20:48 | *Commit*: [e8dce11](https://github.com/Daryana28/IT-Maintennace/commit/e8dce11)
+- [x] **T-011**: Abnormal Input Modal  
+  *Status*: 🟢 Done | *Started*: 2026-06-23 20:47 | *Done*: 2026-06-23 20:48 | *Commit*: [e8dce11](https://github.com/Daryana28/IT-Maintennace/commit/e8dce11)
+- [x] **T-012**: Sheet Abnormal List View  
+  *Status*: 🟢 Done | *Started*: 2026-06-23 20:48 | *Done*: 2026-06-23 20:49 | *Commit*: [7c80480](https://github.com/Daryana28/IT-Maintennace/commit/7c80480)
 
 ### 📁 Fase 2 — Integration
-- [ ] **T-013**: Integration & Contract Testing  
-  *Status*: 🔴 Not Started | *Started*: - | *Done*: - | *Commit*: -
+- [x] **T-013**: Integration & Contract Testing  
+  *Status*: 🟢 Done | *Started*: 2026-06-23 20:49 | *Done*: 2026-06-23 20:55 | *Commit*: [a2d3881](https://github.com/Daryana28/IT-Maintennace/commit/a2d3881)

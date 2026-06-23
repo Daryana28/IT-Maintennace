@@ -44,8 +44,38 @@
 - **Blockers**: None.
 - **Next Step**: Restructure frontend routes and add category tabs component (T-008).
 
+### [2026-06-23 20:45] - T-008 - Frontend Dev
+- **Summary**: Implemented a unified top category tab menu (Hardware, Software HW, Application, Network, Cybersecurity) and child tab view (Standard, Schedule, Sheet Abnormal).
+- **Technical Decisions**: Created `MaintenancePage.jsx` as the single entry wrapper. Replaced individual routes in `routeMap.jsx` with mappings to the new wrapper. Updated `StandardMaintenancePage.jsx` and `MaintenanceLogSheetPage.jsx` to support the `overrideCategory` and `overrideYearlyId` props. Registered the `getMonthlyView` endpoint query in `maintenanceScheduleService.js`.
+- **Blockers**: None.
+- **Next Step**: Build Standard Maintenance Excel-like layout table (T-009).
 
+### [2026-06-23 20:46] - T-009 - Frontend Dev
+- **Summary**: Implemented the Excel-like flat table view for Standard Maintenance showing hierarchical checks, detail sequences, normal check properties, and 12-month checkboxes generated from the periodic configuration.
+- **Technical Decisions**: Updated `ReviewTab.jsx` to flatten tree category data recursively. Built columns using nested children in Ant Design table (e.g. for Pengecekan Normal and Bulan). Added read-only monthly plan checkbox matrix using custom mapping algorithm. Restricted category additions inside `ListTab.jsx` form to current category scope via `overrideCategory` prop.
+- **Blockers**: None.
+- **Next Step**: Implement schedule weekly/monthly checkbox matrix cells (Plan, Actual, Abnormal) and legend toggles (T-010).
 
+### [2026-06-23 20:48] - T-010 - Frontend Dev
+- **Summary**: Built the spreadsheet-like Schedule Checkbox Matrix rendering weekly/monthly planned checks, status legends, and action triggers.
+- **Technical Decisions**: Created `ScheduleWithCheckboxView.jsx`. Derived and mapped ISO weeks of the month to columns w1-w5. Rendered Plan (□), Actual (✓), and Abnormal (✗) using highly styled visual buttons. Built a custom dropdown trigger per cell allowing manual state transitions via the API.
+- **Blockers**: None.
+- **Next Step**: Create and integrate the Abnormal Input Modal (T-011).
 
+### [2026-06-23 20:48] - T-011 - Frontend Dev
+- **Summary**: Created the Abnormal Input Modal enabling users to submit and modify abnormal check records.
+- **Technical Decisions**: Created `AbnormalModal.jsx` featuring form textareas for damage description, corrective actions, and a status dropdown (OPEN/IN PROGRESS/RESOLVED). Connected it to the `submitAbnormalLog` endpoint.
+- **Blockers**: None.
+- **Next Step**: Implement the Sheet Abnormal List View (T-012).
 
+### [2026-06-23 20:49] - T-012 - Frontend Dev
+- **Summary**: Refactored the Sheet Abnormal list page to display global abnormal logs query from the backend.
+- **Technical Decisions**: Replaced old `logSheetService` queries in `MaintenanceLogSheetPage.jsx` with calls to `/api/maintenance-abnormal-logs`. Added custom frontend category filtering based on category tab selections. Reused `AbnormalModal` for inline editing of logs and wired the delete action to reset cell statuses back to `PLAN` via `updateActualStatus`.
+- **Blockers**: None.
+- **Next Step**: Execute end-to-end integration and verification testing (T-013).
 
+### [2026-06-23 20:55] - T-013 - Lead DevOps / Integrator
+- **Summary**: Completed final verification, resolved ESLint warning issues, and verified full production build.
+- **Technical Decisions**: Renamed shadow variables and memoized dependencies inside `StandardMaintenancePage.jsx` to achieve clean compilation metrics.
+- **Blockers**: None.
+- **Next Step**: Deliver refactoring walk-through and close project task.
