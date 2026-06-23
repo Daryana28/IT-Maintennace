@@ -26,5 +26,12 @@
 - **Blockers**: None (fixed Sequelize Op import issue).
 - **Next Step**: Implement Schedule Checkbox & Actual API endpoints (T-005).
 
+### [2026-06-23 20:40] - T-005 - Backend Dev
+- **Summary**: Implemented endpoints and logic for schedule checkbox cell generation and toggling status.
+- **Technical Decisions**: Created new `/maintenance-actual` module and registered it in Express. Added `generateCheckboxes` (bulk creation of `PLAN` cells) and `getScheduleCheckboxes` (fetch checkboxes joined with abnormal logs) to `maintenanceScheduleController.js`. Implemented `updateActualStatus` in `maintenanceActualController.js` supporting PLAN <-> ACTUAL status/legend toggling and cleaning up associated logs. Updated `generateSchedule` to auto-run cell generation on schedule creation.
+- **Blockers**: None.
+- **Next Step**: Implement Abnormal Logs API endpoints (T-006).
+
+
 
 
