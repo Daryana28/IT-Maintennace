@@ -11,10 +11,10 @@
   *Status*: 🟢 Done | *Started*: 2026-06-23 20:32 | *Done*: 2026-06-23 20:34 | *Commit*: [a9cc38b](https://github.com/Daryana28/IT-Maintennace/commit/a9cc38b)
 - [x] **T-003**: Model Definition & Hooks  
   *Status*: 🟢 Done | *Started*: 2026-06-23 20:34 | *Done*: 2026-06-23 20:36 | *Commit*: [5e561b7](https://github.com/Daryana28/IT-Maintennace/commit/5e561b7)
-- [ ] **T-004**: Checkbox Generation Engine  
-  *Status*: 🟡 In Progress | *Started*: 2026-06-23 20:36 | *Done*: - | *Commit*: -
+- [x] **T-004**: Checkbox Generation Engine  
+  *Status*: 🟢 Done | *Started*: 2026-06-23 20:36 | *Done*: 2026-06-23 20:38 | *Commit*: [5674f25](https://github.com/Daryana28/IT-Maintennace/commit/5674f25)
 - [ ] **T-005**: Schedule Checkbox & Actual API  
-  *Status*: 🔴 Not Started | *Started*: - | *Done*: - | *Commit*: -
+  *Status*: 🟡 In Progress | *Started*: 2026-06-23 20:38 | *Done*: - | *Commit*: -
 - [ ] **T-006**: Abnormal Logs API  
   *Status*: 🔴 Not Started | *Started*: - | *Done*: - | *Commit*: -
 - [ ] **T-007**: Monthly Schedule Matrix API  

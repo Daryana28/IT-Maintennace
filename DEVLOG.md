@@ -20,4 +20,11 @@
 - **Blockers**: None.
 - **Next Step**: Implement target generation logic in `be/src/modules/cmms/maintenanceSchedule/checkboxGenerator.js` (T-004).
 
+### [2026-06-23 20:38] - T-004 - Backend Dev
+- **Summary**: Implemented core calculation engine for schedule checkbox dates generation.
+- **Technical Decisions**: Created `checkboxGenerator.js` with functions `parsePeriodik`, `getHolidaysSet`, `isWorkingDay`, and `generateCheckboxDates` supporting weekly (1x and 2x), monthly, quarterly, half-yearly, and yearly periodicity logic while excluding weekends and holidays.
+- **Blockers**: None (fixed Sequelize Op import issue).
+- **Next Step**: Implement Schedule Checkbox & Actual API endpoints (T-005).
+
+
 
