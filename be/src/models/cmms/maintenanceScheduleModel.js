@@ -39,6 +39,20 @@ export default (sequelize) => {
         type: DataTypes.STRING(500),
         allowNull: true,
       },
+      periodik_type: {
+        type: DataTypes.STRING(50),
+        allowNull: true,
+      },
+      periodik_freq: {
+        type: DataTypes.INTEGER,
+        allowNull: true,
+        defaultValue: 1,
+      },
+      periodik_unit: {
+        type: DataTypes.STRING(10),
+        allowNull: true,
+        defaultValue: 'w',
+      },
 
       created_at: {
         type: DataTypes.DATE,

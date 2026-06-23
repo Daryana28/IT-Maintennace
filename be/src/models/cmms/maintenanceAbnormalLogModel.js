@@ -2,38 +2,35 @@ import { DataTypes } from "sequelize";
 
 export default (sequelize) => {
   return sequelize.define(
-    "MaintenanceLogSheet",
+    "MaintenanceAbnormalLog",
     {
       id: {
         type: DataTypes.BIGINT,
         primaryKey: true,
         autoIncrement: true,
       },
-      schedule_id: {
+      actual_id: {
         type: DataTypes.BIGINT,
         allowNull: false,
       },
-      temuan: {
+      deskripsi_kerusakan: {
         type: DataTypes.TEXT,
         allowNull: false,
       },
       tindakan: {
         type: DataTypes.TEXT,
-        allowNull: true,
+        allowNull: false,
       },
       status_temuan: {
         type: DataTypes.STRING(50),
-        defaultValue: 'OPEN',
-      },
-      tanggal_temuan: {
-        type: DataTypes.DATE,
         allowNull: false,
+        defaultValue: "OPEN",
       },
-      created_by: {
-        type: DataTypes.BIGINT,
+      resolved_at: {
+        type: DataTypes.DATE,
         allowNull: true,
       },
-      actual_id: {
+      resolved_by: {
         type: DataTypes.BIGINT,
         allowNull: true,
       },
@@ -45,7 +42,7 @@ export default (sequelize) => {
       },
     },
     {
-      tableName: "maintenance_log_sheets",
+      tableName: "maintenance_abnormal_logs",
       timestamps: true,
       createdAt: "created_at",
       updatedAt: "updated_at",

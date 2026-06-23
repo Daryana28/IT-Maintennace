@@ -28,6 +28,8 @@ import StandardMaintenanceDetailModel from "./cmms/standardMaintenanceDetailMode
 import StandardMaintenanceCheckModel from "./cmms/standardMaintenanceCheckModel.js";
 import MaintenanceScheduleModel from "./cmms/maintenanceScheduleModel.js";
 import MaintenanceLogSheetModel from "./cmms/maintenanceLogSheetModel.js";
+import MaintenanceActualModel from "./cmms/maintenanceActualModel.js";
+import MaintenanceAbnormalLogModel from "./cmms/maintenanceAbnormalLogModel.js";
 
 import AuditLogModel from "./shared/auditLogModel.js";
 import AssetLifecycleModel from "./legacy/assetLifecycleModel.js";
@@ -61,6 +63,8 @@ const StandardMaintenanceDetail = StandardMaintenanceDetailModel(sequelize);
 const StandardMaintenanceCheck = StandardMaintenanceCheckModel(sequelize);
 const MaintenanceSchedule = MaintenanceScheduleModel(sequelize);
 const MaintenanceLogSheet = MaintenanceLogSheetModel(sequelize);
+const MaintenanceActual = MaintenanceActualModel(sequelize);
+const MaintenanceAbnormalLog = MaintenanceAbnormalLogModel(sequelize);
 
 const AuditLog = AuditLogModel(sequelize);
 const AssetLifecycle = AssetLifecycleModel(sequelize);
@@ -416,6 +420,24 @@ MaintenanceLogSheet.belongsTo(MaintenanceSchedule, { foreignKey: "schedule_id", 
 User.hasMany(MaintenanceLogSheet, { foreignKey: "created_by", as: "logSheetsCreated" });
 MaintenanceLogSheet.belongsTo(User, { foreignKey: "created_by", as: "creator" });
 
+MaintenanceSchedule.hasMany(MaintenanceActual, { foreignKey: "schedule_id", as: "actuals" });
+MaintenanceActual.belongsTo(MaintenanceSchedule, { foreignKey: "schedule_id", as: "schedule" });
+
+StandardMaintenanceCheck.hasMany(MaintenanceActual, { foreignKey: "check_id", as: "actuals" });
+MaintenanceActual.belongsTo(StandardMaintenanceCheck, { foreignKey: "check_id", as: "check" });
+
+MaintenanceActual.hasMany(MaintenanceAbnormalLog, { foreignKey: "actual_id", as: "abnormalLogs" });
+MaintenanceAbnormalLog.belongsTo(MaintenanceActual, { foreignKey: "actual_id", as: "actual" });
+
+User.hasMany(MaintenanceActual, { foreignKey: "created_by", as: "actualsCreated" });
+MaintenanceActual.belongsTo(User, { foreignKey: "created_by", as: "creator" });
+
+User.hasMany(MaintenanceAbnormalLog, { foreignKey: "resolved_by", as: "abnormalLogsResolved" });
+MaintenanceAbnormalLog.belongsTo(User, { foreignKey: "resolved_by", as: "resolver" });
+
+MaintenanceActual.hasMany(MaintenanceLogSheet, { foreignKey: "actual_id", as: "logSheets" });
+MaintenanceLogSheet.belongsTo(MaintenanceActual, { foreignKey: "actual_id", as: "actual" });
+
 export {
  sequelize,
  Company,
@@ -439,6 +461,8 @@ export {
  StandardMaintenanceCheck,
  MaintenanceSchedule,
  MaintenanceLogSheet,
+ MaintenanceActual,
+ MaintenanceAbnormalLog,
  Part,
  WarehouseStock,
  InventoryTransaction,
@@ -470,6 +494,8 @@ export default {
  StandardMaintenanceCheck,
  MaintenanceSchedule,
  MaintenanceLogSheet,
+ MaintenanceActual,
+ MaintenanceAbnormalLog,
  Part,
  WarehouseStock,
  InventoryTransaction,
