@@ -47,6 +47,7 @@ const MaintenanceActualPage = lazy(() => import("@/modules/itam/maintenance/Main
 const MaintenanceHistoryPage = lazy(() => import("@/modules/itam/maintenance/MaintenanceHistoryPage"));
 
 const StandardMaintenancePage = lazy(() => import("@/modules/itam/maintenance/StandardMaintenance/StandardMaintenancePage"));
+const ITAMMaintenancePage = lazy(() => import("@/modules/itam/maintenance/MaintenancePage"));
 
 const YearlyStandardPage = lazy(() => import("@/modules/itam/maintenance/YearlyStandard/YearlyStandardPage"));
 
@@ -263,144 +264,153 @@ const routeMap = [
     },
 
     {
+        path: "/itam/maintenance",
+        component: ITAMMaintenancePage,
+        roles: ALL_MAINT_STAFF,
+    },
+    {
+        path: "/itam/maintenance/standard",
+        component: ITAMMaintenancePage,
+        roles: ALL_MAINT_STAFF,
+    },
+    {
         path: "/itam/maintenance/hardware/yearly-standard",
-        component: StandardMaintenancePage,
+        component: ITAMMaintenancePage,
         roles: ALL_MAINT_STAFF,
     },
     {
         path: "/itam/maintenance/software-hardware/yearly-standard",
-        component: StandardMaintenancePage,
+        component: ITAMMaintenancePage,
         roles: ALL_MAINT_STAFF,
     },
     {
         path: "/itam/maintenance/application/yearly-standard",
-        component: StandardMaintenancePage,
+        component: ITAMMaintenancePage,
         roles: ALL_MAINT_STAFF,
     },
     {
         path: "/itam/maintenance/network-cyber/yearly-standard",
-        component: StandardMaintenancePage,
+        component: ITAMMaintenancePage,
         roles: ALL_MAINT_STAFF,
     },
     {
         path: "/itam/maintenance/network/yearly-standard",
-        component: StandardMaintenancePage,
+        component: ITAMMaintenancePage,
         roles: ALL_MAINT_STAFF,
     },
     {
         path: "/itam/maintenance/cyber-security/yearly-standard",
-        component: StandardMaintenancePage,
+        component: ITAMMaintenancePage,
         roles: ALL_MAINT_STAFF,
     },
     {
         path: "/itam/maintenance/hardware/schedule",
-        component: MaintenanceSchedulePage,
+        component: ITAMMaintenancePage,
         roles: ALL_MAINT_STAFF,
     },
     {
         path: "/itam/maintenance/software-hardware/schedule",
-        component: MaintenanceSchedulePage,
+        component: ITAMMaintenancePage,
         roles: ALL_MAINT_STAFF,
     },
     {
         path: "/itam/maintenance/application/schedule",
-        component: MaintenanceSchedulePage,
+        component: ITAMMaintenancePage,
         roles: ALL_MAINT_STAFF,
     },
     {
         path: "/itam/maintenance/network-cyber/schedule",
-        component: MaintenanceSchedulePage,
+        component: ITAMMaintenancePage,
         roles: ALL_MAINT_STAFF,
     },
     {
         path: "/itam/maintenance/network/schedule",
-        component: MaintenanceSchedulePage,
+        component: ITAMMaintenancePage,
         roles: ALL_MAINT_STAFF,
     },
     {
         path: "/itam/maintenance/cyber-security/schedule",
-        component: MaintenanceSchedulePage,
+        component: ITAMMaintenancePage,
         roles: ALL_MAINT_STAFF,
     },
     {
         path: "/itam/maintenance/networking/yearly-standard",
-        component: StandardMaintenancePage,
+        component: ITAMMaintenancePage,
         roles: ALL_MAINT_STAFF,
     },
     {
         path: "/itam/maintenance/networking/schedule",
-        component: MaintenanceSchedulePage,
+        component: ITAMMaintenancePage,
         roles: ALL_MAINT_STAFF,
     },
     {
         path: "/itam/maintenance/software/yearly-standard",
-        component: StandardMaintenancePage,
+        component: ITAMMaintenancePage,
         roles: ALL_MAINT_STAFF,
     },
     {
         path: "/itam/maintenance/software/schedule",
-        component: MaintenanceSchedulePage,
+        component: ITAMMaintenancePage,
         roles: ALL_MAINT_STAFF,
     },
     {
         path: "/itam/maintenance/cyber/yearly-standard",
-        component: StandardMaintenancePage,
+        component: ITAMMaintenancePage,
         roles: ALL_MAINT_STAFF,
     },
     {
         path: "/itam/maintenance/cyber/schedule",
-        component: MaintenanceSchedulePage,
+        component: ITAMMaintenancePage,
         roles: ALL_MAINT_STAFF,
     },
     {
         path: "/itam/maintenance/hardware/logsheet",
-        component: MaintenanceLogSheetPage,
+        component: ITAMMaintenancePage,
         roles: ALL_MAINT_STAFF,
     },
     {
         path: "/itam/maintenance/software-hardware/logsheet",
-        component: MaintenanceLogSheetPage,
+        component: ITAMMaintenancePage,
         roles: ALL_MAINT_STAFF,
     },
     {
         path: "/itam/maintenance/application/logsheet",
-        component: MaintenanceLogSheetPage,
+        component: ITAMMaintenancePage,
         roles: ALL_MAINT_STAFF,
     },
     {
         path: "/itam/maintenance/network-cyber/logsheet",
-        component: MaintenanceLogSheetPage,
+        component: ITAMMaintenancePage,
         roles: ALL_MAINT_STAFF,
     },
     {
         path: "/itam/maintenance/network/logsheet",
-        component: MaintenanceLogSheetPage,
+        component: ITAMMaintenancePage,
         roles: ALL_MAINT_STAFF,
     },
     {
         path: "/itam/maintenance/cyber-security/logsheet",
-        component: MaintenanceLogSheetPage,
+        component: ITAMMaintenancePage,
         roles: ALL_MAINT_STAFF,
     },
     {
         path: "/itam/maintenance/networking/logsheet",
-        component: MaintenanceLogSheetPage,
+        component: ITAMMaintenancePage,
         roles: ALL_MAINT_STAFF,
     },
     {
         path: "/itam/maintenance/software/logsheet",
-        component: MaintenanceLogSheetPage,
+        component: ITAMMaintenancePage,
         roles: ALL_MAINT_STAFF,
     },
     {
         path: "/itam/maintenance/cyber/logsheet",
-        component: MaintenanceLogSheetPage,
+        component: ITAMMaintenancePage,
         roles: ALL_MAINT_STAFF,
     },
-
     {
         path: "/itam/maintenance/schedule",
-        component: MaintenanceSchedulePage,
+        component: ITAMMaintenancePage,
         roles: ALL_MAINT_STAFF,
     },
 

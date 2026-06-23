@@ -14,14 +14,12 @@ import maintenanceScheduleService from "../services/maintenanceScheduleService";
 import { message, Button } from "antd";
 import { useSearchParams } from "react-router-dom";
 
-export default function StandardMaintenancePage() {
+export default function StandardMaintenancePage({ overrideCategory, overrideYearlyId }) {
   const [searchParams] = useSearchParams();
-  const yearlyStandardId = searchParams.get("yearly_id");
-  // Ambil kategori dari path (misal: /itam/maintenance/hardware/yearly-standard)
-  // Atau gunakan searchParams jika kategori diteruskan melalui URL query.
-  // Karena kita menggunakan path dinamis di routeMap, kita bisa ambil dari URL.
+  const yearlyStandardId = overrideYearlyId || searchParams.get("yearly_id");
+  // Ambil kategori dari path atau prop overrideCategory
   const pathParts = window.location.pathname.split('/');
-  const routeCategory = pathParts[3];
+  const routeCategory = overrideCategory || pathParts[3];
   const categoryMap = {
     hardware: ["hardware"],
     "software-hardware": ["hardware"],

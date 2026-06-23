@@ -34,11 +34,19 @@ async function cancelSchedule(id, reason = "") {
 }
 
 
+async function getMonthlyView(year, month, category) {
+  const params = { year, month };
+  if (category) params.category = category;
+  const res = await apiClient.get(`${BASE_URL}/monthly-view`, { params });
+  return unwrap(res, []);
+}
+
 export default {
   generateSchedule,
   getSchedules,
   createSchedule,
   updateSchedule,
   cancelSchedule,
+  getMonthlyView,
 };
 

@@ -11,10 +11,10 @@ const { Title } = Typography;
 const { TextArea } = Input;
 const { Option } = Select;
 
-export default function MaintenanceLogSheetPage() {
+export default function MaintenanceLogSheetPage({ overrideCategory, overrideYearlyId }) {
   const location = useLocation();
   const pathParts = location.pathname.split("/");
-  const category = pathParts[pathParts.length - 2]; 
+  const category = overrideCategory || pathParts[pathParts.length - 2]; 
 
   const titleMap = {
     hardware: "Hardware Logsheet Abnormal",
