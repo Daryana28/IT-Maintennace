@@ -1,7 +1,6 @@
 # Backlog Board: ITAM Maintenance Refactoring
 
 ## 🔴 To Do
-- `T-004` Checkbox Generation Engine
 - `T-005` Schedule Checkbox & Actual API
 - `T-006` Abnormal Logs API
 - `T-007` Monthly Schedule Matrix API
@@ -13,7 +12,7 @@
 - `T-013` Integration & Contract Testing
 
 ## 🟡 In Progress
-- `T-003` Model Definition & Hooks
+- `T-004` Checkbox Generation Engine
 
 ## 🔴 Blocked
 *None*
@@ -21,3 +20,4 @@
 ## 🟢 Done
 - `T-001` Repository & Git Setup
 - `T-002` Database Migration Setup
+- `T-003` Model Definition & Hooks

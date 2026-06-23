@@ -14,3 +14,10 @@
 - **Blockers**: None (resolved initial login issue by switching to 'sa' user).
 - **Next Step**: Define Sequelize models and update DB associations in `be/src/models/index.js` (T-003).
 
+### [2026-06-23 20:36] - T-003 - Backend Dev
+- **Summary**: Created Sequelize model definitions for new tables and updated database associations.
+- **Technical Decisions**: Created `maintenanceActualModel.js` and `maintenanceAbnormalLogModel.js`. Modified `maintenanceScheduleModel.js` and `maintenanceLogSheetModel.js` models. Updated imports, instantiations, associations, and exports in `be/src/models/index.js`.
+- **Blockers**: None.
+- **Next Step**: Implement target generation logic in `be/src/modules/cmms/maintenanceSchedule/checkboxGenerator.js` (T-004).
+
+
