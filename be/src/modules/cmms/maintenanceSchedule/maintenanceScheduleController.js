@@ -483,3 +483,150 @@ export const getScheduleCheckboxes = async (req, res) => {
   }
 };
 
+export const getMonthlyScheduleMatrix = async (req, res) => {
+  try {
+    const { year, month, category } = req.query;
+
+    if (!year || !month) {
+      return res.status(400).json({ success: false, message: "Year and Month parameters are required" });
+    }
+
+    const yearNum = parseInt(year);
+    const monthNum = parseInt(month);
+
+    const yearlyStandard = await YearlyStandardMaintenance.findOne({
+      where: { tahun: yearNum }
+    });
+
+    if (!yearlyStandard) {
+      return res.status(404).json({ success: false, message: `Yearly Standard for ${yearNum} not found` });
+    }
+
+    const scheduleWhere = { yearly_standard_id: yearlyStandard.id };
+    
+    const standardWhere = {};
+    if (category) {
+      const catMap = {
+        "hardware": ["hardware"],
+        "software-hardware": ["hardware"],
+        "application": ["software"],
+        "software": ["software"],
+        "network": ["networking"],
+        "networking": ["networking"],
+        "cyber": ["cyber"],
+        "cyber-security": ["cyber"],
+        "network-cyber": ["networking", "cyber"]
+      };
+      
+      const mappedCats = catMap[category.toLowerCase()] || [category];
+      standardWhere.kategori = {
+        [sequelize.Op.in]: mappedCats
+      };
+    }
+
+    const schedules = await MaintenanceSchedule.findAll({
+      where: scheduleWhere,
+      include: [
+        {
+          model: Asset,
+          as: "asset",
+          include: ["location"]
+        },
+        {
+          model: StandardMaintenance,
+          as: "StandardMaintenance",
+          where: standardWhere,
+          include: [
+            {
+              model: StandardMaintenanceDetail,
+              as: "details",
+              include: [
+                {
+                  model: StandardMaintenanceCheck,
+                  as: "pengecekanList"
+                }
+              ]
+            }
+          ]
+        }
+      ]
+    });
+
+    const matrixData = [];
+
+    for (const schedule of schedules) {
+      const sm = schedule.StandardMaintenance;
+      if (!sm || !sm.details) continue;
+
+      for (const detail of sm.details) {
+        if (!detail.pengecekanList) continue;
+
+        for (const check of detail.pengecekanList) {
+          const actuals = await MaintenanceActual.findAll({
+            where: {
+              schedule_id: schedule.id,
+              check_id: check.id,
+              [sequelize.Op.and]: [
+                sequelize.where(sequelize.fn("YEAR", sequelize.col("tanggal")), yearNum),
+                sequelize.where(sequelize.fn("MONTH", sequelize.col("tanggal")), monthNum)
+              ]
+            },
+            include: [
+              {
+                model: MaintenanceActual.sequelize.models.MaintenanceAbnormalLog,
+                as: "abnormalLogs"
+              }
+            ],
+            order: [["tanggal", "ASC"]]
+          });
+
+          const checkboxes = actuals.map(act => {
+            const actJSON = act.toJSON();
+            const abnormal = actJSON.abnormalLogs && actJSON.abnormalLogs.length > 0 ? actJSON.abnormalLogs[0] : null;
+            return {
+              actual_id: actJSON.id,
+              date: actJSON.tanggal,
+              week: dayjs(actJSON.tanggal).isoWeek(),
+              status: actJSON.status,
+              legend: actJSON.legend,
+              abnormal: abnormal ? {
+                id: abnormal.id,
+                deskripsi_kerusakan: abnormal.deskripsi_kerusakan,
+                tindakan: abnormal.tindakan,
+                status: abnormal.status_temuan
+              } : null
+            };
+          });
+
+          matrixData.push({
+            schedule_id: schedule.id,
+            asset: schedule.asset,
+            kategori: sm.kategori,
+            subKategori: sm.subKategori,
+            namaPerangkat: sm.namaPerangkat,
+            tipePerangkat: sm.tipePerangkat,
+            subPerangkat: sm.subPerangkat,
+            detail_id: detail.id,
+            fungsi: detail.fungsi,
+            deskripsi: detail.deskripsi,
+            check_id: check.id,
+            pengecekan: check.pengecekan,
+            standard: check.standard,
+            periodik: check.periodik || schedule.periodik,
+            checkboxes
+          });
+        }
+      }
+    }
+
+    res.status(200).json({
+      success: true,
+      data: matrixData
+    });
+
+  } catch (error) {
+    console.error("Get monthly schedule matrix error:", error);
+    res.status(500).json({ success: false, message: error.message });
+  }
+};
+
