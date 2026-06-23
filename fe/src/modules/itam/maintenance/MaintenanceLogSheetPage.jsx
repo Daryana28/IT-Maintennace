@@ -1,20 +1,15 @@
-import React, { useState, useEffect, useCallback } from "react";
-import { Card, Table, Typography, Button, Space, Modal, Form, Input, DatePicker, Select, message, Tag } from "antd";
-import { PlusOutlined, EditOutlined, DeleteOutlined, FileTextOutlined } from "@ant-design/icons";
-import { useLocation } from "react-router-dom";
+import React, { useState, useEffect, useCallback, useMemo } from "react";
+import { Card, Table, Typography, Button, Space, Modal, message, Tag } from "antd";
+import { EditOutlined, DeleteOutlined, InfoCircleOutlined } from "@ant-design/icons";
 import dayjs from "dayjs";
 
-import logSheetService from "./services/logSheetService";
 import maintenanceScheduleService from "./services/maintenanceScheduleService";
+import AbnormalModal from "./components/AbnormalModal";
 
-const { Title } = Typography;
-const { TextArea } = Input;
-const { Option } = Select;
+const { Title, Text } = Typography;
 
 export default function MaintenanceLogSheetPage({ overrideCategory, overrideYearlyId }) {
-  const location = useLocation();
-  const pathParts = location.pathname.split("/");
-  const category = overrideCategory || pathParts[pathParts.length - 2]; 
+  const category = overrideCategory; 
 
   const titleMap = {
     hardware: "Hardware Logsheet Abnormal",
@@ -29,127 +24,82 @@ export default function MaintenanceLogSheetPage({ overrideCategory, overrideYear
   };
   const title = titleMap[category] || "Logsheet Abnormal";
 
-  const [schedules, setSchedules] = useState([]);
+  const [logSheets, setLogSheets] = useState([]);
   const [loading, setLoading] = useState(false);
 
-  const [logSheets, setLogSheets] = useState([]);
-  const [logSheetLoading, setLogSheetLoading] = useState(false);
-
   const [isModalOpen, setIsModalOpen] = useState(false);
-  const [editingLog, setEditingLog] = useState(null);
-  const [selectedSchedule, setSelectedSchedule] = useState(null);
-  const [form] = Form.useForm();
+  const [selectedCellData, setSelectedCellData] = useState(null);
 
-  // Load schedules (For simplicity, we'll load schedules first to allow linking findings to schedules)
-  const fetchSchedules = useCallback(async () => {
+  const fetchLogSheets = useCallback(async () => {
     try {
       setLoading(true);
-      // Fetch all schedules (or pass a filter based on category if needed)
-      // For now we get all and filter locally or show all
-      const data = await maintenanceScheduleService.getSchedules();
-      
-      // Basic filtering: Only show schedules whose standard maintenance category matches the route
-      // (This logic depends on how standard maintenance is structured)
-      // As a fallback, we show all if structure is too complex
-      const formatted = [];
-      data.forEach(item => {
-        if(item.schedules) {
-          item.schedules.forEach(sch => {
-            if (sch.status !== 'CANCELLED') {
-               formatted.push({
-                 ...sch,
-                 kategori: item.kategori,
-                 subKategori: item.subKategori,
-                 namaPerangkat: item.namaPerangkat,
-                 assetName: sch.asset?.nama_asset || sch.asset_id,
-               });
-            }
-          });
-        }
-      });
-      setSchedules(formatted);
+      const data = await maintenanceScheduleService.getAllAbnormalLogs();
+      setLogSheets(data || []);
     } catch (err) {
-      message.error("Gagal memuat jadwal maintenance");
+      message.error("Gagal memuat log sheet abnormal");
     } finally {
       setLoading(false);
     }
   }, []);
 
-  const fetchLogSheets = useCallback(async () => {
-    try {
-      setLogSheetLoading(true);
-      const data = await logSheetService.getLogSheets();
-      setLogSheets(data);
-    } catch (err) {
-      message.error("Gagal memuat log sheet");
-    } finally {
-      setLogSheetLoading(false);
-    }
-  }, []);
-
   useEffect(() => {
-    fetchSchedules();
     fetchLogSheets();
-  }, [fetchSchedules, fetchLogSheets]);
+  }, [fetchLogSheets]);
 
-  const handleOpenModal = (record = null, scheduleInfo = null) => {
-    setEditingLog(record);
-    setSelectedSchedule(scheduleInfo);
-    if (record) {
-      form.setFieldsValue({
-        ...record,
-        tanggal_temuan: record.tanggal_temuan ? dayjs(record.tanggal_temuan) : dayjs(),
-      });
-    } else {
-      form.resetFields();
-      form.setFieldsValue({
-        tanggal_temuan: dayjs(),
-        status_temuan: "OPEN",
-        schedule_id: scheduleInfo?.id
-      });
-    }
+  // Frontend filter by category
+  const filteredLogs = useMemo(() => {
+    if (!category) return logSheets;
+    
+    const catMap = {
+      hardware: ["hardware"],
+      "software-hardware": ["hardware"],
+      application: ["software", "application"],
+      network: ["networking", "network"],
+      "cyber-security": ["cyber", "cyber-security", "cyber security"]
+    };
+    
+    const mapped = catMap[category.toLowerCase()] || [category.toLowerCase()];
+    
+    return logSheets.filter(log => {
+      // Check category name in standard maintenance or asset
+      const logCat = (log.actual?.schedule?.asset?.category?.category_name || "").toLowerCase();
+      const parentCat = (log.actual?.schedule?.asset?.category?.parent?.category_name || "").toLowerCase();
+      const checkCat = (log.actual?.check?.standard_maintenance_detail?.standard_maintenance?.kategori || "").toLowerCase();
+      return mapped.some(c => logCat.includes(c) || parentCat.includes(c) || checkCat.includes(c));
+    });
+  }, [logSheets, category]);
+
+  const handleOpenEditModal = (record) => {
+    setSelectedCellData({
+      actual_id: record.actual_id || record.actual?.id,
+      date: record.actual?.tanggal,
+      pengecekan: record.actual?.check?.pengecekan,
+      namaPerangkat: record.actual?.schedule?.StandardMaintenance?.namaPerangkat || "Perangkat",
+      subPerangkat: record.actual?.schedule?.StandardMaintenance?.subPerangkat || "",
+      asset: record.actual?.schedule?.asset,
+      abnormal: {
+        deskripsi_kerusakan: record.deskripsi_kerusakan,
+        tindakan: record.tindakan,
+        status: record.status_temuan
+      }
+    });
     setIsModalOpen(true);
   };
 
-  const handleCloseModal = () => {
-    setIsModalOpen(false);
-    setEditingLog(null);
-    setSelectedSchedule(null);
-    form.resetFields();
-  };
+  const handleDelete = (record) => {
+    const actualId = record.actual_id || record.actual?.id;
+    if (!actualId) return;
 
-  const handleSubmit = async (values) => {
-    try {
-      const payload = {
-        ...values,
-        tanggal_temuan: values.tanggal_temuan.format("YYYY-MM-DD"),
-      };
-
-      if (editingLog) {
-        await logSheetService.updateLogSheet(editingLog.id, payload);
-        message.success("Log sheet berhasil diperbarui");
-      } else {
-        await logSheetService.createLogSheet(payload);
-        message.success("Log sheet berhasil ditambahkan");
-      }
-      handleCloseModal();
-      fetchLogSheets();
-    } catch (error) {
-      message.error("Gagal menyimpan log sheet");
-    }
-  };
-
-  const handleDelete = (id) => {
     Modal.confirm({
-      title: "Hapus Log Sheet",
-      content: "Apakah Anda yakin ingin menghapus temuan ini?",
-      okText: "Ya, Hapus",
+      title: "Hapus Log Sheet & Reset Status",
+      content: "Menghapus temuan abnormal ini akan me-reset status checkbox pada jadwal kembali menjadi PLAN (□). Apakah Anda yakin?",
+      okText: "Ya, Hapus & Reset",
       okType: "danger",
       cancelText: "Batal",
       onOk: async () => {
         try {
-          await logSheetService.deleteLogSheet(id);
-          message.success("Berhasil menghapus log sheet");
+          await maintenanceScheduleService.updateActualStatus(actualId, "PLAN");
+          message.success("Berhasil menghapus temuan dan me-reset status");
           fetchLogSheets();
         } catch (error) {
           message.error("Gagal menghapus log sheet");
@@ -161,19 +111,30 @@ export default function MaintenanceLogSheetPage({ overrideCategory, overrideYear
   const columns = [
     {
       title: "Tanggal Temuan",
-      dataIndex: "tanggal_temuan",
       key: "tanggal_temuan",
-      render: (text) => dayjs(text).format("DD MMM YYYY"),
+      width: 130,
+      render: (_, record) => record.actual?.tanggal ? dayjs(record.actual.tanggal).format("DD MMM YYYY") : "-",
     },
     {
       title: "Aset / Perangkat",
       key: "asset",
-      render: (_, record) => record.schedule?.asset?.nama_asset || "-",
+      width: 200,
+      render: (_, record) => {
+        const asset = record.actual?.schedule?.asset;
+        if (!asset) return "-";
+        return asset.hostname && asset.hostname !== "-" ? asset.hostname : asset.nama_asset;
+      },
+    },
+    {
+      title: "Pengecekan",
+      key: "pengecekan",
+      width: 150,
+      render: (_, record) => record.actual?.check?.pengecekan || "-",
     },
     {
       title: "Temuan / Masalah",
-      dataIndex: "temuan",
-      key: "temuan",
+      dataIndex: "deskripsi_kerusakan",
+      key: "deskripsi_kerusakan",
     },
     {
       title: "Tindakan / Solusi",
@@ -184,8 +145,10 @@ export default function MaintenanceLogSheetPage({ overrideCategory, overrideYear
       title: "Status",
       dataIndex: "status_temuan",
       key: "status_temuan",
+      width: 120,
+      align: "center",
       render: (status) => (
-        <Tag color={status === "RESOLVED" ? "success" : status === "IN_PROGRESS" ? "processing" : "error"}>
+        <Tag color={status === "RESOLVED" || status === "APPROVED" ? "success" : status === "IN_PROGRESS" ? "processing" : "error"}>
           {status}
         </Tag>
       ),
@@ -193,106 +156,47 @@ export default function MaintenanceLogSheetPage({ overrideCategory, overrideYear
     {
       title: "Aksi",
       key: "action",
+      width: 100,
+      align: "center",
       render: (_, record) => (
         <Space>
-          <Button type="text" icon={<EditOutlined />} onClick={() => handleOpenModal(record, record.schedule)} />
-          <Button type="text" danger icon={<DeleteOutlined />} onClick={() => handleDelete(record.id)} />
+          <Button type="text" icon={<EditOutlined />} onClick={() => handleOpenEditModal(record)} />
+          <Button type="text" danger icon={<DeleteOutlined />} onClick={() => handleDelete(record)} />
         </Space>
       ),
     },
   ];
 
   return (
-    <div className="fade-in" style={{ padding: 24 }}>
+    <div className="fade-in">
       <Card variant="borderless" className="premium-content-card glass-effect">
         <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", marginBottom: 16 }}>
           <Title level={4} style={{ color: "#ff9b2f", margin: 0 }}>
             {title}
           </Title>
-          <Button
-            type="primary"
-            icon={<PlusOutlined />}
-            onClick={() => handleOpenModal(null, null)}
-          >
-            Input Temuan Baru
-          </Button>
         </div>
 
         <Table
-          loading={logSheetLoading}
-          dataSource={logSheets}
+          loading={loading}
+          dataSource={filteredLogs}
           columns={columns}
           rowKey="id"
-          pagination={{ pageSize: 10 }}
+          pagination={{ pageSize: 15 }}
           bordered
           size="middle"
           className="premium-gantt-table"
         />
       </Card>
 
-      <Modal
-        title={editingLog ? "Edit Temuan" : "Input Temuan Baru"}
+      <AbnormalModal
         open={isModalOpen}
-        onCancel={handleCloseModal}
-        onOk={() => form.submit()}
-        width={600}
-      >
-        <Form form={form} layout="vertical" onFinish={handleSubmit}>
-          <Form.Item
-            name="schedule_id"
-            label="Pilih Jadwal Maintenance (Aset)"
-            rules={[{ required: true, message: "Pilih aset/jadwal" }]}
-          >
-            <Select
-              showSearch
-              placeholder="Pilih Aset dari Jadwal"
-              optionFilterProp="children"
-              disabled={!!editingLog}
-            >
-              {schedules.map((sch) => (
-                <Option key={sch.id} value={sch.id}>
-                  {sch.assetName} - {dayjs(sch.next_maintenance_date).format("DD MMM YYYY")}
-                </Option>
-              ))}
-            </Select>
-          </Form.Item>
-
-          <Form.Item
-            name="tanggal_temuan"
-            label="Tanggal Temuan"
-            rules={[{ required: true, message: "Tanggal wajib diisi" }]}
-          >
-            <DatePicker style={{ width: "100%" }} format="DD MMM YYYY" />
-          </Form.Item>
-
-          <Form.Item
-            name="temuan"
-            label="Deskripsi Temuan / Masalah"
-            rules={[{ required: true, message: "Deskripsi wajib diisi" }]}
-          >
-            <TextArea rows={4} placeholder="Jelaskan temuan..." />
-          </Form.Item>
-
-          <Form.Item
-            name="tindakan"
-            label="Tindakan / Solusi (Opsional)"
-          >
-            <TextArea rows={3} placeholder="Jelaskan tindakan yang dilakukan..." />
-          </Form.Item>
-
-          <Form.Item
-            name="status_temuan"
-            label="Status Perbaikan"
-            rules={[{ required: true }]}
-          >
-            <Select>
-              <Option value="OPEN">OPEN (Belum Ditangani)</Option>
-              <Option value="IN_PROGRESS">IN PROGRESS (Sedang Ditangani)</Option>
-              <Option value="RESOLVED">RESOLVED (Selesai)</Option>
-            </Select>
-          </Form.Item>
-        </Form>
-      </Modal>
+        actualData={selectedCellData}
+        onCancel={() => {
+          setIsModalOpen(false);
+          setSelectedCellData(null);
+        }}
+        onSuccess={fetchLogSheets}
+      />
     </div>
   );
 }
