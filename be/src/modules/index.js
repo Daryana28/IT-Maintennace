@@ -12,6 +12,7 @@ import standardMaintenanceRoutes from "./cmms/standardMaintenance/standardMainte
 import maintenanceScheduleRoutes from "./cmms/maintenanceSchedule/maintenanceScheduleRoute.js";
 import maintenanceLogSheetRoutes from "./cmms/maintenanceLogSheet/maintenanceLogSheetRoute.js";
 import maintenanceActualRoutes from "./cmms/maintenanceActual/maintenanceActualRoute.js";
+import maintenanceAbnormalLogRoutes from "./cmms/maintenanceAbnormalLog/maintenanceAbnormalLogRoute.js";
 
 import assetRoutes from "./itam/assets/assetRoute.js";
 import assetFileRoutes from "./itam/assetFiles/assetFileRoute.js";
@@ -70,6 +71,11 @@ router.use(
 router.use(
     "/maintenance-actual",
     maintenanceActualRoutes
+);
+
+router.use(
+    "/maintenance-abnormal-logs",
+    maintenanceAbnormalLogRoutes
 );
 
 router.use(
