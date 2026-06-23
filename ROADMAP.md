@@ -17,10 +17,10 @@
   *Status*: 🟢 Done | *Started*: 2026-06-23 20:38 | *Done*: 2026-06-23 20:40 | *Commit*: [e618db1](https://github.com/Daryana28/IT-Maintennace/commit/e618db1)
 - [x] **T-006**: Abnormal Logs API  
   *Status*: 🟢 Done | *Started*: 2026-06-23 20:40 | *Done*: 2026-06-23 20:42 | *Commit*: [e12d8aa](https://github.com/Daryana28/IT-Maintennace/commit/e12d8aa)
-- [ ] **T-007**: Monthly Schedule Matrix API  
-  *Status*: 🟡 In Progress | *Started*: 2026-06-23 20:42 | *Done*: - | *Commit*: -
+- [x] **T-007**: Monthly Schedule Matrix API  
+  *Status*: 🟢 Done | *Started*: 2026-06-23 20:42 | *Done*: 2026-06-23 20:44 | *Commit*: [205c5e3](https://github.com/Daryana28/IT-Maintennace/commit/205c5e3)
 - [ ] **T-008**: CategoryTabs & Router Refactor  
-  *Status*: 🔴 Not Started | *Started*: - | *Done*: - | *Commit*: -
+  *Status*: 🟡 In Progress | *Started*: 2026-06-23 20:44 | *Done*: - | *Commit*: -
 - [ ] **T-009**: Standard Maintenance Excel Table  
   *Status*: 🔴 Not Started | *Started*: - | *Done*: - | *Commit*: -
 - [ ] **T-010**: Checkbox Matrix View & Legend  

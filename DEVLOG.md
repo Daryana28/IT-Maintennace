@@ -38,6 +38,13 @@
 - **Blockers**: None.
 - **Next Step**: Implement the monthly view matrix endpoint (T-007).
 
+### [2026-06-23 20:44] - T-007 - Backend Dev
+- **Summary**: Implemented the monthly view matrix endpoint (`GET /monthly-view`) to query grouped schedule and checking statuses.
+- **Technical Decisions**: Implemented `getMonthlyScheduleMatrix` inside `maintenanceScheduleController.js` which queries schedules, maps categories to backend categories, loads checks and standard details, and filters `MaintenanceActual` checkboxes by year and month. Registered `/monthly-view` in `maintenanceScheduleRoute.js`.
+- **Blockers**: None.
+- **Next Step**: Restructure frontend routes and add category tabs component (T-008).
+
+
 
 
 
