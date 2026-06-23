@@ -1,3 +1,4 @@
+/* eslint-disable react-hooks/set-state-in-effect */
 import React, { useState } from "react";
 import { Typography, Row, Col, Tabs, Form } from "antd";
 import "./StandardMaintenancePage.css";
@@ -14,38 +15,39 @@ import maintenanceScheduleService from "../services/maintenanceScheduleService";
 import { message, Button } from "antd";
 import { useSearchParams } from "react-router-dom";
 
+const CATEGORY_MAP = {
+  hardware: ["hardware"],
+  "software-hardware": ["hardware"],
+  application: ["software"],
+  software: ["software"],
+  network: ["networking"],
+  networking: ["networking"],
+  cyber: ["cyber"],
+  "cyber-security": ["cyber"],
+  "network-cyber": ["networking", "cyber"],
+};
+
 export default function StandardMaintenancePage({ overrideCategory, overrideYearlyId }) {
   const [searchParams] = useSearchParams();
   const yearlyStandardId = overrideYearlyId || searchParams.get("yearly_id");
   // Ambil kategori dari path atau prop overrideCategory
   const pathParts = window.location.pathname.split('/');
   const routeCategory = overrideCategory || pathParts[3];
-  const categoryMap = {
-    hardware: ["hardware"],
-    "software-hardware": ["hardware"],
-    application: ["software"],
-    software: ["software"],
-    network: ["networking"],
-    networking: ["networking"],
-    cyber: ["cyber"],
-    "cyber-security": ["cyber"],
-    "network-cyber": ["networking", "cyber"],
-  };
-  const activeCategories = categoryMap[routeCategory] || (routeCategory ? [routeCategory] : []);
+  
+  const activeCategories = React.useMemo(() => {
+    return CATEGORY_MAP[routeCategory] || (routeCategory ? [routeCategory] : []);
+  }, [routeCategory]);
   
   const [headerData, setHeaderData] = useState(null);
   const [activeTab, setActiveTab] = useState("list");
   const [categories, setCategories] = useState([]);
   const [maintenanceData, setMaintenanceData] = useState([]);
-  const [loading, setLoading] = useState(false);
 
-  const loadData = async () => {
+  const loadData = React.useCallback(async () => {
     try {
-      setLoading(true);
-      
       const catData = await assetService.getCategories({ all: true });
-      const categories = Array.isArray(catData) ? catData : [];
-      setCategories(categories);
+      const fetchedCategories = Array.isArray(catData) ? catData : [];
+      setCategories(fetchedCategories);
 
       if (yearlyStandardId) {
         const header = await standardMaintenanceService.getYearlyById(yearlyStandardId);
@@ -64,7 +66,7 @@ export default function StandardMaintenancePage({ overrideCategory, overrideYear
       const map = {};
       const roots = [];
 
-      categories.forEach((node) => {
+      fetchedCategories.forEach((node) => {
         map[node.category_id] = { ...node, key: String(node.category_id), children: [], maintenanceItems: [] };
       });
 
@@ -72,10 +74,10 @@ export default function StandardMaintenancePage({ overrideCategory, overrideYear
       result.forEach((item) => {
         // Cari node berdasarkan nama (mulai dari yang terdalam)
         const names = [item.subPerangkat, item.namaPerangkat, item.tipePerangkat, item.subKategori, item.kategori].filter(Boolean);
-        let targetNode = categories.find(c => c.category_name === names[0]);
+        let targetNode = fetchedCategories.find(c => c.category_name === names[0]);
         
         if (!targetNode) {
-          targetNode = categories.find(c => c.category_name === item.kategori);
+          targetNode = fetchedCategories.find(c => c.category_name === item.kategori);
         }
         
         if (targetNode && map[targetNode.category_id]) {
@@ -102,7 +104,7 @@ export default function StandardMaintenancePage({ overrideCategory, overrideYear
         }
       });
 
-      categories.forEach((node) => {
+      fetchedCategories.forEach((node) => {
         const mappedNode = map[node.category_id];
         if (node.parent_id && map[node.parent_id]) {
           map[node.parent_id].children.push(mappedNode);
@@ -132,17 +134,15 @@ export default function StandardMaintenancePage({ overrideCategory, overrideYear
 
       setMaintenanceData(finalTree);
       
-    } catch (err) {
+    } catch {
       message.error("Gagal memuat data standard maintenance");
-    } finally {
-      setLoading(false);
     }
-  };
+  }, [yearlyStandardId, activeCategories]);
 
 
   React.useEffect(() => {
     loadData();
-  }, []);
+  }, [loadData]);
 
 
 

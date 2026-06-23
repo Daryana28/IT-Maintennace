@@ -1,3 +1,4 @@
+/* eslint-disable react-hooks/set-state-in-effect */
 import React, { useState, useEffect, useCallback, useMemo } from "react";
 import { Card, Table, Typography, Button, Space, Modal, message, Tag } from "antd";
 import { EditOutlined, DeleteOutlined, InfoCircleOutlined } from "@ant-design/icons";
@@ -8,7 +9,7 @@ import AbnormalModal from "./components/AbnormalModal";
 
 const { Title, Text } = Typography;
 
-export default function MaintenanceLogSheetPage({ overrideCategory, overrideYearlyId }) {
+export default function MaintenanceLogSheetPage({ overrideCategory }) {
   const category = overrideCategory; 
 
   const titleMap = {
@@ -35,7 +36,7 @@ export default function MaintenanceLogSheetPage({ overrideCategory, overrideYear
       setLoading(true);
       const data = await maintenanceScheduleService.getAllAbnormalLogs();
       setLogSheets(data || []);
-    } catch (err) {
+    } catch {
       message.error("Gagal memuat log sheet abnormal");
     } finally {
       setLoading(false);
@@ -101,7 +102,7 @@ export default function MaintenanceLogSheetPage({ overrideCategory, overrideYear
           await maintenanceScheduleService.updateActualStatus(actualId, "PLAN");
           message.success("Berhasil menghapus temuan dan me-reset status");
           fetchLogSheets();
-        } catch (error) {
+        } catch {
           message.error("Gagal menghapus log sheet");
         }
       },

@@ -1,3 +1,4 @@
+/* eslint-disable react-hooks/set-state-in-effect */
 import React, { useState, useEffect } from 'react';
 import { Card, Row, Col, Space, Input, Select, Button, Table, Typography, Tag, Tooltip, Form, message, Modal } from 'antd';
 import { SearchOutlined, ReloadOutlined, PlusOutlined, EditOutlined, DeleteOutlined, SaveOutlined, CloseOutlined } from '@ant-design/icons';
@@ -57,7 +58,7 @@ export default function ListTab({ categories = [], sortedData, onSave, yearlySta
   const modalSelectedKategoriName = Form.useWatch('kategori', modalForm);
   const modalSelectedSubKategoriName = Form.useWatch('subKategori', modalForm);
   const modalSelectedTipePerangkatName = Form.useWatch('tipePerangkat', modalForm);
-  const modalSelectedJenisPerangkatName = Form.useWatch('jenisPerangkat', modalForm);
+  const modalSelectedNamaPerangkatName = Form.useWatch('namaPerangkat', modalForm);
 
   const modalSelectedKategori = categories.find(c => !c.parent_id && c.category_name === modalSelectedKategoriName);
   const modalFormSubKategoriOptions = modalSelectedKategori
@@ -74,7 +75,6 @@ export default function ListTab({ categories = [], sortedData, onSave, yearlySta
     ? categories.filter(c => c.parent_id === modalSelectedTipePerangkat.category_id).map(c => ({ value: c.category_name, label: c.category_name }))
     : [];
 
-  const modalSelectedNamaPerangkatName = Form.useWatch('namaPerangkat', modalForm);
   const modalSelectedNamaPerangkat = categories.find(c => c.category_name === modalSelectedNamaPerangkatName && c.parent_id === modalSelectedTipePerangkat?.category_id);
   const modalFormJenisPerangkatOptions = modalSelectedNamaPerangkat
     ? categories.filter(c => c.parent_id === modalSelectedNamaPerangkat.category_id).map(c => ({ value: c.category_name, label: c.category_name }))
@@ -95,7 +95,7 @@ export default function ListTab({ categories = [], sortedData, onSave, yearlySta
         setIsModalOpen(false);
         modalForm.resetFields();
         if (onSave) onSave();
-      } catch (err) {
+      } catch {
         message.error("Gagal menambahkan perangkat");
       }
     });
@@ -108,15 +108,7 @@ export default function ListTab({ categories = [], sortedData, onSave, yearlySta
 
   // Level 1 actions are removed since editing is done at lower levels
 
-  const handleDeleteParent = async (record) => {
-    // Only remove locally if it's a new unsaved record
-    if (record.key.startsWith('parent-new')) {
-      setData(data.filter(item => item.key !== record.key));
-      return;
-    }
-    // We disable full deletion from Level 1 to prevent accidental cascade deletes.
-    message.warning("Penghapusan Kategori tidak diizinkan dari level ini. Hapus Jenis Perangkat di level terdalam.");
-  };
+
 
 
 
