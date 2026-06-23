@@ -8,40 +8,20 @@ import {
  Select,
 } from "antd";
 
-const STATUS_OPTIONS = [
- {
-  value: "ACTIVE",
-  label: "ACTIVE",
- },
- {
-  value: "INACTIVE",
-  label: "INACTIVE",
- },
- {
-  value: "REPAIR",
-  label: "REPAIR",
- },
- {
-  value: "STOCK",
-  label: "STOCK",
- },
- {
-  value: "SCRAP",
-  label: "SCRAP",
- },
-];
-
 export default function AssetInfoSection({
  rootOptions,
  mainTypeOptions,
  lv2Options,
  lv3Options,
  form,
+ typeProfile,
 }) {
+ const profile = typeProfile;
+
  return (
   <>
    <Divider orientation="left">
-    Asset Info
+    {profile.assetSectionTitle}
    </Divider>
 
    <Row gutter={16}>
@@ -62,7 +42,7 @@ export default function AssetInfoSection({
     <Col xs={24} md={12}>
      <Form.Item
       name="asset_name"
-      label="Nama Asset"
+      label={profile.assetNameLabel}
       rules={[
        {
         required: true,
@@ -171,7 +151,7 @@ export default function AssetInfoSection({
     <Col xs={24} md={12}>
      <Form.Item
       name="serial_number"
-      label="Serial Number"
+      label={profile.serialNumberLabel}
      >
       <Input />
      </Form.Item>
@@ -180,7 +160,7 @@ export default function AssetInfoSection({
     <Col xs={24} md={12}>
      <Form.Item
       name="hostname"
-      label="Hostname"
+      label={profile.hostnameLabel}
      >
       <Input />
      </Form.Item>
@@ -197,9 +177,7 @@ export default function AssetInfoSection({
       ]}
      >
       <Select
-       options={
-        STATUS_OPTIONS
-       }
+       options={profile.statusOptions}
       />
      </Form.Item>
     </Col>

@@ -2,11 +2,14 @@
 import { memo, useMemo } from "react";
 import {
  Button,
+ Empty,
  Popconfirm,
  Space,
  Table,
  Tag,
  Tooltip,
+ Input,
+ Select,
 } from "antd";
 
 import {
@@ -14,7 +17,9 @@ import {
  DeleteOutlined,
  QrcodeOutlined,
  EyeOutlined,
+ SwapOutlined,
 } from "@ant-design/icons";
+import { getAssetTypeProfile } from "../utils/assetTypeProfiles";
 
 function statusColor(status) {
  switch (status) {
@@ -93,7 +98,6 @@ function createPlanColumns(onDepreciationClick, startYear, endYear) {
 
 function AssetTable({
  rows,
- categories = [],
  loading,
  page,
  pageSize,
@@ -106,15 +110,28 @@ function AssetTable({
  onDelete,
  onViewDetail,
  onDepreciationClick,
+ onReplace,
  hidePlanColumns,
  viewOnlyActions,
+ headerFilters = {},
+ onHeaderFilterChange,
+ hideActionColumn,
+ hideIpAndStatus,
+ contextRouteGroup = "",
+ statusOptions,
 }) {
+ const hasRows = Array.isArray(rows) && rows.length > 0;
+ const tableData = hasRows ? rows : [];
+
  const rowSelection = useMemo(
-  () => ({
-   selectedRowKeys,
-   onChange: onSelectRows,
-  }),
-  [selectedRowKeys, onSelectRows]
+  () => (hasRows
+   ? {
+      selectedRowKeys,
+      onChange: onSelectRows,
+      columnWidth: 46,
+     }
+   : undefined),
+  [hasRows, selectedRowKeys, onSelectRows]
  );
 
  const { startYear, endYear } = useMemo(() => {
@@ -144,112 +161,163 @@ function AssetTable({
 
  const PLAN_COLUMNS = useMemo(() => createPlanColumns(onDepreciationClick, startYear, endYear), [onDepreciationClick, startYear, endYear]);
 
- const columns = useMemo(
-  () => [
+ const typeProfile = useMemo(
+  () => getAssetTypeProfile(contextRouteGroup),
+  [contextRouteGroup]
+ );
+ const labels = typeProfile.tableLabels;
+ const resolvedStatusOptions = statusOptions || typeProfile.statusOptions;
+
+ const headerWrapStyle = {
+  minWidth: 0,
+ };
+
+ const renderHeaderInput = (label, value, onChange, placeholder = "Search...") => (
+  <div className="asset-table-header" style={headerWrapStyle}>
+   <span className="asset-table-header__label">{label}</span>
+   <Input
+    className="asset-table-header__control"
+    placeholder={placeholder}
+    value={value}
+    onChange={(e) => onChange(e.target.value)}
+    size="small"
+   />
+  </div>
+ );
+
+ const renderHeaderSelect = (label, value, onChange, options = []) => (
+  <div className="asset-table-header" style={headerWrapStyle}>
+   <span className="asset-table-header__label">{label}</span>
+   <Select
+    className="asset-table-header__control"
+    value={value || undefined}
+    onChange={(v) => onChange(v || "")}
+    placeholder="Filter"
+    size="small"
+    allowClear
+   >
+    {options.map((opt) => (
+     <Select.Option key={opt.value} value={opt.value}>
+      {opt.label}
+     </Select.Option>
+    ))}
+   </Select>
+  </div>
+ );
+
+ const columns = [
    {
-    title: "NO",
-    key: "no",
-    width: 60,
-    fixed: "left",
+   title: "NO",
+   key: "no",
+   width: 60,
+    fixed: hasRows ? "left" : undefined,
     align: "center",
     render: (_, __, index) =>
-     (page - 1) * pageSize + index + 1,
+     __?.__isEmpty ? "" : (page - 1) * pageSize + index + 1,
    },
    {
-    title: "NO ASSET",
-    dataIndex: "asset_code",
-    key: "asset_code",
-    width: 120,
-    fixed: "left",
+   title: renderHeaderInput("NO ASSET", headerFilters.asset_code || "", (val) => onHeaderFilterChange?.("asset_code", val)),
+   dataIndex: "asset_code",
+   key: "asset_code",
+    width: 145,
+    fixed: hasRows ? "left" : undefined,
    },
    {
-    title: "NAMA ASSET",
+    title: renderHeaderInput(labels.assetName, headerFilters.asset_name || "", (val) => onHeaderFilterChange?.("asset_name", val)),
     dataIndex: "asset_name",
     key: "asset_name",
-    width: 140,
-    fixed: "left",
+    width: 180,
+    fixed: hasRows ? "left" : undefined,
    },
    {
-    title: "TYPE",
+    title: renderHeaderInput(labels.type, headerFilters.type || "", (val) => onHeaderFilterChange?.("type", val)),
     key: "type",
-    width: 120,
-    render: (_, record) => record.category?.category_name || "-",
+    width: 150,
+    render: (_, record) => (record?.__isEmpty ? "" : record.category?.category_name || "-"),
    },
    {
-    title: "DIVISI",
+    title: renderHeaderInput("DIVISI", headerFilters.division || "", (val) => onHeaderFilterChange?.("division", val)),
     dataIndex: "division",
     key: "division",
-    width: 100,
-   },
-   {
-    title: "DEPT",
-    dataIndex: "department",
-    key: "department",
-    width: 100,
-   },
-   {
-    title: "NAMA",
-    dataIndex: "owner_name",
-    key: "owner_name",
-    width: 130,
-   },
-   {
-    title: "NIK",
-    dataIndex: "nik",
-    key: "nik",
-    width: 80,
-   },
-   {
-    title: "PEMBELIAN",
-    dataIndex: "purchase_date",
-    key: "purchase_date",
-    width: 100,
-   },
-   {
-    title: "DEPRESIASI (5+1 Th)",
-    dataIndex: "depreciation_date",
-    key: "depreciation_date",
-    width: 130,
-   },
-   {
-    title: "HOSTNAME",
-    dataIndex: "hostname",
-    key: "hostname",
     width: 110,
    },
    {
-    title: "IP ADDRESS MAIN",
+    title: renderHeaderInput("DEPT", headerFilters.department || "", (val) => onHeaderFilterChange?.("department", val)),
+    dataIndex: "department",
+    key: "department",
+    width: 110,
+   },
+   {
+    title: renderHeaderInput(labels.ownerName, headerFilters.owner_name || "", (val) => onHeaderFilterChange?.("owner_name", val)),
+    dataIndex: "owner_name",
+    key: "owner_name",
+    width: 165,
+   },
+   {
+    title: renderHeaderInput("NIK", headerFilters.nik || "", (val) => onHeaderFilterChange?.("nik", val)),
+    dataIndex: "nik",
+    key: "nik",
+    width: 95,
+   },
+   {
+    title: renderHeaderInput(labels.purchaseDate, headerFilters.purchase_date || "", (val) => onHeaderFilterChange?.("purchase_date", val)),
+    dataIndex: "purchase_date",
+    key: "purchase_date",
+    width: 120,
+   },
+   {
+    title: renderHeaderInput(labels.depreciationDate, headerFilters.depreciation_date || "", (val) => onHeaderFilterChange?.("depreciation_date", val)),
+    dataIndex: "depreciation_date",
+    key: "depreciation_date",
+    width: 150,
+   },
+   {
+    title: renderHeaderInput(labels.hostname, headerFilters.hostname || "", (val) => onHeaderFilterChange?.("hostname", val)),
+    dataIndex: "hostname",
+    key: "hostname",
+    width: 140,
+   },
+   !hideIpAndStatus && ({
+    title: renderHeaderInput(labels.ipMain, headerFilters.ip_main || "", (val) => onHeaderFilterChange?.("ip_main", val)),
     dataIndex: "ip_main",
     key: "ip_main",
-    width: 130,
-   },
-   {
-    title: "IP ADDRESS BACKUP",
+    width: 150,
+   }),
+   !hideIpAndStatus && ({
+    title: renderHeaderInput(labels.ipBackup, headerFilters.ip_backup || "", (val) => onHeaderFilterChange?.("ip_backup", val)),
     dataIndex: "ip_backup",
     key: "ip_backup",
-    width: 130,
-   },
-   {
-    title: "Status",
+    width: 150,
+   }),
+   !hideIpAndStatus && ({
+    title: renderHeaderSelect(
+      "STATUS",
+      headerFilters.status || "",
+      (val) => onHeaderFilterChange?.("status", val),
+      resolvedStatusOptions
+    ),
     dataIndex: "status",
     key: "status",
-    width: 100,
+    width: 140,
     align: "center",
-    render: (value) => (
-     <Tag color={statusColor(value)}>
+    render: (value, record) => (
+     record?.__isEmpty || !value ? null : (
+      <Tag color={statusColor(value)}>
       {value}
-     </Tag>
+      </Tag>
+     )
     ),
-   },
+   }),
    ...(hidePlanColumns ? [] : PLAN_COLUMNS),
-   {
-    title: "Action",
+   !hideActionColumn && ({
+    title: "ACTION",
     key: "action",
-    width: viewOnlyActions ? 60 : 160,
-    fixed: "right",
+    width: viewOnlyActions ? 72 : 180,
+    fixed: hasRows ? "right" : undefined,
     align: "center",
     render: (_, row) => (
-     <Space>
+     row?.__isEmpty ? null : (
+      <Space>
       {!viewOnlyActions && (
        <Button
         size="small"
@@ -265,6 +333,15 @@ function AssetTable({
         onViewDetail(row.asset_id)
        }
       />
+
+      {!viewOnlyActions && (
+       <Button
+        size="small"
+        icon={<SwapOutlined />}
+        title="Replacement"
+        onClick={() => onReplace && onReplace(row)}
+       />
+      )}
 
       {!viewOnlyActions && (
        <Button
@@ -286,32 +363,53 @@ function AssetTable({
         />
        </Popconfirm>
       )}
-     </Space>
+      </Space>
+     )
     ),
-   },
-  ],
-  [
-   page,
-   pageSize,
-   onQr,
-   onEdit,
-   onDelete,
-   onViewDetail,
-   PLAN_COLUMNS,
-   hidePlanColumns,
-   viewOnlyActions,
-   categories,
-  ]
+  }),
+  ].filter(Boolean);
+
+ const tableScrollX = useMemo(
+  () =>
+   columns.reduce(
+    (totalWidth, column) =>
+     totalWidth + Number(column?.width || 120),
+    selectedRowKeys !== undefined ? 46 : 0
+   ),
+  [columns, selectedRowKeys]
+ );
+
+ const emptyState = (
+  <Empty
+   image={(
+    <svg
+     width="120"
+     height="80"
+     viewBox="0 0 120 80"
+     fill="none"
+     xmlns="http://www.w3.org/2000/svg"
+    >
+     <rect x="18" y="18" width="84" height="48" rx="10" fill="#F8FAFC" stroke="#C9D7E8" strokeWidth="2" />
+     <rect x="28" y="28" width="64" height="8" rx="4" fill="#DCE8F5" />
+     <rect x="28" y="42" width="34" height="6" rx="3" fill="#E7EEF7" />
+     <rect x="28" y="52" width="48" height="6" rx="3" fill="#E7EEF7" />
+     <circle cx="88" cy="54" r="12" fill="#EEF5FF" stroke="#9EC5FE" strokeWidth="2" />
+     <path d="M84 54H92" stroke="#4C8DFF" strokeWidth="2.5" strokeLinecap="round" />
+    </svg>
+   )}
+   description="No data"
+  />
  );
 
  return (
   <Table
+   className={`asset-data-table${hasRows ? "" : " asset-data-table--empty"}`}
    rowKey="asset_id"
    bordered
    size="small"
    loading={loading}
    columns={columns}
-   dataSource={rows}
+   dataSource={tableData}
    rowSelection={rowSelection}
    onChange={onChange}
    pagination={{
@@ -322,11 +420,14 @@ function AssetTable({
     showTotal: (v) =>
      `Total ${v} data`,
    }}
+   locale={{
+    emptyText: emptyState,
+   }}
    scroll={{
-    x: "max-content",
+    x: tableScrollX,
     y: 650,
    }}
-   sticky
+   sticky={hasRows}
   />
  );
 }

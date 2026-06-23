@@ -27,6 +27,7 @@ import StandardMaintenanceModel from "./cmms/standardMaintenanceModel.js";
 import StandardMaintenanceDetailModel from "./cmms/standardMaintenanceDetailModel.js";
 import StandardMaintenanceCheckModel from "./cmms/standardMaintenanceCheckModel.js";
 import MaintenanceScheduleModel from "./cmms/maintenanceScheduleModel.js";
+import MaintenanceLogSheetModel from "./cmms/maintenanceLogSheetModel.js";
 
 import AuditLogModel from "./shared/auditLogModel.js";
 import AssetLifecycleModel from "./legacy/assetLifecycleModel.js";
@@ -59,6 +60,7 @@ const StandardMaintenance = StandardMaintenanceModel(sequelize);
 const StandardMaintenanceDetail = StandardMaintenanceDetailModel(sequelize);
 const StandardMaintenanceCheck = StandardMaintenanceCheckModel(sequelize);
 const MaintenanceSchedule = MaintenanceScheduleModel(sequelize);
+const MaintenanceLogSheet = MaintenanceLogSheetModel(sequelize);
 
 const AuditLog = AuditLogModel(sequelize);
 const AssetLifecycle = AssetLifecycleModel(sequelize);
@@ -408,6 +410,12 @@ MaintenanceSchedule.belongsTo(YearlyStandardMaintenance, { foreignKey: "yearly_s
 StandardMaintenance.hasMany(MaintenanceSchedule, { foreignKey: "standard_maintenance_id" });
 MaintenanceSchedule.belongsTo(StandardMaintenance, { foreignKey: "standard_maintenance_id" });
 
+MaintenanceSchedule.hasMany(MaintenanceLogSheet, { foreignKey: "schedule_id", as: "logSheets" });
+MaintenanceLogSheet.belongsTo(MaintenanceSchedule, { foreignKey: "schedule_id", as: "schedule" });
+
+User.hasMany(MaintenanceLogSheet, { foreignKey: "created_by", as: "logSheetsCreated" });
+MaintenanceLogSheet.belongsTo(User, { foreignKey: "created_by", as: "creator" });
+
 export {
  sequelize,
  Company,
@@ -430,6 +438,7 @@ export {
  StandardMaintenanceDetail,
  StandardMaintenanceCheck,
  MaintenanceSchedule,
+ MaintenanceLogSheet,
  Part,
  WarehouseStock,
  InventoryTransaction,
@@ -460,6 +469,7 @@ export default {
  StandardMaintenanceDetail,
  StandardMaintenanceCheck,
  MaintenanceSchedule,
+ MaintenanceLogSheet,
  Part,
  WarehouseStock,
  InventoryTransaction,

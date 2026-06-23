@@ -1,0 +1,109 @@
+.op-budget-page {
+  padding: 24px;
+  background-color: #f8fafc;
+  min-height: 100vh;
+}
+
+.op-budget-header {
+  display: flex;
+  justify-content: space-between;
+  align-items: flex-start;
+  margin-bottom: 24px;
+  background: linear-gradient(135deg, #ffffff 0%, #f1f5f9 100%);
+  padding: 24px;
+  border-radius: 12px;
+  box-shadow: 0 4px 6px -1px rgba(0, 0, 0, 0.05), 0 2px 4px -1px rgba(0, 0, 0, 0.03);
+  border: 1px solid #e2e8f0;
+}
+
+.op-budget-title {
+  margin: 0 !important;
+  color: #1e293b !important;
+  font-weight: 700 !important;
+  font-size: 24px !important;
+}
+
+.op-budget-subtitle {
+  color: #64748b;
+  font-size: 14px;
+  margin-top: 6px;
+  display: block;
+}
+
+.op-budget-card {
+  border-radius: 12px;
+  overflow: hidden;
+  box-shadow: 0 10px 15px -3px rgba(0, 0, 0, 0.05);
+  border: 1px solid #e2e8f0;
+  background: #ffffff;
+}
+
+/* Table overrides */
+.op-budget-table .ant-table-thead > tr > th {
+  background: #f1f5f9 !important;
+  color: #334155;
+  font-weight: 600;
+  border-bottom: 2px solid #cbd5e1 !important;
+  padding: 14px 12px !important;
+}
+
+.op-budget-table .ant-table-tbody > tr > td {
+  padding: 10px 12px !important;
+  vertical-align: middle;
+  color: #334155;
+}
+
+/* Plan and Actual row colors */
+.op-budget-table .plan-row > td {
+  background-color: #f8fafc !important;
+  border-bottom: 1px dashed #e2e8f0 !important;
+}
+
+.op-budget-table .actual-row > td {
+  background-color: #ffffff !important;
+  border-bottom: 1px solid #cbd5e1 !important;
+}
+
+/* Merged cells styling - keep their background white */
+.op-budget-table .plan-row > td[rowspan="2"] {
+  background-color: #ffffff !important;
+  border-bottom: 1px solid #cbd5e1 !important;
+  border-right: 1px solid #f1f5f9;
+}
+
+.op-budget-table .ant-table-cell-row-hover {
+  background-color: #f1f5f9 !important;
+}
+
+.type-tag-plan {
+  background: #eff6ff;
+  color: #2563eb;
+  border: 1px solid #bfdbfe;
+  padding: 4px 10px;
+  border-radius: 6px;
+  font-size: 12px;
+  font-weight: 600;
+  display: inline-block;
+  letter-spacing: 0.5px;
+}
+
+.type-tag-actual {
+  background: #ecfdf5;
+  color: #059669;
+  border: 1px solid #a7f3d0;
+  padding: 4px 10px;
+  border-radius: 6px;
+  font-size: 12px;
+  font-weight: 600;
+  display: inline-block;
+  letter-spacing: 0.5px;
+}
+
+.budget-val-plan {
+  color: #475569;
+}
+
+.budget-val-actual {
+  color: #059669;
+  font-weight: 600;
+}

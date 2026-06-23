@@ -7,18 +7,20 @@ import {
   Row,
 } from "antd";
 
-export default function NetworkSection() {
+export default function NetworkSection({
+  typeProfile,
+}) {
   return (
     <>
       <Divider orientation="left">
-        Network
+        {typeProfile.networkSectionTitle}
       </Divider>
 
       <Row gutter={16}>
         <Col xs={24} md={12}>
           <Form.Item
             name="ip_main"
-            label="IP Main"
+            label={typeProfile.ipMainLabel}
           >
             <Input />
           </Form.Item>
@@ -27,7 +29,7 @@ export default function NetworkSection() {
         <Col xs={24} md={12}>
           <Form.Item
             name="ip_backup"
-            label="IP Backup"
+            label={typeProfile.ipBackupLabel}
           >
             <Input />
           </Form.Item>

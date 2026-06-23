@@ -1,0 +1,407 @@
+.budget-schedule-page {
+  background: #f5f7fa;
+  height: calc(100vh - 98px);
+  padding: 8px 24px 24px;
+  overflow: hidden;
+  display: flex;
+  flex-direction: column;
+  box-sizing: border-box;
+}
+
+.schedule-header {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  margin-bottom: 12px;
+  background: linear-gradient(135deg, #ffffff 0%, #f0f5ff 100%);
+  padding: 24px;
+  border-radius: 12px;
+  box-shadow: 0 4px 20px rgba(0,0,0,0.03);
+  border: 1px solid #e6f7ff;
+  flex: 0 0 auto;
+}
+
+.schedule-header__title {
+  display: flex;
+  align-items: center;
+  gap: 16px;
+}
+
+.schedule-header__icon {
+  background: #e6f7ff;
+  padding: 12px;
+  border-radius: 12px;
+  color: #1890ff;
+  font-size: 24px;
+  line-height: 1;
+}
+
+.schedule-title {
+  margin: 0 !important;
+  font-weight: 700;
+  color: #1f2937;
+}
+
+.timeline-table-card {
+  background: #fff;
+  padding: 16px;
+  border-radius: 12px;
+  box-shadow: 0 4px 20px rgba(0,0,0,0.02);
+  border: 1px solid #edf2f7;
+  flex: 0 0 auto;
+  overflow: hidden;
+}
+
+.timeline-table--excel .ant-table {
+  font-size: 11px;
+}
+
+.timeline-table--excel.ant-table-wrapper {
+  border-radius: 12px;
+}
+
+.timeline-table--excel.ant-table-wrapper,
+.timeline-table--excel .ant-spin-nested-loading,
+.timeline-table--excel .ant-spin-container,
+.timeline-table--excel .ant-table-container,
+.timeline-table--excel .ant-table-content,
+.timeline-table--excel .ant-table-body {
+  height: 100%;
+}
+
+.timeline-table--excel .ant-table {
+  height: 100%;
+}
+
+.timeline-table--excel .ant-table-container {
+  display: flex;
+  flex-direction: column;
+  border: 1px solid #dbe7f3;
+  border-radius: 12px;
+  overflow: hidden;
+}
+
+.timeline-table--excel .ant-table-header {
+  flex: 0 0 auto;
+  background: #eef5fb !important;
+  position: relative;
+  z-index: 6;
+}
+
+.timeline-table--excel .ant-table-body {
+  flex: 1 1 auto !important;
+  min-height: 0;
+}
+
+.timeline-table--excel .ant-table-thead > tr > th,
+.timeline-table--excel .ant-table-thead > tr > td {
+  background: #eef5fb !important;
+  background-image: none !important;
+  color: #5f7695;
+  font-weight: 700;
+  text-align: center;
+  vertical-align: middle;
+  border-bottom: 1px solid #d7e4f1;
+  border-color: #dbe7f3;
+  padding: 6px 4px;
+  opacity: 1 !important;
+}
+
+.timeline-table--excel .ant-table-thead > tr:nth-child(2) > th,
+.timeline-table--excel .ant-table-thead > tr:nth-child(2) > td {
+  background: #f5f9fd !important;
+  background-image: none !important;
+  font-size: 10px;
+  color: #7a90ab;
+  opacity: 1 !important;
+}
+
+.timeline-table--excel .ant-table-thead > tr:last-child > th,
+.timeline-table--excel .ant-table-thead > tr:last-child > td {
+  border-bottom: 0 !important;
+}
+
+.timeline-table--excel .ant-table-thead {
+  background: #eef5fb !important;
+}
+
+.timeline-table--excel .ant-table-thead > tr:nth-child(2) {
+  background: #f5f9fd !important;
+}
+
+.timeline-table--excel .ant-table-header .ant-table-cell,
+.timeline-table--excel .ant-table-header .ant-table-cell-fix-left,
+.timeline-table--excel .ant-table-header .ant-table-cell-fix-right {
+  background: #eef5fb !important;
+}
+
+.timeline-table--excel .ant-table-header thead > tr:nth-child(2) .ant-table-cell,
+.timeline-table--excel .ant-table-header thead > tr:nth-child(2) .ant-table-cell-fix-left,
+.timeline-table--excel .ant-table-header thead > tr:nth-child(2) .ant-table-cell-fix-right {
+  background: #f5f9fd !important;
+}
+
+.timeline-table--excel .ant-table-thead > tr > th.ant-table-cell-fix-left,
+.timeline-table--excel .ant-table-thead > tr > th.ant-table-cell-fix-right,
+.timeline-table--excel .ant-table-tbody > tr > td.ant-table-cell-fix-left,
+.timeline-table--excel .ant-table-tbody > tr > td.ant-table-cell-fix-right {
+  background: #ffffff;
+  background-clip: padding-box;
+  opacity: 1 !important;
+}
+
+.timeline-table--excel .ant-table-thead > tr > th.ant-table-cell-fix-left,
+.timeline-table--excel .ant-table-thead > tr > th.ant-table-cell-fix-right {
+  background: #eef5fb !important;
+  z-index: 5;
+}
+
+.timeline-table--excel .ant-table-thead > tr:nth-child(2) > th.ant-table-cell-fix-left,
+.timeline-table--excel .ant-table-thead > tr:nth-child(2) > th.ant-table-cell-fix-right {
+  background: #f5f9fd !important;
+  z-index: 5;
+}
+
+.timeline-table--excel .ant-table-tbody > tr > td.ant-table-cell-fix-left,
+.timeline-table--excel .ant-table-tbody > tr > td.ant-table-cell-fix-right {
+  z-index: 4;
+}
+
+.timeline-table--excel .ant-table-cell-fix-left-last::after,
+.timeline-table--excel .ant-table-cell-fix-right-first::after {
+  box-shadow: none !important;
+  background: transparent !important;
+}
+
+.timeline-table--excel .ant-table-cell-fix-left::before,
+.timeline-table--excel .ant-table-cell-fix-right::before,
+.timeline-table--excel .ant-table-cell-fix-left::after,
+.timeline-table--excel .ant-table-cell-fix-right::after {
+  opacity: 1 !important;
+}
+
+.timeline-table--excel .ant-table-tbody > tr > td {
+  border-color: #8c8c8c;
+  border-top: 0 !important;
+  padding: 0;
+  background: #ffffff;
+  vertical-align: top;
+  height: 34px;
+}
+
+.timeline-table--excel .ant-table-tbody > tr.ant-table-measure-row,
+.timeline-table--excel .ant-table-tbody > tr.ant-table-measure-row > td {
+  height: 0 !important;
+  min-height: 0 !important;
+  padding: 0 !important;
+  border: 0 !important;
+  background: transparent !important;
+  line-height: 0 !important;
+  font-size: 0 !important;
+}
+
+.timeline-table--excel .ant-table-tbody > tr > td[rowspan] {
+  vertical-align: top !important;
+}
+
+.timeline-table--excel .ant-table-placeholder > td {
+  height: auto !important;
+  min-height: 180px;
+  padding: 24px 0 !important;
+  border: 0 !important;
+  border-top: 0 !important;
+  background: #ffffff !important;
+}
+
+.timeline-table--excel .ant-table-placeholder:hover > td,
+.timeline-table--excel .ant-table-placeholder .ant-table-cell-row-hover {
+  background: #ffffff !important;
+}
+
+.timeline-table--excel .ant-table-tbody > tr.budget-monitoring__row--actual > td {
+  background: #f7fbff;
+}
+
+.timeline-table--excel .ant-table-tbody > tr.budget-monitoring__row--plan,
+.timeline-table--excel .ant-table-tbody > tr.budget-monitoring__row--actual {
+  height: 34px;
+}
+
+.timeline-table--excel .ant-table-cell-fix-left,
+.timeline-table--excel .ant-table-cell-fix-right {
+  z-index: 2;
+}
+
+.timeline-table--excel .ant-table-tbody > tr:hover > td,
+.timeline-table--excel .ant-table-cell-row-hover {
+  background: inherit !important;
+}
+
+.timeline-table--excel .ant-table-tbody > tr.budget-monitoring__row--plan:hover > td {
+  background: #f8fbff !important;
+}
+
+.timeline-table--excel .ant-table-tbody > tr.budget-monitoring__row--actual:hover > td {
+  background: #eef6ff !important;
+}
+
+.budget-monitoring__item {
+  padding: 8px;
+  line-height: 1.45;
+  white-space: normal;
+  word-break: break-word;
+}
+
+.budget-monitoring__cell-text {
+  padding: 8px;
+}
+
+.budget-monitoring__cell-text--nowrap {
+  white-space: nowrap;
+}
+
+.budget-monitoring__money {
+  display: inline-flex;
+  width: 100%;
+  box-sizing: border-box;
+  justify-content: flex-end;
+  padding: 8px;
+  font-weight: 600;
+  white-space: nowrap;
+  font-size: 12px;
+}
+
+.budget-monitoring__phase,
+.budget-monitoring__status {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  min-height: 28px;
+  width: 100%;
+  font-weight: 700;
+}
+
+.budget-monitoring__stage-select {
+  width: calc(100% - 12px);
+  margin: 6px;
+}
+
+.budget-monitoring__type {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  width: 100%;
+  min-height: 34px;
+  font-weight: 700;
+  letter-spacing: 0.04em;
+}
+
+.budget-monitoring__type--plan {
+  color: #1d4ed8;
+}
+
+.budget-monitoring__type--actual {
+  color: #0f766e;
+}
+
+.budget-monitoring__status {
+  color: #7a4b00;
+  background: #fff6d6;
+}
+
+.budget-monitoring__week-col {
+  padding: 0 !important;
+  height: 100%;
+}
+
+.timeline-table--excel .ant-table-tbody > tr > td.budget-monitoring__week-col {
+  padding: 0 !important;
+  height: 34px !important;
+}
+
+.budget-monitoring__week-button {
+  width: 100%;
+  height: 100%;
+  padding: 0;
+  border: 0;
+  background: transparent;
+  cursor: pointer;
+  display: flex;
+  align-items: stretch;
+  justify-content: stretch;
+}
+
+.budget-monitoring__week-cell {
+  width: 100%;
+  height: 100%;
+  min-height: 100%;
+  background: transparent;
+  position: relative;
+  overflow: hidden;
+  transition: filter 0.15s ease, box-shadow 0.15s ease;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  margin: 0;
+  border-radius: 0;
+}
+
+.budget-monitoring__week-cell--active {
+  background: #3b82f6;
+}
+
+.budget-monitoring__week-cell--plan {
+  background: #3b82f6;
+}
+
+.budget-monitoring__week-cell--actual,
+.budget-monitoring__week-cell--on-time {
+  background: #14b8a6;
+}
+
+.budget-monitoring__week-cell--off-time {
+  background: #ef4444;
+}
+
+.budget-monitoring__week-button:hover .budget-monitoring__week-cell {
+  filter: brightness(1.03);
+  box-shadow: inset 0 0 0 1px rgba(15, 23, 42, 0.08);
+}
+
+.budget-monitoring__week-label {
+  color: #ffffff;
+  font-size: 8px;
+  font-weight: 700;
+  line-height: 1;
+  letter-spacing: 0.02em;
+  text-transform: uppercase;
+}
+
+.budget-monitoring__form-grid {
+  display: grid;
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+  gap: 0 12px;
+}
+
+.budget-monitoring__form-section h4 {
+  margin: 8px 0 12px;
+  font-size: 14px;
+  color: #1f2937;
+}
+
+.timeline-table--excel .ant-table-body {
+  scrollbar-color: #94a3b8 #e2e8f0;
+  scrollbar-width: thin;
+}
+
+@media (max-width: 1200px) {
+  .schedule-header {
+    flex-direction: column;
+    align-items: flex-start;
+    gap: 16px;
+  }
+
+  .budget-monitoring__form-grid {
+    grid-template-columns: 1fr;
+  }
+}

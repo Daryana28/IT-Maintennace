@@ -7,11 +7,13 @@ import {
   Row,
 } from "antd";
 
-export default function UserSection() {
+export default function UserSection({
+  typeProfile,
+}) {
   return (
     <>
       <Divider orientation="left">
-        User Assignment
+        {typeProfile.userSectionTitle}
       </Divider>
 
       <Row gutter={16}>
@@ -36,7 +38,7 @@ export default function UserSection() {
         <Col xs={24} md={12}>
           <Form.Item
             name="owner_name"
-            label="Nama User"
+            label={typeProfile.ownerNameLabel}
           >
             <Input />
           </Form.Item>

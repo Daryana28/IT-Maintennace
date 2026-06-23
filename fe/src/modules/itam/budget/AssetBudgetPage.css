@@ -13,6 +13,7 @@
 .budget-card {
   border-radius: 12px;
   box-shadow: 0 4px 20px rgba(0, 0, 0, 0.03);
+  overflow: hidden;
 }
 
 .table-toolbar {
@@ -22,30 +23,159 @@
   align-items: center;
 }
 
-/* Make headers look cleaner */
-.budget-table .ant-table-thead > tr > th {
-  background-color: #f8fafc;
-  color: #334155;
-  font-weight: 600;
-  text-align: center;
+.budget-table .ant-table-wrapper,
+.budget-table.ant-table-wrapper {
+  border-radius: 12px;
 }
 
-/* Fix left columns styles to avoid double border */
+.budget-table .ant-table-container {
+  border: 1px solid #dbe7f3;
+  border-radius: 12px;
+  overflow: hidden;
+}
+
+.budget-table .ant-table-thead > tr > th,
+.budget-table .ant-table-thead > tr > td {
+  background: #eef5fb;
+  color: #5f7695;
+  font-weight: 700;
+  font-size: 11px;
+  line-height: 1.35;
+  text-align: center;
+  vertical-align: middle;
+  border-bottom: 1px solid #d7e4f1;
+  padding: 12px 10px;
+}
+
+.budget-table .ant-table-thead > tr:not(:first-child) > th,
+.budget-table .ant-table-thead > tr:not(:first-child) > td {
+  background: #f5f9fd;
+  color: #7a90ab;
+}
+
+.budget-table .ant-table-tbody > tr > td {
+  padding: 14px 12px;
+  color: #475569;
+  border-bottom: 1px solid #e8eef5;
+  vertical-align: middle;
+  background: #ffffff;
+  white-space: nowrap;
+  word-break: keep-all;
+}
+
+.budget-table .budget-table__cell--wrap {
+  white-space: normal !important;
+  word-break: break-word !important;
+  overflow: visible !important;
+  text-overflow: unset !important;
+}
+
+.budget-table .budget-table__text-wrap {
+  white-space: normal;
+  word-break: break-word;
+  overflow-wrap: anywhere;
+  line-height: 1.55;
+}
+
+.budget-table .ant-table-tbody > tr:hover > td {
+  background: #f8fbff !important;
+}
+
+.budget-table .ant-table-cell-row-hover {
+  background: #f8fbff !important;
+}
+
+.budget-table .ant-table-sticky-scroll {
+  border-radius: 999px;
+  background: rgba(191, 219, 254, 0.45);
+  height: 10px !important;
+  bottom: 8px !important;
+}
+
+.budget-table .ant-table-sticky-scroll-bar {
+  background: #93c5fd !important;
+  border-radius: 999px !important;
+}
+
 .budget-table .ant-table-cell-fix-left,
 .budget-table .ant-table-cell-fix-right {
-  background-color: #ffffff;
+  background: #ffffff;
+  z-index: 2;
 }
 
 .budget-table .ant-table-thead > tr > th.ant-table-cell-fix-left,
-.budget-table .ant-table-thead > tr > th.ant-table-cell-fix-right {
-  background-color: #f8fafc;
+.budget-table .ant-table-thead > tr > th.ant-table-cell-fix-right,
+.budget-table .ant-table-thead > tr > td.ant-table-cell-fix-left,
+.budget-table .ant-table-thead > tr > td.ant-table-cell-fix-right {
+  background: #eef5fb;
+  z-index: 4;
 }
 
-/* Right align numeric data */
-.budget-table .ant-table-tbody > tr > td[data-index^="month_"],
+.budget-table .ant-table-header .ant-table-cell,
+.budget-table .ant-table-header .ant-table-cell-fix-left,
+.budget-table .ant-table-header .ant-table-cell-fix-right {
+  background: #eef5fb !important;
+}
+
+.budget-table .ant-table-tbody > tr > td:nth-child(1),
+.budget-table .ant-table-tbody > tr > td:nth-child(2),
+.budget-table .ant-table-tbody > tr > td:nth-child(3),
+.budget-table .ant-table-tbody > tr > td:nth-child(4),
+.budget-table .ant-table-tbody > tr > td:nth-child(5),
+.budget-table .ant-table-tbody > tr > td:nth-child(12),
+.budget-table .ant-table-tbody > tr > td:nth-child(13),
+.budget-table .ant-table-tbody > tr > td:nth-child(14),
+.budget-table .ant-table-tbody > tr > td:nth-child(15),
+.budget-table .ant-table-tbody > tr > td:nth-child(16) {
+  white-space: nowrap;
+}
+
+.budget-table .ant-table-tbody > tr > td:nth-child(6),
+.budget-table .ant-table-tbody > tr > td:nth-child(7),
+.budget-table .ant-table-tbody > tr > td:nth-child(8),
+.budget-table .ant-table-tbody > tr > td:nth-child(10),
+.budget-table .ant-table-tbody > tr > td:nth-child(20) {
+  white-space: normal;
+  word-break: break-word;
+  overflow: visible;
+  text-overflow: unset;
+}
+
+.budget-table .ant-table-tbody > tr:hover > td.ant-table-cell-fix-left,
+.budget-table .ant-table-tbody > tr:hover > td.ant-table-cell-fix-right,
+.budget-table .ant-table-cell-row-hover.ant-table-cell-fix-left,
+.budget-table .ant-table-cell-row-hover.ant-table-cell-fix-right {
+  background: #f8fbff !important;
+}
+
+.budget-table .ant-table-ping-left .ant-table-cell-fix-left-last::after,
+.budget-table .ant-table-ping-right .ant-table-cell-fix-right-first::after {
+  box-shadow: none;
+}
+
+.budget-table .ant-table-cell-fix-left-last,
+.budget-table .ant-table-cell-fix-right-first {
+  border-color: #dbe7f3;
+}
+
+.budget-table .ant-table-tbody > tr > td[data-index="initialPlan"],
+.budget-table .ant-table-tbody > tr > td[data-index="review"],
+.budget-table .ant-table-tbody > tr > td[data-index="pricePengajuan"],
+.budget-table .ant-table-tbody > tr > td[data-index="purchasePrice"],
 .budget-table .ant-table-tbody > tr > td[data-index="initialBudget"],
-.budget-table .ant-table-tbody > tr > td[data-index="total"] {
+.budget-table .ant-table-tbody > tr > td[data-index="paymentAmount1"],
+.budget-table .ant-table-tbody > tr > td[data-index="paymentAmount2"],
+.budget-table .ant-table-tbody > tr > td[data-index="paymentAmount3"] {
   text-align: right;
   font-family: 'JetBrains Mono', 'Courier New', Courier, monospace;
   font-size: 13px;
+}
+
+.budget-table .ant-pagination {
+  margin: 16px 4px 0;
+}
+
+.budget-table .ant-table-body {
+  scrollbar-color: #93c5fd #eff6ff;
+  scrollbar-width: thin;
 }

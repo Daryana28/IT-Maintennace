@@ -70,7 +70,7 @@ const getById = async (id) => {
 };
 
 const create = async (data) => {
-    const { username, full_name, email = `${username}@placeholder.local`, password, role_ids = [], is_active = true } = data;
+    const { username, full_name, email = `${username}@ikoito.co.id `, password, role_ids = [], is_active = true } = data;
 
     const existing = await User.findOne({
         where: { username },

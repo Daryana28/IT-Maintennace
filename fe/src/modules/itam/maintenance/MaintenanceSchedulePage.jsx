@@ -1,6 +1,6 @@
 import React, { useState, useCallback } from "react";
-import { Card, Table, Form, message, Row, Col, Statistic, Tabs } from "antd";
-import { SyncOutlined } from "@ant-design/icons";
+import { Card, Table, Form, message, Row, Col, Statistic, Tabs, Empty, Button } from "antd";
+import { CheckOutlined } from "@ant-design/icons";
 import { useRBACStore } from "@/app/store/rbacStore";
 
 import dayjs from "dayjs";
@@ -8,6 +8,7 @@ import "./MaintenanceSchedulePage.css";
 import maintenanceScheduleService from "./services/maintenanceScheduleService";
 import useScheduleData from "./hooks/useScheduleData";
 import { useMaintenanceColumns } from "./hooks/useMaintenanceColumns";
+import { filterAssetsByCategory } from "./utils/tableHelpers";
 import SchedulePageHeader from "./components/SchedulePageHeader";
 import ScheduleFilterBar from "./components/ScheduleFilterBar";
 import ScheduleFormModal from "./components/ScheduleFormModal";
@@ -39,10 +40,12 @@ export default function MaintenanceSchedulePage() {
   // Modal states
   const [isModalVisible, setIsModalVisible] = useState(false);
   const [isEditMode, setIsEditMode] = useState(false);
+  const [isManualCreateMode, setIsManualCreateMode] = useState(false);
   const [editScheduleId, setEditScheduleId] = useState(null);
   const [isSplitMode, setIsSplitMode] = useState(false);
   const [selectedAssetIds, setSelectedAssetIds] = useState([]);
   const [assets, setAssets] = useState([]);
+  const [allAssets, setAllAssets] = useState([]);
   const [form] = Form.useForm();
 
   const [isCopyModalVisible, setIsCopyModalVisible] = useState(false);
@@ -105,6 +108,90 @@ export default function MaintenanceSchedulePage() {
     },
     [reload]
   );
+
+  const handleToggleChecklist = useCallback(
+    async (scheduleIds = [], shouldComplete = true) => {
+      if (!Array.isArray(scheduleIds) || scheduleIds.length === 0) return;
+
+      try {
+        await Promise.all(
+          scheduleIds.map((id) =>
+            maintenanceScheduleService.updateSchedule(id, {
+              status: shouldComplete ? "COMPLETED" : "PENDING",
+            })
+          )
+        );
+        message.success(shouldComplete ? "Checklist diperbarui" : "Checklist dibuka kembali");
+        reload();
+      } catch (error) {
+        console.error(error);
+        message.error(error.response?.data?.message || "Gagal memperbarui checklist");
+      }
+    },
+    [reload]
+  );
+
+  const applyStandardToForm = useCallback(
+    (standardId, assetPool = allAssets) => {
+      const selectedStandard = standards.find((item) => item.id === standardId);
+      if (!selectedStandard) return;
+
+      const leafName =
+        selectedStandard.subKategori ||
+        selectedStandard.kategori ||
+        selectedStandard.namaPerangkat ||
+        "";
+
+      const { assets: filteredAssets } = filterAssetsByCategory(assetPool, leafName);
+      const activeAssets = filteredAssets.filter(
+        (asset) => asset.status && asset.status.toLowerCase() === "active"
+      );
+
+      const defaultPeriodik =
+        selectedStandard.details?.[0]?.pengecekanList?.[0]?.periodik
+          ? selectedStandard.details[0].pengecekanList[0].periodik
+              .trim()
+              .split(/\s+/)
+              .map((word) => word.charAt(0).toUpperCase() + word.slice(1).toLowerCase())
+              .join(" ")
+          : "1 Bulan";
+
+      setAssets(activeAssets);
+      setSelectedAssetIds([]);
+      form.setFieldsValue({
+        asset_ids: [],
+        periodik: defaultPeriodik,
+      });
+    },
+    [allAssets, form, standards]
+  );
+
+  const openCreateScheduleModal = useCallback(async () => {
+    try {
+      const { default: assetService } = await import("./../assetManagement/services/assetService");
+      const assetData = await assetService.getAll({ pageSize: 1000 });
+      const activeAssets = (assetData?.data || []).filter(
+        (asset) => asset.status && asset.status.toLowerCase() === "active"
+      );
+
+      setAllAssets(activeAssets);
+      setAssets(activeAssets);
+      setIsManualCreateMode(true);
+      setIsEditMode(false);
+      setEditScheduleId(null);
+      setIsSplitMode(false);
+      setSelectedAssetIds([]);
+      form.resetFields();
+      form.setFieldsValue({
+        asset_ids: [],
+        periodik: "1 Bulan",
+      });
+      setIsModalVisible(true);
+    } catch (error) {
+      console.error(error);
+      message.error("Gagal memuat data asset");
+    }
+  }, [form]);
 
   const handleCancelSchedule = useCallback(async () => {
     try {
@@ -299,6 +386,7 @@ export default function MaintenanceSchedulePage() {
     setCancelModal,
     setLoading: () => { },
     isReadOnly,
+    handleToggleChecklist,
   });
 
   // Calculate statistics
@@ -384,25 +472,60 @@ export default function MaintenanceSchedulePage() {
           style={{ marginBottom: 16 }}
         />
 
+        <div className="maintenance-excel__legend">
+          <span className="maintenance-excel__legend-title">Legend:</span>
+          <span className="maintenance-excel__legend-item">
+            <span className="maintenance-excel__legend-box is-checked"><CheckOutlined /></span>
+            Aktual
+          </span>
+          <span className="maintenance-excel__legend-item">
+            <span className="maintenance-excel__legend-box is-pending" />
+            Plan
+          </span>
+          <span className="maintenance-excel__legend-item">
+            <span className="maintenance-excel__legend-box is-weekend" />
+            Weekend
+          </span>
+          <span className="maintenance-excel__legend-item">
+            <span className="maintenance-excel__legend-box is-holiday" />
+            Holiday
+          </span>
+        </div>
+
         {/* GANTT TABLE SECTION */}
-        <Table
-          loading={loading}
-          columns={activeColumns}
-          dataSource={displaySchedules}
-          pagination={{
-            total: displaySchedules.length,
-            showTotal: (total) => (
-              <span className="pagination-total">Total {total} baris</span>
-            ),
-            pageSize: 20,
-            showSizeChanger: true,
-            pageSizeOptions: ["10", "20", "50"],
-          }}
-          bordered
-          size="middle"
-          scroll={{ x: "max-content", y: "calc(100vh - 400px)" }}
-          className="premium-gantt-table"
-        />
+        {displaySchedules.length === 0 ? (
+          <div className="maintenance-excel__empty">
+            <Empty
+              description="Belum ada jadwal maintenance"
+              image={Empty.PRESENTED_IMAGE_SIMPLE}
+            >
+              {!isReadOnly && (
+                <Button type="primary" className="action-btn-primary" onClick={openCreateScheduleModal}>
+                  Tambah Jadwal
+                </Button>
+              )}
+            </Empty>
+          </div>
+        ) : (
+          <Table
+            loading={loading}
+            columns={activeColumns}
+            dataSource={displaySchedules}
+            pagination={{
+              total: displaySchedules.length,
+              showTotal: (total) => (
+                <span className="pagination-total">Total {total} baris</span>
+              ),
+              pageSize: 20,
+              showSizeChanger: true,
+              pageSizeOptions: ["10", "20", "50"],
+            }}
+            bordered
+            size="middle"
+            scroll={{ x: "max-content", y: "calc(100vh - 400px)" }}
+            className="premium-gantt-table"
+          />
+        )}
       </Card>
 
       {/* MODALS SECTION */}
@@ -410,6 +533,7 @@ export default function MaintenanceSchedulePage() {
         open={isModalVisible}
         onCancel={() => {
           setIsModalVisible(false);
+          setIsManualCreateMode(false);
           setIsEditMode(false);
           setEditScheduleId(null);
           setIsSplitMode(false);
@@ -489,6 +613,7 @@ export default function MaintenanceSchedulePage() {
                 message.success(res.message || "Berhasil membuat jadwal manual");
               }
               setIsModalVisible(false);
+              setIsManualCreateMode(false);
               setIsEditMode(false);
               setEditScheduleId(null);
               setIsSplitMode(false);
@@ -510,6 +635,8 @@ export default function MaintenanceSchedulePage() {
         viewMode={viewMode}
         standards={standards}
         isReadOnly={isReadOnly}
+        allowStandardSelection={isManualCreateMode}
+        onStandardChange={applyStandardToForm}
       />
 
       <CopyScheduleModal

@@ -17,6 +17,7 @@ import Sidebar from "./components/Sidebar";
 
 const PageHeaderContext = createContext(null);
 
+// eslint-disable-next-line react-refresh/only-export-components
 export function usePageHeader() {
   return useContext(PageHeaderContext);
 }
@@ -24,19 +25,22 @@ export function usePageHeader() {
 function MainLayout({ children }) {
   const location = useLocation();
   const [open, setOpen] = useState(false);
+  const [headerBreadcrumb, setHeaderBreadcrumb] = useState("");
   const [headerTitle, setHeaderTitle] = useState("");
   const [headerSubtitle, setHeaderSubtitle] = useState("");
 
   useEffect(() => {
-    setHeaderTitle("");
-    setHeaderSubtitle("");
     window.scrollTo(0, 0);
-    setOpen(false);
+    const timerId = window.setTimeout(() => {
+      setOpen(false);
+    }, 0);
+    return () => window.clearTimeout(timerId);
   }, [location.pathname]);
 
   return (
     <PageHeaderContext.Provider
       value={{
+        setHeaderBreadcrumb,
         setHeaderTitle,
         setHeaderSubtitle,
       }}
@@ -66,7 +70,10 @@ function MainLayout({ children }) {
           >
             {headerTitle && (
               <div className="dashboard-page-head">
-                <div>
+                <div className="dashboard-page-heading">
+                  {headerBreadcrumb && (
+                    <div className="dashboard-page-breadcrumb">{headerBreadcrumb}</div>
+                  )}
                   <h1 className="dashboard-page-title">{headerTitle}</h1>
                   {headerSubtitle && (
                     <div className="dashboard-page-subtitle">{headerSubtitle}</div>

@@ -41,12 +41,18 @@ function AssetFilter({
   status,
   onKeywordChange,
   onStatusChange,
+  statusOptions = STATUS_OPTIONS,
 }) {
   const [search, setSearch] =
     useState(keyword);
 
   useEffect(() => {
-    setSearch(keyword);
+    const timer = setTimeout(() => {
+      setSearch(keyword);
+    }, 0);
+
+    return () =>
+      clearTimeout(timer);
   }, [keyword]);
 
   useEffect(() => {
@@ -98,7 +104,7 @@ function AssetFilter({
             }
             placeholder="Filter status"
             options={
-              STATUS_OPTIONS
+              statusOptions
             }
             onChange={(v) =>
               onStatusChange(

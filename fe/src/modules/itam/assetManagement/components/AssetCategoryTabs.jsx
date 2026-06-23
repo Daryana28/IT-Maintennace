@@ -17,20 +17,49 @@ export default function AssetCategoryTabs({
  setLv2,
  setLv3,
  setLv4,
+ scopeRootId = "",
 }) {
  const visibleCategories = categories.filter((x) => {
   const show = x.show_in_tabs;
   return show !== false && show !== 0 && show !== '0' && show !== 'false';
  });
 
+ const getDescendantIds = (parentId) => {
+  const ids = [];
+  const visit = (currentParentId) => {
+   visibleCategories
+    .filter((item) => toId(item.parent_id) === toId(currentParentId))
+    .forEach((child) => {
+     ids.push(toId(child.category_id));
+     visit(child.category_id);
+    });
+  };
+
+  visit(parentId);
+  return ids;
+ };
+
+ const scopedCategories = scopeRootId
+  ? visibleCategories.filter((item) => {
+    const scopedIds = new Set([
+     toId(scopeRootId),
+     ...getDescendantIds(scopeRootId),
+    ]);
+
+    return scopedIds.has(toId(item.category_id));
+   })
+  : visibleCategories;
+
  const getChildren = (parentId) =>
-  visibleCategories.filter(
+  scopedCategories.filter(
    (x) => toId(x.parent_id) === toId(parentId)
   );
 
- const roots = visibleCategories.filter(
-  (x) => !x.parent_id
- );
+ const roots = scopeRootId
+  ? getChildren(scopeRootId)
+  : scopedCategories.filter(
+   (x) => !x.parent_id
+  );
 
  const lv2Tabs =
   lv1

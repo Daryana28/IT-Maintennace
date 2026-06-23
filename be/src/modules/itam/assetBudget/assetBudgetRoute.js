@@ -3,6 +3,7 @@ import * as controller from "./assetBudgetController.js";
 
 const router = express.Router();
 
+router.get("/", controller.getAssetBudgets);
 router.post("/import", controller.importAssetBudgets);
 
 export default router;

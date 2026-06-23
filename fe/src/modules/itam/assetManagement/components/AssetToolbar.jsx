@@ -1,4 +1,4 @@
-import { Button, Upload } from "antd";
+import { Button, Upload, Space } from "antd";
 import {
  DownloadOutlined,
  UploadOutlined,
@@ -13,7 +13,7 @@ export default function AssetToolbar({
  onPrintLabels,
 }) {
  return (
-  <>
+  <Space wrap size="small">
    <Button onClick={onTemplate} icon={<FileExcelOutlined />}>
     Template Excel
    </Button>
@@ -41,6 +41,6 @@ export default function AssetToolbar({
    >
     Cetak Label
    </Button>
-  </>
+  </Space>
  );
 }

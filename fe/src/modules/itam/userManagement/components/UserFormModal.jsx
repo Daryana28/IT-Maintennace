@@ -71,7 +71,7 @@ const UserFormModal = memo(function UserFormModal({
             onCancel={onCancel}
             footer={null}
             width={600}
-            destroyOnClose
+            destroyOnHidden
             centered
         >
             <Form

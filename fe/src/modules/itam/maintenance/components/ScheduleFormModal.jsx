@@ -15,7 +15,9 @@ export default function ScheduleFormModal({
   assets,
   viewMode,
   standards,
-  isReadOnly
+  isReadOnly,
+  allowStandardSelection = false,
+  onStandardChange,
 }) {
   return (
     <Modal
@@ -28,6 +30,28 @@ export default function ScheduleFormModal({
       okButtonProps={{ style: { display: isReadOnly ? 'none' : 'inline-block' } }}
     >
       <Form form={form} layout="vertical">
+        {allowStandardSelection && (
+          <Form.Item
+            name="standard_maintenance_id"
+            label="Standard Maintenance"
+            rules={[{ required: true, message: "Pilih standard maintenance" }]}
+          >
+            <Select
+              showSearch
+              optionFilterProp="children"
+              placeholder="Pilih standard maintenance"
+              disabled={isReadOnly}
+              onChange={onStandardChange}
+            >
+              {standards.map((sm) => (
+                <Select.Option key={sm.id} value={sm.id}>
+                  {sm.kategori} - {sm.namaPerangkat} ({sm.subPerangkat || "-"})
+                </Select.Option>
+              ))}
+            </Select>
+          </Form.Item>
+        )}
+
         <Form.Item 
           name="asset_ids" 
           label={
@@ -147,15 +171,17 @@ export default function ScheduleFormModal({
         )}
         
         <div style={{ display: 'none' }}>
-          <Form.Item name="standard_maintenance_id">
-            <Select showSearch optionFilterProp="children">
-              {standards.map(sm => (
-                <Select.Option key={sm.id} value={sm.id}>
-                  {sm.kategori} - {sm.namaPerangkat} ({sm.subPerangkat})
-                </Select.Option>
-              ))}
-            </Select>
-          </Form.Item>
+          {!allowStandardSelection && (
+            <Form.Item name="standard_maintenance_id">
+              <Select showSearch optionFilterProp="children">
+                {standards.map(sm => (
+                  <Select.Option key={sm.id} value={sm.id}>
+                    {sm.kategori} - {sm.namaPerangkat} ({sm.subPerangkat})
+                  </Select.Option>
+                ))}
+              </Select>
+            </Form.Item>
+          )}
           <Form.Item name="periodik">
             <Select>
               <Select.Option value="1 Hari">1 Hari</Select.Option>

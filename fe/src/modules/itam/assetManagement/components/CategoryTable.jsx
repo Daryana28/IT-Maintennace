@@ -1,6 +1,6 @@
 import React from "react";
 import { Table, Tag, Button, Space, Popconfirm, Tooltip } from "antd";
-import { NodeIndexOutlined, EditOutlined, DeleteOutlined } from "@ant-design/icons";
+import { NodeIndexOutlined, EditOutlined, DeleteOutlined, ArrowUpOutlined, ArrowDownOutlined, SwapOutlined } from "@ant-design/icons";
 
 export default function CategoryTable({
   loading,
@@ -10,6 +10,10 @@ export default function CategoryTable({
   onAddSub,
   onEdit,
   onDelete,
+  onPromote,
+  onDemote,
+  onTransfer,
+  formatCategoryName,
 }) {
   const renderLevelTag = (level) => {
     const num = Number(level || 1);
@@ -27,7 +31,13 @@ export default function CategoryTable({
       dataIndex: "category_name",
       key: "category_name",
       width: 320,
-      render: (text) => <span className="category-name-text">{text}</span>,
+      render: (_, row) => (
+        <span className="category-name-text">
+          {typeof formatCategoryName === "function"
+            ? formatCategoryName(row)
+            : row.category_name}
+        </span>
+      ),
     },
     {
       title: "LEVEL",
@@ -68,10 +78,28 @@ export default function CategoryTable({
     {
       title: "ACTION",
       key: "action",
-      width: 180,
+      width: 240,
       align: "center",
       render: (_, row) => (
         <Space size="small">
+          {Number(row.level_no) > 1 && (
+            <Tooltip title="Promote (Move Up Level)">
+              <Button
+                type="text"
+                icon={<ArrowUpOutlined />}
+                onClick={() => onPromote(row)}
+              />
+            </Tooltip>
+          )}
+          {Number(row.level_no) < 4 && (
+            <Tooltip title="Demote (Move Down Level)">
+              <Button
+                type="text"
+                icon={<ArrowDownOutlined />}
+                onClick={() => onDemote(row)}
+              />
+            </Tooltip>
+          )}
           {Number(row.level_no) < 4 && (
             <Tooltip title="Add Sub-Category">
               <Button
@@ -81,6 +109,13 @@ export default function CategoryTable({
               />
             </Tooltip>
           )}
+          <Tooltip title="Move Category">
+            <Button
+              type="text"
+              icon={<SwapOutlined className="category-name-text" />}
+              onClick={() => onTransfer(row)}
+            />
+          </Tooltip>
           <Tooltip title="Edit Category">
             <Button
               type="text"
@@ -108,6 +143,7 @@ export default function CategoryTable({
     },
   ];
 
+
   return (
     <Table
       className="category-table"
@@ -122,6 +158,13 @@ export default function CategoryTable({
         onExpandedRowsChange,
         expandIcon: ({ expanded, onExpand, record }) => {
           if (!record.children || record.children.length === 0) {
+            if (Number(record.level_no || 1) === 1) {
+              return (
+                <span className="category-expand-btn category-expand-btn-empty">
+                  +
+                </span>
+              );
+            }
             return <span className="category-expand-spacer" />;
           }
           return (

@@ -22,11 +22,30 @@ import UserSection from "./form/UserSection";
 import FinanceSection from "./form/FinanceSection";
 import NetworkSection from "./form/NetworkSection";
 import ClassificationSection from "./form/ClassificationSection";
+import {
+ getAssetTypeProfile,
+ normalizeAssetType as normalizeName,
+ resolveAssetTypeKey,
+} from "../utils/assetTypeProfiles";
+
+const ROOT_LABEL_MAP = {
+ hardware: "Hardware",
+ "software hardware": "Software Hardware",
+ software: "Application",
+ application: "Application",
+ networking: "Network",
+ network: "Network",
+ cyber: "Cyber Security",
+ "cyber security": "Cyber Security",
+};
+
+const ALLOWED_ROOTS = new Set(Object.keys(ROOT_LABEL_MAP));
 
 export default function AssetForm({
  open,
  initialValues,
  categories = [],
+ routeGroup = "",
  onCancel,
  onSubmit,
 }) {
@@ -48,19 +67,126 @@ export default function AssetForm({
   [categories]
  );
 
- const buildOptions = useCallback(
-  (parentId) =>
-   categories
-    .filter(
-     (x) =>
-      String(x.parent_id ?? "") ===
-      String(parentId ?? "")
-    )
-    .map((x) => ({
-     value: Number(x.category_id),
-     label: x.category_name,
-    })),
+ const activeTypeKey = useMemo(() => {
+  const selectedRoot = categoryMap.get(
+   String(lv1 ?? "")
+  );
+  const rootName =
+   selectedRoot?.category_name ||
+   routeGroup;
+  return resolveAssetTypeKey(rootName);
+ }, [categoryMap, lv1, routeGroup]);
+
+ const typeProfile = useMemo(
+  () => getAssetTypeProfile(activeTypeKey),
+  [activeTypeKey]
+ );
+
+ const getRootCategoryIdByRoute = useCallback(
+  (groupName) => {
+   if (!groupName) return null;
+
+   const aliases = {
+    hardware: ["hardware"],
+    "software-hardware": ["software hardware"],
+    software: ["software", "application"],
+    application: ["software", "application"],
+    network: ["network", "networking"],
+    "cyber-security": ["cyber security", "cyber"],
+   };
+
+   const allowedNames =
+    aliases[normalizeName(groupName)] || [
+     normalizeName(groupName),
+    ];
+
+   const matchedRoot = categories.find(
+    (item) =>
+     !item.parent_id &&
+     allowedNames.includes(
+      normalizeName(item.category_name)
+     )
+   );
+
+   return matchedRoot
+    ? Number(matchedRoot.category_id)
+    : null;
+  },
   [categories]
+ );
+
+ const normalizedCategories = useMemo(
+  () =>
+   categories.map((item) => ({
+    ...item,
+    normalized_name: normalizeName(item.category_name),
+   })),
+  [categories]
+ );
+
+ const buildOptions = useCallback(
+  (parentId) => {
+   const options =
+    normalizedCategories
+     .filter(
+      (x) => {
+       if (
+        String(x.parent_id ?? "") !==
+        String(parentId ?? "")
+       ) {
+        return false;
+       }
+
+       if (parentId == null) {
+        return ALLOWED_ROOTS.has(
+         x.normalized_name
+        );
+       }
+
+       return true;
+      }
+     )
+     .map((x) => ({
+      value: Number(x.category_id),
+      label:
+       parentId == null
+        ? ROOT_LABEL_MAP[
+           x.normalized_name
+          ] ||
+          x.category_name
+        : x.category_name,
+      sortNo: Number(x.sort_no || 0),
+     }))
+     .sort(
+      (a, b) =>
+       a.sortNo - b.sortNo ||
+       a.label.localeCompare(b.label)
+     );
+
+   if (parentId != null) {
+    return options.map((option) => ({
+     value: option.value,
+     label: option.label,
+    }));
+   }
+
+   const seenLabels = new Set();
+   return options
+    .filter((option) => {
+     const key =
+      normalizeName(option.label);
+     if (seenLabels.has(key)) {
+      return false;
+     }
+     seenLabels.add(key);
+     return true;
+    })
+    .map((option) => ({
+     value: option.value,
+     label: option.label,
+    }));
+  },
+  [normalizedCategories]
  );
 
  const buildCategoryPath = useCallback(
@@ -91,6 +217,17 @@ export default function AssetForm({
   if (!open || initialValues) return;
 
   let active = true;
+  const defaultRootId =
+   getRootCategoryIdByRoute(routeGroup);
+
+  if (defaultRootId) {
+   form.setFieldsValue({
+    category_lv1: defaultRootId,
+    main_type: null,
+    category_lv2: null,
+    category_id: null,
+   });
+  }
 
   (async () => {
    const code =
@@ -107,7 +244,7 @@ export default function AssetForm({
   return () => {
    active = false;
   };
- }, [open, initialValues, form]);
+ }, [open, initialValues, form, routeGroup, getRootCategoryIdByRoute]);
 
  useEffect(() => {
   if (!open) return;
@@ -260,19 +397,27 @@ export default function AssetForm({
      mainTypeOptions={mainTypeOptions}
      lv2Options={lv2Options}
      lv3Options={lv3Options}
+     typeProfile={typeProfile}
     />
 
-    <UserSection />
+    <UserSection
+     typeProfile={typeProfile}
+    />
 
     <FinanceSection
+     typeProfile={typeProfile}
      onPurchaseChange={
       onPurchaseChange
      }
     />
 
-    <NetworkSection />
+    <NetworkSection
+     typeProfile={typeProfile}
+    />
 
-    <ClassificationSection />
+    <ClassificationSection
+     typeProfile={typeProfile}
+    />
    </Form>
   </Drawer>
  );

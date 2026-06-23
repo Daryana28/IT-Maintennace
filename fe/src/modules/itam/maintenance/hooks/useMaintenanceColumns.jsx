@@ -1,6 +1,6 @@
 import React from 'react';
 import { Tooltip, Button, message } from 'antd';
-import { CalendarOutlined, CopyOutlined, StopOutlined } from '@ant-design/icons';
+import { CalendarOutlined, CopyOutlined, StopOutlined, CheckOutlined, MinusOutlined } from '@ant-design/icons';
 import dayjs from 'dayjs';
 import { getRowSpan, filterAssetsByCategory } from '../utils/tableHelpers';
 
@@ -32,7 +32,8 @@ export const useMaintenanceColumns = ({
   setSelectedAssetIds,
   setCancelModal,
   setLoading,
-  isReadOnly
+  isReadOnly,
+  handleToggleChecklist,
 }) => {
   const activeYearStr = dayjs().year();
   const months = ["Jan", "Feb", "Mar", "Apr", "May", "Jun", "Jul", "Aug", "Sep", "Oct", "Nov", "Dec"];
@@ -625,6 +626,219 @@ export const useMaintenanceColumns = ({
     };
   });
 
+  const groupedDays = days.reduce((acc, day) => {
+    const monthKey = dayjs(day.dateString).format("MMM YYYY");
+    const lastGroup = acc[acc.length - 1];
+
+    if (lastGroup && lastGroup.key === monthKey) {
+      lastGroup.days.push(day);
+      return acc;
+    }
+
+    acc.push({
+      key: monthKey,
+      title: dayjs(day.dateString).format("MMMM YYYY").toUpperCase(),
+      days: [day],
+    });
+
+    return acc;
+  }, []);
+
+  const getSchedulesForDate = (record, dateString) =>
+    (record.schedules || []).filter((sch) => {
+      if (sch.status === "CANCELLED") return false;
+      const scheduleDate = dayjs(sch.next_maintenance_date || dayjs().format("YYYY-MM-DD")).format("YYYY-MM-DD");
+      return scheduleDate === dateString;
+    });
+
+  const renderChecklistState = (matchingSchedules) => {
+    const completedCount = matchingSchedules.filter((sch) => sch.status === "COMPLETED").length;
+
+    if (matchingSchedules.length === 0) return "empty";
+    if (completedCount === matchingSchedules.length) return "checked";
+    if (completedCount > 0) return "partial";
+    return "pending";
+  };
+
+  const checklistLeftColumns = [
+    {
+      title: "No",
+      dataIndex: "no",
+      key: "no",
+      width: 52,
+      align: "center",
+      className: "excel-col",
+    },
+    {
+      title: "Kategori",
+      dataIndex: "kategori",
+      key: "kategori",
+      width: 130,
+      className: "excel-col",
+      onCell: (record, index) => ({
+        rowSpan: getRowSpan(schedules, record, index, "kategori"),
+        style: { verticalAlign: "top", background: "#fff" },
+      }),
+    },
+    {
+      title: "Nama Perangkat",
+      dataIndex: "perangkat",
+      key: "perangkat",
+      width: 150,
+      className: "excel-col",
+      onCell: (record, index) => ({
+        rowSpan: getRowSpan(schedules, record, index, "perangkat", ["kategori"]),
+        style: { verticalAlign: "top", background: "#fff" },
+      }),
+    },
+    {
+      title: "Sub Perangkat",
+      dataIndex: "jenis",
+      key: "jenis",
+      width: 140,
+      className: "excel-col",
+      onCell: (record, index) => ({
+        rowSpan: getRowSpan(schedules, record, index, "jenis", ["kategori", "perangkat"]),
+        style: { verticalAlign: "top", background: "#fff" },
+      }),
+    },
+    {
+      title: "Fungsi",
+      dataIndex: "fungsi",
+      key: "fungsi",
+      width: 130,
+      className: "excel-col",
+      onCell: (record, index) => ({
+        rowSpan: getRowSpan(schedules, record, index, "fungsi", ["kategori", "perangkat", "jenis"]),
+        style: { verticalAlign: "top", background: "#fff" },
+      }),
+    },
+    {
+      title: "DESC",
+      dataIndex: "deskripsi",
+      key: "deskripsi",
+      width: 150,
+      className: "excel-col",
+      onCell: (record, index) => ({
+        rowSpan: getRowSpan(schedules, record, index, "deskripsi", ["kategori", "perangkat", "jenis", "fungsi"]),
+        style: { verticalAlign: "top", background: "#fff" },
+      }),
+    },
+    {
+      title: "Pengecekan",
+      dataIndex: "pengecekan",
+      key: "pengecekan",
+      width: 160,
+      className: "excel-col",
+    },
+    {
+      title: "Aplikasi",
+      children: [
+        {
+          title: "Standart",
+          dataIndex: "standard",
+          key: "standard",
+          width: 140,
+          className: "excel-col",
+        },
+        {
+          title: "Bagian",
+          dataIndex: "bagian",
+          key: "bagian",
+          width: 130,
+          className: "excel-col",
+        },
+        {
+          title: "Methode",
+          dataIndex: "metode",
+          key: "metode",
+          width: 120,
+          className: "excel-col",
+        },
+        {
+          title: "Alat",
+          dataIndex: "alat",
+          key: "alat",
+          width: 110,
+          className: "excel-col",
+        },
+      ],
+    },
+    {
+      title: "Periodik",
+      dataIndex: "periodik",
+      key: "periodik",
+      width: 86,
+      align: "center",
+      className: "excel-col",
+    },
+    {
+      title: "Aksi",
+      key: "aksi",
+      width: 64,
+      align: "center",
+      className: "excel-col",
+      render: (_, record) =>
+        isReadOnly ? null : (
+          <Tooltip title="Copy Schedule">
+            <Button
+              size="small"
+              type="text"
+              icon={<CopyOutlined style={{ color: "#1677ff" }} />}
+              onClick={() => {
+                setCopySourceSMId(record.sm_id);
+                setIsCopyModalVisible(true);
+              }}
+            />
+          </Tooltip>
+        ),
+    },
+  ];
+
+  const checklistDayColumns = groupedDays.map((group) => ({
+    title: group.title,
+    children: group.days.map((day) => ({
+      title: (
+        <div className={`maintenance-excel__day-head${day.isWeekend ? " is-weekend" : ""}${day.isHoliday ? " is-holiday" : ""}`}>
+          <div className="maintenance-excel__day-num">{day.dayNum}</div>
+          <div className="maintenance-excel__day-label">{String(day.label).toUpperCase()}</div>
+        </div>
+      ),
+      dataIndex: `check_${day.dateString}`,
+      key: `check_${day.dateString}`,
+      width: 40,
+      align: "center",
+      className: "maintenance-excel__day-col",
+      render: (_, record) => {
+        const matchingSchedules = getSchedulesForDate(record, day.dateString);
+        const state = renderChecklistState(matchingSchedules);
+        const scheduleIds = matchingSchedules.map((sch) => sch.id);
+        const canToggle = !isReadOnly && scheduleIds.length > 0;
+        const blockedState = day.isHoliday ? "holiday" : day.isWeekend ? "weekend" : "";
+        const cellState = scheduleIds.length > 0 ? state : blockedState || "empty";
+
+        return (
+          <button
+            type="button"
+            disabled={!canToggle}
+            className={`maintenance-excel__check-btn is-${cellState}${canToggle ? " is-clickable" : ""}`}
+            onClick={() => {
+              if (!canToggle) return;
+              handleToggleChecklist?.(scheduleIds, state !== "checked");
+            }}
+          >
+            {state === "checked" ? <CheckOutlined /> : state === "partial" ? <MinusOutlined /> : null}
+          </button>
+        );
+      },
+    })),
+  }));
+
+  const checklistColumns = [
+    ...checklistLeftColumns,
+    ...checklistDayColumns,
+  ];
+
   const columns = [
     { title: "No", dataIndex: "no", key: "no", width: 40, align: "center", fixed: "left", className: "sm-col" },
     {
@@ -732,5 +946,7 @@ export const useMaintenanceColumns = ({
     }
   ];
 
-  return viewMode === "yearly" ? baseYearlyCols : columns;
+  if (viewMode === "yearly") return baseYearlyCols;
+  if (viewMode === "daily") return columns;
+  return checklistColumns;
 };

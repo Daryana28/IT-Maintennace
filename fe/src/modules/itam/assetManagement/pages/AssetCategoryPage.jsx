@@ -5,13 +5,24 @@ import assetService from "../services/assetService";
 import { usePageHeader } from "@/layouts/MainLayout/MainLayout";
 import CategoryTable from "../components/CategoryTable";
 import CategoryFormModal from "../components/CategoryFormModal";
+import CategoryTransferModal from "../components/CategoryTransferModal";
+import {
+  normalizeCategoryName as normalizeName,
+  syncAssetCategoryStructure,
+} from "../utils/categoryStructure";
+
+const LEGACY_ROOT_NAMES = new Set(["software", "networking", "cyber"]);
+const isHardwareRootCategory = (row) => !row?.parent_id && normalizeName(row.category_name) === "hardware";
+const isLegacyRootCategory = (row) => !row?.parent_id && LEGACY_ROOT_NAMES.has(normalizeName(row.category_name));
 
 export default function AssetCategoryPage() {
   const [categories, setCategories] = useState([]);
   const [loading, setLoading] = useState(false);
   const [modalOpen, setModalOpen] = useState(false);
+  const [transferModalOpen, setTransferModalOpen] = useState(false);
   const [editingCategory, setEditingCategory] = useState(null);
   const [form] = Form.useForm();
+  const [transferForm] = Form.useForm();
   
   // Search query state
   const [searchQuery, setSearchQuery] = useState("");
@@ -19,14 +30,27 @@ export default function AssetCategoryPage() {
   // Expanded row keys state
   const [expandedRowKeys, setExpandedRowKeys] = useState([]);
   
-  const { setHeaderTitle, setHeaderSubtitle } = usePageHeader() || {};
+  const { setHeaderBreadcrumb, setHeaderTitle, setHeaderSubtitle } = usePageHeader() || {};
+  const structureSyncedRef = React.useRef(false);
 
+  const formatCategoryName = useCallback((row) => row?.category_name || "-", []);
   const loadData = useCallback(async () => {
     setLoading(true);
     try {
       // Fetch all categories including inactive ones
       const data = await assetService.getCategories({ all: true });
-      setCategories(Array.isArray(data) ? data : []);
+      const rows = Array.isArray(data) ? data : [];
+
+      if (!structureSyncedRef.current) {
+        structureSyncedRef.current = true;
+        const result = await syncAssetCategoryStructure(assetService, rows);
+        if (result.changed) {
+          setCategories(Array.isArray(result.rows) ? result.rows : []);
+          return;
+        }
+      }
+
+      setCategories(rows);
     } catch {
       message.error("Failed to load categories");
     } finally {
@@ -35,16 +59,24 @@ export default function AssetCategoryPage() {
   }, []);
 
   useEffect(() => {
-    loadData();
+    const timerId = window.setTimeout(() => {
+      void loadData();
+    }, 0);
+
+    return () => window.clearTimeout(timerId);
   }, [loadData]);
 
   // Filter categories by search query while maintaining hierarchy paths
   const filteredCategories = useMemo(() => {
-    if (!searchQuery) return categories;
+    const visibleCategories = categories.filter(
+      (row) => !isLegacyRootCategory(row)
+    );
+
+    if (!searchQuery) return visibleCategories;
     const q = searchQuery.toLowerCase();
     const matchedIds = new Set();
     
-    categories.forEach((c) => {
+    visibleCategories.forEach((c) => {
       if (
         c.category_name.toLowerCase().includes(q) ||
         String(c.category_id).includes(q)
@@ -54,19 +86,41 @@ export default function AssetCategoryPage() {
         let pid = c.parent_id;
         while (pid) {
           matchedIds.add(pid);
-          const parentNode = categories.find((x) => x.category_id === pid);
+          const parentNode = visibleCategories.find((x) => x.category_id === pid);
           pid = parentNode ? parentNode.parent_id : null;
         }
       }
     });
 
-    return categories.filter((c) => matchedIds.has(c.category_id));
+    return visibleCategories.filter((c) => matchedIds.has(c.category_id));
   }, [categories, searchQuery]);
 
   // Convert flat categories list to tree structure for Ant Design Table
   const treeData = useMemo(() => {
     const map = {};
     const roots = [];
+    const visibleIdSet = new Set(filteredCategories.map((node) => String(node.category_id)));
+    const hardwareRoot = filteredCategories.find((node) => isHardwareRootCategory(node));
+    const getVisibleParentId = (node) => {
+      let currentParentId = node.parent_id;
+
+      while (currentParentId) {
+        if (visibleIdSet.has(String(currentParentId))) {
+          return currentParentId;
+        }
+
+        const parentNode = categories.find(
+          (item) => String(item.category_id) === String(currentParentId)
+        );
+        currentParentId = parentNode?.parent_id || null;
+      }
+
+      if (hardwareRoot && Number(node.level_no || 1) > 1) {
+        return hardwareRoot.category_id;
+      }
+
+      return null;
+    };
 
     filteredCategories.forEach((node) => {
       map[node.category_id] = { ...node, key: String(node.category_id), children: [] };
@@ -74,8 +128,10 @@ export default function AssetCategoryPage() {
 
     filteredCategories.forEach((node) => {
       const mappedNode = map[node.category_id];
-      if (node.parent_id) {
-        const parent = map[node.parent_id];
+      const visibleParentId = getVisibleParentId(node);
+
+      if (visibleParentId) {
+        const parent = map[visibleParentId];
         if (parent) {
           parent.children.push(mappedNode);
         } else {
@@ -100,27 +156,31 @@ export default function AssetCategoryPage() {
     roots.sort((a, b) => (a.sort_no || 0) - (b.sort_no || 0));
     cleanEmptyChildren(roots);
     return roots;
-  }, [filteredCategories]);
+  }, [categories, filteredCategories]);
 
-  // Auto expand rows (especially after CRUD or when clearing search)
+  const prevSearchQuery = React.useRef(searchQuery);
+
+  // Auto expand rows based on search
   useEffect(() => {
-    if (searchQuery) {
-      const matchedParentIds = [];
-      filteredCategories.forEach((c) => {
-        const hasChildren = filteredCategories.some((child) => child.parent_id === c.category_id);
-        if (hasChildren) {
-          matchedParentIds.push(String(c.category_id));
-        }
-      });
-      setExpandedRowKeys(matchedParentIds);
-    } else {
-      // Auto expand all by default
-      const idsToExpand = categories
-        .filter((c) => categories.some((child) => child.parent_id === c.category_id))
-        .map((c) => String(c.category_id));
-      setExpandedRowKeys(idsToExpand);
-    }
-  }, [searchQuery, filteredCategories, categories]);
+    const timerId = window.setTimeout(() => {
+      if (searchQuery) {
+        const matchedParentIds = [];
+        filteredCategories.forEach((c) => {
+          const hasChildren = filteredCategories.some((child) => child.parent_id === c.category_id);
+          if (hasChildren) {
+            matchedParentIds.push(String(c.category_id));
+          }
+        });
+        setExpandedRowKeys(matchedParentIds);
+      } else if (prevSearchQuery.current !== "") {
+        // Hanya reset (collapse) jika sebelumnya ada pencarian dan sekarang di-clear
+        setExpandedRowKeys([]);
+      }
+      prevSearchQuery.current = searchQuery;
+    }, 0);
+
+    return () => window.clearTimeout(timerId);
+  }, [searchQuery, filteredCategories]);
 
   const handleExpandAll = () => {
     const idsToExpand = categories
@@ -141,6 +201,9 @@ export default function AssetCategoryPage() {
   const parentOptions = useMemo(() => {
     // 1. Filter out invalid parent choices first
     const validParentNodes = categories.filter((c) => {
+      if (isLegacyRootCategory(c)) {
+        return false;
+      }
       // Exclude the current editing category to prevent cycles
       if (editingCategory && String(c.category_id) === String(editingCategory.category_id)) {
         return false;
@@ -163,13 +226,13 @@ export default function AssetCategoryPage() {
     const roots = [];
 
     categories.forEach((node) => {
-      if (node.is_active) {
+      if (node.is_active && !isLegacyRootCategory(node)) {
         map[node.category_id] = { ...node, children: [] };
       }
     });
 
     categories.forEach((node) => {
-      if (node.is_active) {
+      if (node.is_active && !isLegacyRootCategory(node)) {
         const mappedNode = map[node.category_id];
         if (node.parent_id) {
           const parent = map[node.parent_id];
@@ -211,10 +274,10 @@ export default function AssetCategoryPage() {
       const prefix = level > 1 ? "\u00A0\u00A0".repeat(level - 1) + "└─ " : "";
       return {
         value: String(c.category_id),
-        label: `${prefix}${c.category_name} (${c.category_id})`,
+        label: `${prefix}${formatCategoryName(c)} (${c.category_id})`,
       };
     });
-  }, [categories, editingCategory]);
+  }, [categories, editingCategory, formatCategoryName]);
 
   const handleOpenCreate = () => {
     setEditingCategory(null);
@@ -252,6 +315,88 @@ export default function AssetCategoryPage() {
       show_in_tabs: row.show_in_tabs !== undefined ? !!row.show_in_tabs : true,
     });
     setModalOpen(true);
+  };
+
+  const handleOpenTransfer = (row) => {
+    setEditingCategory(row);
+    transferForm.setFieldsValue({
+      parent_id: row.parent_id ? String(row.parent_id) : undefined,
+    });
+    setTransferModalOpen(true);
+  };
+
+  const handleTransferSave = async () => {
+    try {
+      const values = await transferForm.validateFields();
+      const parentNode = categories.find((c) => String(c.category_id) === String(values.parent_id));
+      const newLevel = parentNode ? Number(parentNode.level_no || 1) + 1 : 1;
+
+      await assetService.updateCategory(editingCategory.category_id, {
+        category_name: editingCategory.category_name,
+        parent_id: values.parent_id ? Number(values.parent_id) : null,
+        level_no: newLevel,
+        is_active: !!editingCategory.is_active,
+        sort_no: Number(editingCategory.sort_no || 0),
+        show_in_tabs: !!editingCategory.show_in_tabs,
+      });
+      message.success("Category moved successfully");
+      setTransferModalOpen(false);
+      loadData();
+    } catch {
+      message.error("Failed to move category");
+    }
+  };
+
+  const handlePromote = async (row) => {
+    try {
+      // Dapatkan parent dari kategori saat ini
+      const parentNode = categories.find(c => c.category_id === row.parent_id);
+      const newParentId = parentNode?.parent_id || null;
+      const newLevel = Math.max(1, Number(row.level_no) - 1);
+
+      await assetService.updateCategory(row.category_id, {
+        category_name: row.category_name,
+        parent_id: newParentId,
+        level_no: newLevel,
+        is_active: !!row.is_active,
+        sort_no: Number(row.sort_no || 0),
+        show_in_tabs: !!row.show_in_tabs
+      });
+      message.success("Category promoted successfully");
+      loadData();
+    } catch {
+      message.error("Failed to promote category");
+    }
+  };
+
+  const handleDemote = async (row) => {
+    try {
+      // Cari sibling sebelumnya
+      const siblings = categories
+        .filter(c => c.parent_id === row.parent_id)
+        .sort((a, b) => (a.sort_no || 0) - (b.sort_no || 0));
+      
+      const currentIndex = siblings.findIndex(s => s.category_id === row.category_id);
+      
+      if (currentIndex > 0) {
+        const previousSibling = siblings[currentIndex - 1];
+        
+        await assetService.updateCategory(row.category_id, {
+          category_name: row.category_name,
+          parent_id: previousSibling.category_id,
+          level_no: Number(row.level_no) + 1,
+          is_active: !!row.is_active,
+          sort_no: Number(row.sort_no || 0),
+          show_in_tabs: !!row.show_in_tabs
+        });
+        message.success("Category demoted successfully");
+        loadData();
+      } else {
+        message.warning("No sibling above to demote to.");
+      }
+    } catch {
+      message.error("Failed to demote category");
+    }
   };
 
   const handleSave = async () => {
@@ -311,11 +456,12 @@ export default function AssetCategoryPage() {
 
   // Set Page Header Details
   useEffect(() => {
+    if (setHeaderBreadcrumb) setHeaderBreadcrumb("Asset Management > Manage Categories");
     if (setHeaderTitle) setHeaderTitle("Manage Categories");
     if (setHeaderSubtitle) {
-      setHeaderSubtitle("Manage category hierarchy levels and sorting rules for assets.");
+      setHeaderSubtitle("Atur struktur kategori asset, termasuk pemindahan kategori ke group baru.");
     }
-  }, [setHeaderTitle, setHeaderSubtitle]);
+  }, [setHeaderBreadcrumb, setHeaderTitle, setHeaderSubtitle]);
 
   return (
     <div className="page-shell category-page-container">
@@ -371,6 +517,10 @@ export default function AssetCategoryPage() {
           onAddSub={handleOpenAddSub}
           onEdit={handleOpenEdit}
           onDelete={handleDelete}
+          onPromote={handlePromote}
+          onDemote={handleDemote}
+          onTransfer={handleOpenTransfer}
+          formatCategoryName={formatCategoryName}
         />
       </Card>
 
@@ -382,6 +532,16 @@ export default function AssetCategoryPage() {
         parentOptions={parentOptions}
         onCancel={() => setModalOpen(false)}
         onSave={handleSave}
+      />
+      
+      {/* TRANSFER DIALOG */}
+      <CategoryTransferModal
+        open={transferModalOpen}
+        editingCategory={editingCategory}
+        form={transferForm}
+        parentOptions={parentOptions}
+        onCancel={() => setTransferModalOpen(false)}
+        onSave={handleTransferSave}
       />
     </div>
   );

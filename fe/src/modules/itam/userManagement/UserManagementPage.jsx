@@ -147,7 +147,7 @@ export default function UserManagementPage() {
                 </div>
             </div>
 
-            <Card bordered={false}>
+            <Card variant="borderless">
                 <Flex
                     justify="space-between"
                     align="center"

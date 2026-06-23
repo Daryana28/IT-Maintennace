@@ -3,14 +3,12 @@ import { Card, Row, Col, Space, Input, Select, Button, Table, Typography, Tag, T
 import { SearchOutlined, ReloadOutlined, PlusOutlined, EditOutlined, DeleteOutlined, SaveOutlined, CloseOutlined } from '@ant-design/icons';
 import standardMaintenanceService from '../../services/standardMaintenanceService';
 import Swal from 'sweetalert2';
-import ExpandedSubKategoriTable from './ListTabComponents/ExpandedSubKategoriTable';
-
-const { Text } = Typography;
 
 export default function ListTab({ categories = [], sortedData, onSave, yearlyStandardId }) {
   const [data, setData] = useState([]);
   const [isModalOpen, setIsModalOpen] = useState(false);
-  const [expandedRowKeys, setExpandedRowKeys] = useState([]);
+  const [detailModalOpen, setDetailModalOpen] = useState(false);
+  const [detailRecord, setDetailRecord] = useState(null);
   const [modalForm] = Form.useForm();
 
   useEffect(() => {
@@ -103,33 +101,55 @@ export default function ListTab({ categories = [], sortedData, onSave, yearlySta
     message.warning("Penghapusan Kategori tidak diizinkan dari level ini. Hapus Jenis Perangkat di level terdalam.");
   };
 
-  const handleGlobalExpand = (expanded, record) => {
-    if (expanded) setExpandedRowKeys(prev => [...prev, record.key]);
-    else setExpandedRowKeys(prev => prev.filter(k => k !== record.key));
-  };
+
 
   const columns = [
     {
+      title: "Nama Kategori",
+      dataIndex: "category_name",
+      key: "category_name",
+      render: (text) => <Typography.Text strong>{text}</Typography.Text>,
+    },
+    {
+      title: "Level",
+      dataIndex: "level_no",
+      key: "level_no",
+      width: 120,
+      align: 'center',
+      render: (level) => <Tag color="blue">Level {level}</Tag>,
+    },
+    {
+      title: "Status Maintenance",
+      key: "status",
+      width: 180,
+      align: 'center',
+      render: (_, record) => {
+        const count = record.maintenanceItems?.length || 0;
+        if (count > 0) {
+          return (
+            <Tag color="green" style={{ cursor: 'pointer' }} onClick={() => {
+              setDetailRecord(record);
+              setDetailModalOpen(true);
+            }}>
+              {count} Setup
+            </Tag>
+          );
+        }
+        return <Tag color="default">Belum ada</Tag>;
+      }
+    },
+    {
       title: "Aksi",
       key: "aksi",
-      width: 100,
+      width: 120,
       align: 'center',
       render: (_, record) => (
         <Space size={4}>
-          <Tooltip title="Hapus Lokal">
-            <Button type="text" danger icon={<DeleteOutlined />} onClick={() => handleDeleteParent(record)} />
+          <Tooltip title="Tambah / Edit Maintenance">
+            <Button type="primary" size="small" icon={<EditOutlined />} onClick={() => handleAddNode(record)} />
           </Tooltip>
         </Space>
       )
-    },
-    {
-      title: "Kategori",
-      dataIndex: "kategori",
-      key: "kategori",
-      render: (kat) => {
-        const color = kat?.toLowerCase() === 'utama' ? 'blue' : 'cyan';
-        return kat ? <Tag color={color}>{kat}</Tag> : '-';
-      }
     }
   ];
 
@@ -157,26 +177,35 @@ export default function ListTab({ categories = [], sortedData, onSave, yearlySta
         bordered
         columns={columns}
         dataSource={data}
-        pagination={{ pageSize: 10, showSizeChanger: true }}
+        pagination={{ pageSize: 50, showSizeChanger: true }}
         size="middle"
         rowClassName={() => 'custom-table-row'}
-        expandable={{
-          expandedRowKeys,
-          onExpand: handleGlobalExpand,
-          expandedRowRender: (record) => (
-            <ExpandedSubKategoriTable 
-              parentRecord={record} 
-              subKategoriList={record.subKategoriList} 
-              onSave={onSave} 
-              yearlyStandardId={yearlyStandardId} 
-              categories={categories}
-              globalExpandedRowKeys={expandedRowKeys}
-              onGlobalExpand={handleGlobalExpand}
-              onAddNode={handleAddNode}
-            />
-          ),
-        }}
       />
+
+      <Modal
+        title={`Data Standard Maintenance: ${detailRecord?.category_name || ''}`}
+        open={detailModalOpen}
+        onCancel={() => setDetailModalOpen(false)}
+        footer={[
+          <Button key="close" onClick={() => setDetailModalOpen(false)}>Tutup</Button>
+        ]}
+      >
+        {detailRecord?.maintenanceItems && detailRecord.maintenanceItems.length > 0 ? (
+          <ul>
+            {detailRecord.maintenanceItems.map(item => (
+              <li key={item.id}>
+                {item.namaPerangkat || item.subPerangkat || item.tipePerangkat || "Setup"} 
+                ({item.formattedDetails?.length || 0} fungsi/detail)
+              </li>
+            ))}
+          </ul>
+        ) : (
+          <Typography.Text type="secondary">Tidak ada data maintenance.</Typography.Text>
+        )}
+        <Button size="small" style={{ marginTop: 8 }} onClick={() => message.info("Fitur edit detail maintenance akan disesuaikan")}>
+          Edit Detail
+        </Button>
+      </Modal>
 
       <Modal
         title="Tambah Hierarki Perangkat Baru"

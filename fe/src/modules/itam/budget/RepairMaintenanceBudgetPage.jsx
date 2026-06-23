@@ -1,150 +1,115 @@
-import React, { useState, useEffect } from "react";
-import { Table, Card, Row, Col, Typography, Space, Button, DatePicker, Modal, Form, Input, InputNumber, Select, Popconfirm } from "antd";
-import { DownloadOutlined, PrinterOutlined, PlusOutlined, EditOutlined, DeleteOutlined, WalletOutlined, ArrowUpOutlined, ArrowDownOutlined } from "@ant-design/icons";
-import dayjs from "dayjs";
-import "./AssetBudgetPage.css"; 
+import React, { useState } from "react";
+import { Table, Card, Row, Col, Typography, Space, Button, Modal, Form, Input, InputNumber, Popconfirm } from "antd";
+import { DownloadOutlined, PrinterOutlined, PlusOutlined, EditOutlined, DeleteOutlined } from "@ant-design/icons";
+import "./OperationalBudgetPage.css";
 
 const { Title, Text } = Typography;
 
-export default function RepairMaintenanceBudgetPage() {
-  const [selectedMonth, setSelectedMonth] = useState(dayjs());
-  const [data, setData] = useState([]);
-  
+export default function OperationalBudgetPage() {
+  const [data, setData] = useState([
+    {
+      key: "1",
+      budgetCode: "OP-2026-001",
+      costCode: "CC-01",
+      acctBudget: "AB-100",
+      largeAccount: "LA-01",
+      costCode1: "CC1-A",
+      deptSect: "IT Dept",
+      accNo: "5001",
+      accDesc: "Software License",
+      itemName: "Microsoft 365",
+      reason: "Yearly Subscription",
+      initialBudgetPlan: 120000000,
+      initialBudgetActual: 110000000,
+      janPlan: 10000000, janActual: 9000000,
+      febPlan: 10000000, febActual: 10000000,
+      marPlan: 10000000, marActual: 8000000,
+      aprPlan: 10000000, aprActual: 11000000,
+      mayPlan: 10000000, mayActual: 10000000,
+      junPlan: 10000000, junActual: 10000000,
+      julPlan: 10000000, julActual: 9000000,
+      augPlan: 10000000, augActual: 10000000,
+      sepPlan: 10000000, sepActual: 10000000,
+      octPlan: 10000000, octActual: 12000000,
+      novPlan: 10000000, novActual: 10000000,
+      decPlan: 10000000, decActual: 10000000,
+    },
+    {
+      key: "2",
+      budgetCode: "OP-2026-002",
+      costCode: "CC-02",
+      acctBudget: "AB-101",
+      largeAccount: "LA-02",
+      costCode1: "CC1-B",
+      deptSect: "IT Infrastructure",
+      accNo: "5002",
+      accDesc: "Cloud Services",
+      itemName: "AWS Hosting",
+      reason: "Monthly Server Hosting",
+      initialBudgetPlan: 60000000,
+      initialBudgetActual: 55500000,
+      janPlan: 5000000, janActual: 4500000,
+      febPlan: 5000000, febActual: 4800000,
+      marPlan: 5000000, marActual: 5000000,
+      aprPlan: 5000000, aprActual: 5200000,
+      mayPlan: 5000000, mayActual: 5000000,
+      junPlan: 5000000, junActual: 5100000,
+      julPlan: 5000000, julActual: 4900000,
+      augPlan: 5000000, augActual: 5000000,
+      sepPlan: 5000000, sepActual: 4800000,
+      octPlan: 5000000, octActual: 5500000,
+      novPlan: 5000000, novActual: 5200000,
+      decPlan: 5000000, decActual: 500000,
+    },
+    {
+      key: "3",
+      budgetCode: "OP-2026-003",
+      costCode: "CC-01",
+      acctBudget: "AB-102",
+      largeAccount: "LA-01",
+      costCode1: "CC1-C",
+      deptSect: "IT Support",
+      accNo: "5003",
+      accDesc: "Telecommunication",
+      itemName: "Internet ISP",
+      reason: "Fiber Optic 1Gbps Dedicated",
+      initialBudgetPlan: 36000000,
+      initialBudgetActual: 33000000,
+      janPlan: 3000000, janActual: 3000000,
+      febPlan: 3000000, febActual: 3000000,
+      marPlan: 3000000, marActual: 3000000,
+      aprPlan: 3000000, aprActual: 3000000,
+      mayPlan: 3000000, mayActual: 3000000,
+      junPlan: 3000000, junActual: 3000000,
+      julPlan: 3000000, julActual: 3000000,
+      augPlan: 3000000, augActual: 3000000,
+      sepPlan: 3000000, sepActual: 3000000,
+      octPlan: 3000000, octActual: 3000000,
+      novPlan: 3000000, novActual: 3000000,
+      decPlan: 3000000, decActual: 0,
+    }
+  ]);
+
   const [isModalVisible, setIsModalVisible] = useState(false);
   const [modalMode, setModalMode] = useState("create");
   const [editingKey, setEditingKey] = useState(null);
   const [form] = Form.useForm();
 
   const formatCurrency = (value) => {
-    if (value === null || value === undefined || value === "") return "-";
+    if (!value) return "-";
     return new Intl.NumberFormat("id-ID", {
       minimumFractionDigits: 0,
     }).format(value);
-  };
-
-  // Simulasi data berubah secara dinamis berdasarkan bulan yang dipilih
-  const generateMockData = (month) => {
-    const selectedYear = month.year();
-    const selectedMonthIdx = month.month(); 
-    
-    let currentBalance = 177037987;
-    for (let i = 0; i < selectedMonthIdx; i++) {
-        const monthlySpend = 4000000 + (i * 500000); 
-        currentBalance -= monthlySpend;
-        if ((i + 1) % 3 === 0) {
-            currentBalance += 15000000;
-        }
-    }
-
-    const records = [
-      {
-        key: "opening",
-        isOpening: true,
-        no: "",
-        date: "",
-        voucherPo: "",
-        description: "OPENING",
-        transferIn: null,
-        transferOut: null,
-        addBudget: null,
-        decrease: null,
-        balance: currentBalance,
-      }
-    ];
-
-    const numTransactions = (selectedMonthIdx % 4) + 2; 
-    let runningBalance = currentBalance;
-    const maintenanceTasks = [
-      "Maintenance Server Rutin",
-      "Perbaikan Jalur Jaringan Area Timur",
-      "Penggantian Part AC Ruang Server",
-      "Service Kendaraan Operasional",
-      "Kalibrasi Alat Sensor",
-      "Perbaikan UPS Baterai",
-    ];
-
-    for (let i = 1; i <= numTransactions; i++) {
-      const day = String(i * 5 + (selectedMonthIdx % 3)).padStart(2, '0');
-      const dateStr = `${selectedYear}-${String(selectedMonthIdx + 1).padStart(2, '0')}-${day}`;
-      
-      const isAddBudget = (i === 3 && selectedMonthIdx % 2 === 0);
-      const isTransferIn = (i === 4 && selectedMonthIdx % 3 === 0);
-      
-      let transferIn = null;
-      let transferOut = null;
-      let addBudget = null;
-      let decrease = null;
-      let description = "";
-
-      if (isAddBudget) {
-        addBudget = 10000000 + (selectedMonthIdx * 1000000);
-        runningBalance += addBudget;
-        description = "Penambahan Alokasi Budget Operasional Kuartal";
-      } else if (isTransferIn) {
-        transferIn = 5000000 + (i * 500000);
-        runningBalance += transferIn;
-        description = "Transfer in Budget dari Proyek IT-01";
-      } else {
-        transferOut = 1500000 + (i * 750000) + (selectedMonthIdx * 100000);
-        runningBalance -= transferOut;
-        description = maintenanceTasks[(i + selectedMonthIdx) % maintenanceTasks.length];
-      }
-
-      records.push({
-        key: String(i),
-        no: String(i),
-        date: dateStr,
-        voucherPo: `PO/${selectedYear}/${String(selectedMonthIdx + 1).padStart(2, '0')}/${String(i * 3).padStart(3, '0')}`,
-        description,
-        transferIn,
-        transferOut,
-        addBudget,
-        decrease,
-        balance: runningBalance,
-      });
-    }
-
-    return records;
-  };
-
-  useEffect(() => {
-    setData(generateMockData(selectedMonth));
-  }, [selectedMonth]);
-
-  const recalculateBalances = (records) => {
-    let currentBalance = records[0]?.balance || 0; 
-    return records.map((record, index) => {
-      if (index === 0) return record; 
-      
-      const inAmount = (record.transferIn || 0) + (record.addBudget || 0);
-      const outAmount = (record.transferOut || 0) + (record.decrease || 0);
-      
-      currentBalance = currentBalance + inAmount - outAmount;
-      return { ...record, balance: currentBalance };
-    });
   };
 
   const handleOpenModal = (mode, record = null) => {
     setModalMode(mode);
     if (mode === "edit" && record) {
       setEditingKey(record.key);
-      let type = "transferOut";
-      let amount = record.transferOut;
-      if (record.transferIn) { type = "transferIn"; amount = record.transferIn; }
-      else if (record.addBudget) { type = "addBudget"; amount = record.addBudget; }
-      else if (record.decrease) { type = "decrease"; amount = record.decrease; }
-
-      form.setFieldsValue({
-        date: dayjs(record.date),
-        voucherPo: record.voucherPo,
-        description: record.description,
-        type,
-        amount
-      });
+      form.setFieldsValue(record);
     } else {
       setEditingKey(null);
       form.resetFields();
-      form.setFieldsValue({ date: dayjs(), type: "transferOut" });
     }
     setIsModalVisible(true);
   };
@@ -155,285 +120,249 @@ export default function RepairMaintenanceBudgetPage() {
   };
 
   const handleSubmit = (values) => {
-    const { date, voucherPo, description, type, amount } = values;
-    const newRecord = {
-      date: date.format("YYYY-MM-DD"),
-      voucherPo,
-      description,
-      transferIn: type === "transferIn" ? amount : null,
-      transferOut: type === "transferOut" ? amount : null,
-      addBudget: type === "addBudget" ? amount : null,
-      decrease: type === "decrease" ? amount : null,
-    };
+    const newRecord = { ...values };
 
-    let newData = [...data];
     if (modalMode === "create") {
       newRecord.key = Date.now().toString();
-      newRecord.no = String(newData.length);
-      newData.push(newRecord);
+      setData([newRecord, ...data]);
     } else {
-      newData = newData.map(item => item.key === editingKey ? { ...item, ...newRecord } : item);
+      setData(data.map(item => item.key === editingKey ? { ...item, ...newRecord } : item));
     }
-    
-    // Sort by date keeping opening at top
-    const opening = newData[0];
-    const rest = newData.slice(1).sort((a, b) => new Date(a.date) - new Date(b.date));
-    const sortedData = [opening, ...rest];
-
-    // Re-index 'no'
-    const finalData = sortedData.map((item, idx) => {
-      if (idx === 0) return item;
-      return { ...item, no: String(idx) };
-    });
-
-    setData(recalculateBalances(finalData));
     handleCloseModal();
   };
 
   const handleDelete = (key) => {
-    let newData = data.filter(item => item.key !== key);
-    // Re-index 'no'
-    newData = newData.map((item, idx) => {
-      if (idx === 0) return item;
-      return { ...item, no: String(idx) };
-    });
-    setData(recalculateBalances(newData));
+    setData(data.filter(item => item.key !== key));
   };
 
+  const tableData = [];
+  data.forEach((item) => {
+    tableData.push({
+      ...item,
+      isPlanRow: true,
+      rowSpan: 2,
+      tableKey: `${item.key}-plan`
+    });
+    tableData.push({
+      ...item,
+      isPlanRow: false,
+      rowSpan: 0,
+      tableKey: `${item.key}-actual`
+    });
+  });
+
+  const mergedCellRender = (text, record) => ({
+    children: text,
+    props: { rowSpan: record.rowSpan }
+  });
+
+  const createMonthCol = (m) => ({
+    title: m,
+    key: m.toLowerCase(),
+    width: 120,
+    align: "right",
+    render: (_, record) => {
+      const val = record.isPlanRow ? record[`${m.toLowerCase()}Plan`] : record[`${m.toLowerCase()}Actual`];
+      return record.isPlanRow ? <Text className="budget-val-plan">{formatCurrency(val)}</Text> : <Text className="budget-val-actual">{formatCurrency(val)}</Text>;
+    }
+  });
+
+  const quarterColumns = [
+    {
+      title: "Q1",
+      children: [
+        ...["Jan", "Feb", "Mar"].map(createMonthCol),
+        {
+          title: "計1",
+          key: "q1_total",
+          width: 120,
+          align: "right",
+          render: (_, record) => {
+            const total = record.isPlanRow
+              ? (record.janPlan || 0) + (record.febPlan || 0) + (record.marPlan || 0)
+              : (record.janActual || 0) + (record.febActual || 0) + (record.marActual || 0);
+            return record.isPlanRow ? <Text className="budget-val-plan" strong>{formatCurrency(total)}</Text> : <Text className="budget-val-actual" strong>{formatCurrency(total)}</Text>;
+          }
+        }
+      ]
+    },
+    {
+      title: "Q2",
+      children: [
+        ...["Apr", "May", "Jun"].map(createMonthCol),
+        {
+          title: "計1",
+          key: "q2_total",
+          width: 120,
+          align: "right",
+          render: (_, record) => {
+            const total = record.isPlanRow
+              ? (record.aprPlan || 0) + (record.mayPlan || 0) + (record.junPlan || 0)
+              : (record.aprActual || 0) + (record.mayActual || 0) + (record.junActual || 0);
+            return record.isPlanRow ? <Text className="budget-val-plan" strong>{formatCurrency(total)}</Text> : <Text className="budget-val-actual" strong>{formatCurrency(total)}</Text>;
+          }
+        }
+      ]
+    },
+    {
+      title: "Q3",
+      children: [
+        ...["Jul", "Aug", "Sep"].map(createMonthCol),
+        {
+          title: "計1",
+          key: "q3_total",
+          width: 120,
+          align: "right",
+          render: (_, record) => {
+            const total = record.isPlanRow
+              ? (record.julPlan || 0) + (record.augPlan || 0) + (record.sepPlan || 0)
+              : (record.julActual || 0) + (record.augActual || 0) + (record.sepActual || 0);
+            return record.isPlanRow ? <Text className="budget-val-plan" strong>{formatCurrency(total)}</Text> : <Text className="budget-val-actual" strong>{formatCurrency(total)}</Text>;
+          }
+        }
+      ]
+    },
+    {
+      title: "Q4",
+      children: [
+        ...["Oct", "Nov", "Dec"].map(createMonthCol),
+        {
+          title: "計1",
+          key: "q4_total",
+          width: 120,
+          align: "right",
+          render: (_, record) => {
+            const total = record.isPlanRow
+              ? (record.octPlan || 0) + (record.novPlan || 0) + (record.decPlan || 0)
+              : (record.octActual || 0) + (record.novActual || 0) + (record.decActual || 0);
+            return record.isPlanRow ? <Text className="budget-val-plan" strong>{formatCurrency(total)}</Text> : <Text className="budget-val-actual" strong>{formatCurrency(total)}</Text>;
+          }
+        }
+      ]
+    }
+  ];
+
   const columns = [
+    { title: "Budget Code", dataIndex: "budgetCode", key: "budgetCode", width: 140, fixed: "left", render: mergedCellRender },
+    { title: "Cost Code", dataIndex: "costCode", key: "costCode", width: 100, render: mergedCellRender },
+    { title: "Acct Budget", dataIndex: "acctBudget", key: "acctBudget", width: 100, render: mergedCellRender },
+    { title: "Large Account", dataIndex: "largeAccount", key: "largeAccount", width: 120, render: mergedCellRender },
+    { title: "Cost Code 1", dataIndex: "costCode1", key: "costCode1", width: 100, render: mergedCellRender },
+    { title: "Dept/Sect", dataIndex: "deptSect", key: "deptSect", width: 120, render: mergedCellRender },
+    { title: "Acc No", dataIndex: "accNo", key: "accNo", width: 80, render: mergedCellRender },
+    { title: "Acc Desc", dataIndex: "accDesc", key: "accDesc", width: 150, render: mergedCellRender },
+    { title: "Item Name", dataIndex: "itemName", key: "itemName", width: 150, render: mergedCellRender },
+    { title: "Reason for Application", dataIndex: "reason", key: "reason", width: 200, render: mergedCellRender },
     {
-      title: "No",
-      dataIndex: "no",
-      key: "no",
-      width: 60,
+      title: "Type",
+      key: "type",
+      width: 80,
       align: "center",
-      render: (text, record, index) => {
-        if (record.isOpening) return "";
-        return text;
+      render: (_, record) => record.isPlanRow ? <span className="type-tag-plan">Plan</span> : <span className="type-tag-actual">Actual</span>
+    },
+    {
+      title: "Initial Budget",
+      key: "initialBudget",
+      width: 140,
+      align: "right",
+      render: (_, record) => {
+        const val = record.isPlanRow ? record.initialBudgetPlan : record.initialBudgetActual;
+        return record.isPlanRow ? <Text className="budget-val-plan" strong>{formatCurrency(val)}</Text> : <Text className="budget-val-actual" strong>{formatCurrency(val)}</Text>;
       }
     },
+    ...quarterColumns,
     {
-      title: "Date",
-      dataIndex: "date",
-      key: "date",
-      width: 120,
-    },
-    {
-      title: "Purchase voucher/PO",
-      dataIndex: "voucherPo",
-      key: "voucherPo",
-      width: 200,
-    },
-    {
-      title: "Description",
-      dataIndex: "description",
-      key: "description",
-      width: 300,
-      render: (text, record) => {
-        if (record.isOpening) return <Text strong>{text}</Text>;
-        return text;
-      }
-    },
-    {
-      title: "Transfer in",
-      dataIndex: "transferIn",
-      key: "transferIn",
-      align: "right",
-      width: 150,
-      render: (val) => val ? formatCurrency(val) : "-",
-    },
-    {
-      title: "Transfer out",
-      dataIndex: "transferOut",
-      key: "transferOut",
-      align: "right",
-      width: 150,
-      render: (val) => val ? formatCurrency(val) : "-",
-    },
-    {
-      title: "Add. Budget",
-      dataIndex: "addBudget",
-      key: "addBudget",
-      align: "right",
-      width: 150,
-      render: (val) => val ? formatCurrency(val) : "-",
-    },
-    {
-      title: "Decrease",
-      dataIndex: "decrease",
-      key: "decrease",
-      align: "right",
-      width: 150,
-      render: (val) => val ? formatCurrency(val) : "-",
-    },
-    {
-      title: "Balance",
-      dataIndex: "balance",
-      key: "balance",
-      align: "right",
-      width: 180,
-      fixed: "right",
-      render: (val, record) => (
-        <Text strong style={{ color: record.isOpening ? '#1694d1' : 'inherit' }}>
-          {formatCurrency(val)}
-        </Text>
-      )
-    },
-    {
-      title: "Aksi",
+      title: "Action",
       key: "action",
       align: "center",
       fixed: "right",
       width: 100,
-      render: (_, record) => {
-        if (record.isOpening) return null;
-        return (
+      render: (_, record) => ({
+        children: (
           <Space size="small">
             <Button type="primary" ghost icon={<EditOutlined />} size="small" onClick={() => handleOpenModal("edit", record)} />
-            <Popconfirm
-              title="Hapus transaksi?"
-              onConfirm={() => handleDelete(record.key)}
-              okText="Ya"
-              cancelText="Batal"
-            >
+            <Popconfirm title="Hapus?" onConfirm={() => handleDelete(record.key)} okText="Ya" cancelText="Batal">
               <Button type="primary" danger ghost icon={<DeleteOutlined />} size="small" />
             </Popconfirm>
           </Space>
-        );
-      }
+        ),
+        props: { rowSpan: record.rowSpan }
+      })
     }
   ];
 
-  const openingBalance = data[0]?.balance || 0;
-  const currentBalance = data[data.length - 1]?.balance || 0;
-  const totalPengeluaran = data.reduce((acc, curr) => acc + (curr.transferOut || 0) + (curr.decrease || 0), 0);
-
   return (
-    <div className="budget-asset-page">
-      <div className="page-header">
+    <div className="op-budget-page">
+      <div className="op-budget-header">
         <div>
-          <Title level={3} style={{ margin: 0 }}>Budget Control</Title>
-          <Text type="secondary">Repair & Maintenance Budget Tracking</Text>
+          <Title className="op-budget-title">Operational Budget Tracking</Title>
+          <Text className="op-budget-subtitle">Alokasi dan perencanaan pengeluaran operasional tahunan</Text>
         </div>
         <Space>
-          <DatePicker 
-            picker="month" 
-            value={selectedMonth}
-            onChange={(date) => setSelectedMonth(date || dayjs())}
-            allowClear={false}
-            format="MMMM YYYY"
-          />
-          <Button type="primary" icon={<PlusOutlined />} onClick={() => handleOpenModal("create")}>Tambah Transaksi</Button>
+          <Button type="primary" icon={<PlusOutlined />} onClick={() => handleOpenModal("create")}>Tambah Budget</Button>
           <Button icon={<PrinterOutlined />}>Print</Button>
           <Button icon={<DownloadOutlined />}>Export</Button>
         </Space>
       </div>
 
-      <Row gutter={[16, 16]} style={{ marginBottom: 24 }}>
-        <Col xs={24} sm={12} md={8}>
-          <Card bordered={false} style={{ background: '#94a3b8', borderRadius: '8px', color: '#1e293b' }}>
-            <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
-              <div>
-                <div style={{ fontSize: '13px', fontWeight: 600, marginBottom: '8px' }}>Saldo Awal (Opening)</div>
-                <div style={{ fontSize: '24px', fontWeight: 'bold', marginBottom: '4px' }}>{formatCurrency(openingBalance)}</div>
-                <div style={{ fontSize: '12px', opacity: 0.85 }}>Periode {selectedMonth.format("MMM YYYY")}</div>
-              </div>
-              <div style={{ fontSize: '40px', color: '#334155' }}>
-                <WalletOutlined />
-              </div>
-            </div>
-          </Card>
-        </Col>
-        <Col xs={24} sm={12} md={8}>
-          <Card bordered={true} style={{ borderRadius: '8px', borderColor: '#e2e8f0', boxShadow: '0 1px 2px rgba(0,0,0,0.05)' }}>
-            <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
-              <div>
-                <div style={{ fontSize: '13px', fontWeight: 600, marginBottom: '8px', color: '#1e293b' }}>Total Pengeluaran</div>
-                <div style={{ fontSize: '24px', fontWeight: 'bold', marginBottom: '4px', color: '#e11d48' }}>{formatCurrency(totalPengeluaran)}</div>
-                <div style={{ fontSize: '12px', color: '#64748b' }}>Transfer Out & Decrease</div>
-              </div>
-              <div style={{ fontSize: '40px', color: '#fda4af' }}>
-                <ArrowDownOutlined />
-              </div>
-            </div>
-          </Card>
-        </Col>
-        <Col xs={24} sm={12} md={8}>
-          <Card bordered={true} style={{ borderRadius: '8px', borderColor: '#e2e8f0', boxShadow: '0 1px 2px rgba(0,0,0,0.05)' }}>
-            <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
-              <div>
-                <div style={{ fontSize: '13px', fontWeight: 600, marginBottom: '8px', color: '#1e293b' }}>Saldo Akhir (Current)</div>
-                <div style={{ fontSize: '24px', fontWeight: 'bold', marginBottom: '4px', color: '#059669' }}>{formatCurrency(currentBalance)}</div>
-                <div style={{ fontSize: '12px', color: '#64748b' }}>Sisa budget saat ini</div>
-              </div>
-              <div style={{ fontSize: '40px', color: '#6ee7b7' }}>
-                <ArrowUpOutlined />
-              </div>
-            </div>
-          </Card>
-        </Col>
-      </Row>
-
-      <Card className="budget-card" bordered={false} bodyStyle={{ padding: 0 }}>
+      <Card className="op-budget-card" bordered={false} bodyStyle={{ padding: 0 }}>
         <Table
           columns={columns}
-          dataSource={data}
-          scroll={{ x: 1400 }}
+          dataSource={tableData}
+          rowKey="tableKey"
+          rowClassName={(record) => record.isPlanRow ? 'plan-row' : 'actual-row'}
+          className="op-budget-table"
+          scroll={{ x: 2600, y: 600 }}
           pagination={false}
           bordered
           size="middle"
-          rowClassName={(record) => record.isOpening ? 'table-row-light' : ''}
           className="budget-table"
         />
       </Card>
 
       <Modal
-        title={modalMode === "create" ? "Tambah Transaksi" : "Edit Transaksi"}
+        title={modalMode === "create" ? "Tambah Budget Operasional" : "Edit Budget Operasional"}
         open={isModalVisible}
         onCancel={handleCloseModal}
         onOk={() => form.submit()}
         okText="Simpan"
         cancelText="Batal"
         destroyOnClose
-        width={600}
+        width={900}
       >
         <Form form={form} layout="vertical" onFinish={handleSubmit}>
           <Row gutter={16}>
-            <Col xs={24} md={12}>
-              <Form.Item name="date" label="Tanggal" rules={[{ required: true, message: 'Tanggal wajib diisi' }]}>
-                <DatePicker style={{ width: '100%' }} format="YYYY-MM-DD" />
-              </Form.Item>
-            </Col>
-            <Col xs={24} md={12}>
-              <Form.Item name="voucherPo" label="Voucher / PO" rules={[{ required: true, message: 'Voucher/PO wajib diisi' }]}>
-                <Input placeholder="Nomor dokumen" />
-              </Form.Item>
-            </Col>
+            <Col span={8}><Form.Item name="budgetCode" label="Budget Code"><Input /></Form.Item></Col>
+            <Col span={8}><Form.Item name="costCode" label="Cost Code"><Input /></Form.Item></Col>
+            <Col span={8}><Form.Item name="acctBudget" label="Acct Budget"><Input /></Form.Item></Col>
           </Row>
-          <Form.Item name="description" label="Deskripsi" rules={[{ required: true, message: 'Deskripsi wajib diisi' }]}>
-            <Input.TextArea rows={2} placeholder="Deskripsi transaksi" />
-          </Form.Item>
           <Row gutter={16}>
-            <Col xs={24} md={12}>
-              <Form.Item name="type" label="Jenis Transaksi" rules={[{ required: true, message: 'Pilih jenis transaksi' }]}>
-                <Select>
-                  <Select.Option value="transferOut">Transfer Out</Select.Option>
-                  <Select.Option value="transferIn">Transfer In</Select.Option>
-                  <Select.Option value="addBudget">Add Budget</Select.Option>
-                  <Select.Option value="decrease">Decrease</Select.Option>
-                </Select>
-              </Form.Item>
-            </Col>
-            <Col xs={24} md={12}>
-              <Form.Item name="amount" label="Nominal" rules={[{ required: true, message: 'Nominal wajib diisi' }]}>
-                <InputNumber
-                  style={{ width: "100%" }}
-                  placeholder="Masukkan nominal"
-                  formatter={(value) => `Rp ${value}`.replace(/\B(?=(\d{3})+(?!\d))/g, ".")}
-                  parser={(value) => value.replace(/\Rp\s?|(\.*)/g, "")}
-                />
-              </Form.Item>
-            </Col>
+            <Col span={8}><Form.Item name="largeAccount" label="Large Account"><Input /></Form.Item></Col>
+            <Col span={8}><Form.Item name="costCode1" label="Cost Code 1"><Input /></Form.Item></Col>
+            <Col span={8}><Form.Item name="deptSect" label="Dept/Sect"><Input /></Form.Item></Col>
+          </Row>
+          <Row gutter={16}>
+            <Col span={8}><Form.Item name="accNo" label="Acc No"><Input /></Form.Item></Col>
+            <Col span={8}><Form.Item name="accDesc" label="Acc Desc"><Input /></Form.Item></Col>
+            <Col span={8}><Form.Item name="itemName" label="Item Name"><Input /></Form.Item></Col>
+          </Row>
+          <Row gutter={16}>
+            <Col span={16}><Form.Item name="reason" label="Reason for Application"><Input /></Form.Item></Col>
+          </Row>
+          <Row gutter={16}>
+            <Col span={12}><Form.Item name="initialBudgetPlan" label="Initial Budget (Plan)"><InputNumber style={{ width: '100%' }} /></Form.Item></Col>
+            <Col span={12}><Form.Item name="initialBudgetActual" label="Initial Budget (Actual)"><InputNumber style={{ width: '100%' }} /></Form.Item></Col>
+          </Row>
+          <Typography.Text strong style={{ display: 'block', marginBottom: '16px' }}>Alokasi Bulanan</Typography.Text>
+          <Row gutter={16}>
+            {["jan", "feb", "mar", "apr", "may", "jun"].map(m => (
+              <Col span={4} key={m}><Form.Item name={m} label={m.toUpperCase()}><InputNumber style={{ width: '100%' }} /></Form.Item></Col>
+            ))}
+          </Row>
+          <Row gutter={16}>
+            {["jul", "aug", "sep", "oct", "nov", "dec"].map(m => (
+              <Col span={4} key={m}><Form.Item name={m} label={m.toUpperCase()}><InputNumber style={{ width: '100%' }} /></Form.Item></Col>
+            ))}
           </Row>
         </Form>
       </Modal>

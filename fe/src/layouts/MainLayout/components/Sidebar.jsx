@@ -5,6 +5,7 @@ import React, {
   useState,
   useEffect,
   memo,
+  useRef,
 } from "react";
 
 import { Menu } from "antd";
@@ -65,10 +66,10 @@ function buildKeyPathMap(items, map = {}) {
   return map;
 }
 
-function findSelected(items, pathname, parentKey = "") {
+function findSelected(items, pathname, parentKeys = []) {
   let matched = {
     selectedKey: "",
-    openKey: "",
+    openKeys: [],
     score: -1,
   };
 
@@ -84,7 +85,7 @@ function findSelected(items, pathname, parentKey = "") {
         if (score > matched.score) {
           matched = {
             selectedKey: String(item.key),
-            openKey: String(parentKey),
+            openKeys: [...parentKeys],
             score,
           };
         }
@@ -92,7 +93,7 @@ function findSelected(items, pathname, parentKey = "") {
     }
 
     if (item.children) {
-      const child = findSelected(item.children, pathname, item.key);
+      const child = findSelected(item.children, pathname, [...parentKeys, String(item.key)]);
 
       if (child.score > matched.score) {
         matched = child;
@@ -138,19 +139,24 @@ const Sidebar = memo(function Sidebar({ mode = "horizontal" }) {
   );
 
   const [openKeys, setOpenKeys] = useState(() => loadOpenKeys());
+  const [hoverKeys, setHoverKeys] = useState([]);
+  const ignoreHover = useRef(false);
 
   useEffect(() => {
-    if (mode !== "inline") {
-      return;
-    }
+    if (mode !== "inline") return;
 
-    if (current.openKey && !openKeys.includes(current.openKey)) {
-      const next = [current.openKey];
-
-      setOpenKeys(next);
-      saveOpenKeys(next);
+    if (current.openKeys && current.openKeys.length > 0) {
+      setOpenKeys((prev) => {
+        const nextSet = new Set([...prev, ...current.openKeys]);
+        const next = Array.from(nextSet);
+        if (next.length !== prev.length) {
+          saveOpenKeys(next);
+          return next;
+        }
+        return prev;
+      });
     }
-  }, [current.openKey, mode, openKeys]);
+  }, [current.openKeys, mode]);
 
   const onClick = useCallback(
     ({ key }) => {
@@ -159,9 +165,23 @@ const Sidebar = memo(function Sidebar({ mode = "horizontal" }) {
       if (path && location.pathname !== path) {
         navigate(path);
       }
+
+      if (mode !== "inline") {
+        setHoverKeys([]);
+        ignoreHover.current = true;
+        setTimeout(() => {
+          ignoreHover.current = false;
+        }, 300);
+      }
     },
-    [keyPathMap, navigate, location.pathname]
+    [keyPathMap, navigate, location.pathname, mode]
   );
+
+  const onHorizontalOpenChange = useCallback((keys) => {
+    if (!ignoreHover.current) {
+      setHoverKeys(keys);
+    }
+  }, []);
 
   const onOpenChange = useCallback((keys) => {
     setOpenKeys(keys);
@@ -220,8 +240,8 @@ const Sidebar = memo(function Sidebar({ mode = "horizontal" }) {
           selectable
           items={items}
           selectedKeys={current.selectedKey ? [current.selectedKey] : []}
-          openKeys={mode === "inline" ? openKeys : undefined}
-          onOpenChange={mode === "inline" ? onOpenChange : undefined}
+          openKeys={mode === "inline" ? openKeys : hoverKeys}
+          onOpenChange={mode === "inline" ? onOpenChange : onHorizontalOpenChange}
           triggerSubMenuAction={mode === "inline" ? "click" : "hover"}
           onClick={onClick}
           className={mode === "inline" ? "drawer-menu" : "topnav-menu"}

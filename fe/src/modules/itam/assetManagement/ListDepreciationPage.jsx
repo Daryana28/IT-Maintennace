@@ -1,5 +1,5 @@
 import { useState, useCallback, useEffect } from "react";
-import { useNavigate } from "react-router-dom";
+import { useLocation, useNavigate } from "react-router-dom";
 import { Card, Space, Button, message, Flex, Divider, Modal } from "antd";
 import { PlusOutlined, ReloadOutlined, DownloadOutlined, UploadOutlined, PrinterOutlined, FileExcelOutlined } from "@ant-design/icons";
 import { encodePath } from "@/shared/utils/routeCipher";
@@ -21,10 +21,35 @@ import useAssetCategoryTabs from "./hooks/useAssetCategoryTabs";
 import useAssetPageState from "./hooks/useAssetPageState";
 
 import assetService from "./services/assetService";
+import {
+  getAssetRouteActionLabel,
+  getAssetRouteGroup,
+  getAssetRouteGroupLabel,
+  getScopedRootCategoryId,
+  getScopedCategoryIds,
+} from "./utils/routeCategoryScope";
+import { getAssetTypeProfile } from "./utils/assetTypeProfiles";
+
+const EXTRA_DEPRECIATION_STATUS_OPTIONS = [
+  { value: "RETIRED", label: "RETIRED" },
+  { value: "DISPOSE", label: "DISPOSE" },
+  { value: "DISPOSED", label: "DISPOSED" },
+];
+
+function getDescendantCategoryIds(parentId, categoriesList) {
+  if (!parentId) return [];
+  let ids = [parentId];
+  const children = categoriesList.filter((c) => String(c.parent_id) === String(parentId));
+  children.forEach((child) => {
+    ids = ids.concat(getDescendantCategoryIds(child.category_id, categoriesList));
+  });
+  return ids;
+}
 
 export default function ListDepreciationPage() {
   const navigate = useNavigate();
-  const { setHeaderTitle, setHeaderSubtitle } = usePageHeader() || {};
+  const location = useLocation();
+  const { setHeaderBreadcrumb, setHeaderTitle, setHeaderSubtitle } = usePageHeader() || {};
 
   const {
     rows = [],
@@ -48,10 +73,8 @@ export default function ListDepreciationPage() {
     setPreviewOpen,
     previewRows,
     setPreviewRows,
-    keyword,
-    setKeyword,
-    status,
-    setStatus,
+    headerFilters,
+    setHeaderFilter,
   } = useAssetPageState();
 
   const {
@@ -73,32 +96,52 @@ export default function ListDepreciationPage() {
   const [selectedRowKeys, setSelectedRowKeys] = useState([]);
   const [selectedRows, setSelectedRows] = useState([]);
   const [multiOpen, setMultiOpen] = useState(false);
-
-  const getDescendantCategoryIds = useCallback((parentId, categoriesList) => {
-    if (!parentId) return [];
-    let ids = [parentId];
-    const children = categoriesList.filter((c) => String(c.parent_id) === String(parentId));
-    children.forEach((child) => {
-      ids = ids.concat(getDescendantCategoryIds(child.category_id, categoriesList));
-    });
-    return ids;
-  }, []);
+  const routeGroup = getAssetRouteGroup(location.pathname);
+  const scopedRootCategoryId = getScopedRootCategoryId(categories, routeGroup);
+  const depreciationStatusOptions = [
+    ...new Map(
+      [
+        ...getAssetTypeProfile(routeGroup).statusOptions,
+        ...EXTRA_DEPRECIATION_STATUS_OPTIONS,
+      ].map((option) => [option.value, option])
+    ).values(),
+  ];
 
   const buildFilters = useCallback(
     (override = {}) => {
-      let categoryIds = selectedCategory;
+      const scopedCategoryIds = getScopedCategoryIds(categories, routeGroup);
+      const scopedIdList = scopedCategoryIds
+        ? scopedCategoryIds.split(",").filter(Boolean)
+        : [];
+
+      let finalCategoryIds = scopedCategoryIds;
+
       if (selectedCategory && categories?.length) {
-        categoryIds = getDescendantCategoryIds(selectedCategory, categories).join(",");
+        const selectedCategoryIds = getDescendantCategoryIds(
+          selectedCategory,
+          categories
+        ).map(String);
+
+        const scopedSelection = selectedCategoryIds.filter((id) =>
+          scopedIdList.includes(id)
+        );
+
+        if (scopedSelection.length > 0) {
+          finalCategoryIds = scopedSelection.join(",");
+        }
       }
+
       return {
         ...filters,
-        search: keyword,
-        status: status || "DISPOSE,DISPOSED",
-        category_id: categoryIds,
+        ...headerFilters,
+        has_depreciation_date: "1",
+        sort_by: "depreciation_date",
+        sort_order: "ASC",
+        category_id: finalCategoryIds,
         ...override,
       };
     },
-    [filters, keyword, status, selectedCategory, categories, getDescendantCategoryIds]
+    [filters, headerFilters, selectedCategory, categories, routeGroup]
   );
 
   const openDetail = useCallback(
@@ -109,7 +152,7 @@ export default function ListDepreciationPage() {
   const openQr = useCallback((row) => {
     setQrAsset(row);
     setQrOpen(true);
-  }, []);
+  }, [setQrAsset, setQrOpen]);
 
   const handleDepreciationClick = useCallback((record) => {
     Modal.info({
@@ -131,12 +174,12 @@ export default function ListDepreciationPage() {
   const closeQr = useCallback(() => {
     setQrAsset(null);
     setQrOpen(false);
-  }, []);
+  }, [setQrAsset, setQrOpen]);
 
   const handleSelectRows = useCallback((keys, rows) => {
     setSelectedRowKeys(keys);
     setSelectedRows(rows);
-  }, []);
+  }, [setSelectedRowKeys, setSelectedRows]);
 
   const openMultiPrint = useCallback(() => {
     if (!selectedRows.length) {
@@ -144,11 +187,11 @@ export default function ListDepreciationPage() {
       return;
     }
     setMultiOpen(true);
-  }, [selectedRows]);
+  }, [selectedRows, setMultiOpen]);
 
   const closeMultiPrint = useCallback(() => {
     setMultiOpen(false);
-  }, []);
+  }, [setMultiOpen]);
 
   const {
     openCreate,
@@ -181,15 +224,10 @@ export default function ListDepreciationPage() {
     return false; // Prevent auto upload
   }, [readExcel, setPreviewRows, setPreviewOpen]);
 
-  const handleKeywordChange = useCallback((value) => {
-    setKeyword(value);
-    reload(1, pageSize, buildFilters({ search: value }));
-  }, [reload, pageSize, buildFilters, setKeyword]);
-
-  const handleStatusChange = useCallback((value) => {
-    setStatus(value);
-    reload(1, pageSize, buildFilters({ status: value || "DISPOSE,DISPOSED" }));
-  }, [reload, pageSize, buildFilters, setStatus]);
+  const handleHeaderFilterChange = useCallback((field, value) => {
+    setHeaderFilter(field, value);
+    reload(1, pageSize, buildFilters({ [field]: value }));
+  }, [reload, pageSize, buildFilters, setHeaderFilter]);
 
   const handleTableChange = useCallback((pagination) => {
     reload(
@@ -204,16 +242,34 @@ export default function ListDepreciationPage() {
   }, [reload, page, pageSize, buildFilters]);
 
   useEffect(() => {
+    if (categories.length === 0) {
+      return;
+    }
+
     reload(1, pageSize, buildFilters());
     // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [selectedCategory]);
+  }, [categories, selectedCategory, routeGroup]);
 
   useEffect(() => {
+    setLv1("");
+    setLv2("");
+    setLv3("");
+    setLv4("");
+  }, [routeGroup, setLv1, setLv2, setLv3, setLv4]);
+
+  useEffect(() => {
+    const routeGroupLabel = getAssetRouteGroupLabel(routeGroup);
+    const routeActionLabel = getAssetRouteActionLabel(location.pathname);
+    const breadcrumbParts = ["Asset Management"];
+    if (routeGroupLabel) breadcrumbParts.push(routeGroupLabel);
+    if (routeActionLabel) breadcrumbParts.push(routeActionLabel);
+
+    if (setHeaderBreadcrumb) setHeaderBreadcrumb(breadcrumbParts.join(" > "));
     if (setHeaderTitle) setHeaderTitle("List Depresiasi");
     if (setHeaderSubtitle) {
-      setHeaderSubtitle("Monitor umur aset dan jadwal disposal / replacement.");
+      setHeaderSubtitle("Pantau aset yang sudah masuk masa penggantian atau disposal berdasarkan jadwal depresiasi.");
     }
-  }, [setHeaderTitle, setHeaderSubtitle]);
+  }, [location.pathname, routeGroup, setHeaderBreadcrumb, setHeaderTitle, setHeaderSubtitle]);
 
   return (
     <div className="workspace-page">
@@ -228,6 +284,7 @@ export default function ListDepreciationPage() {
           setLv2={setLv2}
           setLv3={setLv3}
           setLv4={setLv4}
+          scopeRootId={scopedRootCategoryId}
         />
       </div>
 
@@ -242,18 +299,19 @@ export default function ListDepreciationPage() {
         styles={{ body: { padding: '24px' } }}
       >
         <Flex 
+          className="workspace-card-toolbar"
           justify="space-between" 
           align="center" 
           wrap="wrap" 
-          gap="middle" 
-          style={{ marginBottom: '24px' }}
+          gap="middle"
         >
           <div className="workspace-filter-area" style={{ flex: '1 1 300px' }}>
             <AssetFilter
-              keyword={keyword}
-              status={status}
-              onKeywordChange={handleKeywordChange}
-              onStatusChange={handleStatusChange}
+              keyword={headerFilters.asset_name}
+              status={headerFilters.status}
+              statusOptions={depreciationStatusOptions}
+              onKeywordChange={(value) => handleHeaderFilterChange("asset_name", value)}
+              onStatusChange={(value) => handleHeaderFilterChange("status", value)}
             />
           </div>
 
@@ -302,6 +360,10 @@ export default function ListDepreciationPage() {
             onDepreciationClick={handleDepreciationClick}
             hidePlanColumns={true}
             viewOnlyActions={true}
+            headerFilters={headerFilters}
+            onHeaderFilterChange={handleHeaderFilterChange}
+            contextRouteGroup={routeGroup}
+            statusOptions={depreciationStatusOptions}
           />
         </div>
       </Card>
@@ -310,6 +372,7 @@ export default function ListDepreciationPage() {
         open={open}
         initialValues={editing}
         categories={categories}
+        routeGroup={routeGroup}
         onCancel={closeModal}
         onSubmit={onSubmit}
       />

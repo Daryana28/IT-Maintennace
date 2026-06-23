@@ -9,18 +9,19 @@ import {
 
 export default function FinanceSection({
  onPurchaseChange,
+ typeProfile,
 }) {
  return (
   <>
    <Divider orientation="left">
-    Financial
+    {typeProfile.financeSectionTitle}
    </Divider>
 
    <Row gutter={16}>
     <Col xs={24} md={12}>
      <Form.Item
       name="purchase_date"
-      label="Pembelian"
+      label={typeProfile.purchaseDateLabel}
      >
       <DatePicker
        style={{
@@ -37,7 +38,7 @@ export default function FinanceSection({
     <Col xs={24} md={12}>
      <Form.Item
       name="depreciation_date"
-      label="Depresiasi"
+      label={typeProfile.depreciationDateLabel}
      >
       <DatePicker
        style={{

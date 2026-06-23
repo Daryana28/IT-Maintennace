@@ -20,11 +20,33 @@ export default function useAssetPageState() {
   setPreviewRows,
  ] = useState([]);
 
- const [keyword, setKeyword] =
-  useState("");
+ const [headerFilters, setHeaderFilters] =
+  useState({
+   asset_code: "",
+   asset_name: "",
+   type: "",
+   division: "",
+   department: "",
+   owner_name: "",
+   nik: "",
+   purchase_date: "",
+   depreciation_date: "",
+   hostname: "",
+   ip_main: "",
+   ip_backup: "",
+   status: "",
+  });
 
- const [status, setStatus] =
-  useState("");
+ const setHeaderFilter = (
+  key,
+  value
+ ) =>
+  setHeaderFilters(
+   (prev) => ({
+    ...prev,
+    [key]: value,
+   })
+  );
 
  return {
   open,
@@ -39,10 +61,8 @@ export default function useAssetPageState() {
   previewRows,
   setPreviewRows,
 
-  keyword,
-  setKeyword,
-
-  status,
-  setStatus,
+  headerFilters,
+  setHeaderFilters,
+  setHeaderFilter,
  };
 }

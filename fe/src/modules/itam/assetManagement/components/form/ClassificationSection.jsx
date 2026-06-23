@@ -7,11 +7,13 @@ import {
   Row,
 } from "antd";
 
-export default function ClassificationSection() {
+export default function ClassificationSection({
+  typeProfile,
+}) {
   return (
     <>
       <Divider orientation="left">
-        User Classification
+        {typeProfile.classificationSectionTitle}
       </Divider>
 
       <Row gutter={16}>
@@ -21,7 +23,7 @@ export default function ClassificationSection() {
             valuePropName="checked"
           >
             <Checkbox>
-              Managerial
+              {typeProfile.classificationLabels[0]}
             </Checkbox>
           </Form.Item>
         </Col>
@@ -32,7 +34,7 @@ export default function ClassificationSection() {
             valuePropName="checked"
           >
             <Checkbox>
-              Meeting
+              {typeProfile.classificationLabels[1]}
             </Checkbox>
           </Form.Item>
         </Col>
@@ -43,7 +45,7 @@ export default function ClassificationSection() {
             valuePropName="checked"
           >
             <Checkbox>
-              Teknikal
+              {typeProfile.classificationLabels[2]}
             </Checkbox>
           </Form.Item>
         </Col>

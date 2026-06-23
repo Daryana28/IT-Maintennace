@@ -1,6 +1,6 @@
 // be\src\modules\itam\assets\services\getAll.js
 import db from "../../../../models/index.js";
-import { Op } from "sequelize";
+import { Op, where, col } from "sequelize";
 
 const {
  Asset,
@@ -49,50 +49,115 @@ export default async function (
   (page - 1) *
   pageSize;
 
- const where = {
-  ...(query.search && {
+ const andConditions = [];
+
+ if (query.search) {
+  andConditions.push({
    [Op.or]: [
     {
      asset_code: {
-      [Op.like]:
-       `%${query.search}%`,
+      [Op.like]: `%${query.search}%`,
      },
     },
     {
      asset_name: {
-      [Op.like]:
-       `%${query.search}%`,
+      [Op.like]: `%${query.search}%`,
      },
     },
    ],
-  }),
+  });
+ }
 
-  ...(query.status ? {
+ const likeFields = [
+  "asset_code",
+  "asset_name",
+  "division",
+  "department",
+  "owner_name",
+  "nik",
+  "purchase_date",
+  "depreciation_date",
+  "hostname",
+  "ip_main",
+  "ip_backup",
+ ];
+
+ likeFields.forEach((field) => {
+  if (query[field]) {
+   andConditions.push({
+    [field]: {
+     [Op.like]: `%${query[field]}%`,
+    },
+   });
+  }
+ });
+
+ if (query.type) {
+  andConditions.push(
+   where(col("category.category_name"), {
+    [Op.like]: `%${query.type}%`,
+   })
+  );
+ }
+
+ if (query.status) {
+  andConditions.push({
    status: query.status.toString().includes(",")
-    ? { [Op.in]: query.status.toString().split(",").map(s => s.trim()) }
+    ? { [Op.in]: query.status.toString().split(",").map((s) => s.trim()) }
     : query.status,
-  } : query.exclude_status ? {
+  });
+ } else if (query.exclude_status) {
+  andConditions.push({
    status: {
-    [Op.notIn]: query.exclude_status.split(",").map(s => s.trim()),
-   }
-  } : {}),
+    [Op.notIn]: query.exclude_status.split(",").map((s) => s.trim()),
+   },
+  });
+ }
 
-  ...(query.category_id && {
+ if (
+  query.has_depreciation_date === true ||
+  query.has_depreciation_date === "true" ||
+  query.has_depreciation_date === 1 ||
+  query.has_depreciation_date === "1"
+ ) {
+  andConditions.push({
+   depreciation_date: {
+    [Op.ne]: null,
+   },
+  });
+ }
+
+ if (query.category_id) {
+  andConditions.push({
    category_id: query.category_id.toString().includes(",")
     ? { [Op.in]: query.category_id.toString().split(",") }
     : query.category_id,
-  }),
- };
+  });
+ }
+
+ const whereClause = andConditions.length > 0
+  ? { [Op.and]: andConditions }
+  : {};
+
+ const sortBy =
+  query.sort_by === "depreciation_date"
+   ? "depreciation_date"
+   : "asset_id";
+
+ const sortOrder =
+  String(query.sort_order || "DESC").toUpperCase() === "ASC"
+   ? "ASC"
+   : "DESC";
 
  const result =
   await Asset.findAndCountAll(
    {
-    where,
+    where: whereClause,
     include,
     order: [
      [
-      "asset_id",
-      "DESC",
+      sortBy,
+      sortOrder,
      ],
     ],
     limit:

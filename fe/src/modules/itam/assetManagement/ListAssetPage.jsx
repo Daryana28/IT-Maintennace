@@ -1,30 +1,35 @@
 import { useState, useCallback, useEffect } from "react";
-import { useNavigate } from "react-router-dom";
-import { Card, Space, Button, message, Flex, Divider, Modal } from "antd";
-import { PlusOutlined, ReloadOutlined, DownloadOutlined, UploadOutlined, PrinterOutlined, FileExcelOutlined } from "@ant-design/icons";
+import { useLocation, useNavigate } from "react-router-dom";
+import { Card, Space, Button, message, Flex, Modal } from "antd";
+import { PlusOutlined, ReloadOutlined } from "@ant-design/icons";
 import { encodePath } from "@/shared/utils/routeCipher";
 import { usePageHeader } from "@/layouts/MainLayout/MainLayout";
 
-import AssetFilter from "./components/AssetFilter";
-import AssetCategoryTabs from "./components/AssetCategoryTabs";
 import AssetTable from "./components/AssetTable";
 import AssetForm from "./components/AssetForm";
 import AssetToolbar from "./components/AssetToolbar";
 import AssetImportModal from "./components/AssetImportModal";
 import AssetQrModal from "./components/AssetQrModal";
 import AssetMultiQrModal from "./components/AssetMultiQrModal";
+import AssetReplacementModal from "./components/AssetReplacementModal";
 
 import useAsset from "./hooks/useAsset";
 import useAssetExcel from "./hooks/useAssetExcel";
 import useAssetActions from "./hooks/useAssetActions";
-import useAssetCategoryTabs from "./hooks/useAssetCategoryTabs";
 import useAssetPageState from "./hooks/useAssetPageState";
 
 import assetService from "./services/assetService";
+import {
+  getAssetRouteActionLabel,
+  getAssetRouteGroup,
+  getAssetRouteGroupLabel,
+  getScopedCategoryIds,
+} from "./utils/routeCategoryScope";
 
 export default function ListAssetPage() {
   const navigate = useNavigate();
-  const { setHeaderTitle, setHeaderSubtitle } = usePageHeader() || {};
+  const location = useLocation();
+  const { setHeaderBreadcrumb, setHeaderTitle, setHeaderSubtitle } = usePageHeader() || {};
 
   const {
     rows = [],
@@ -48,23 +53,9 @@ export default function ListAssetPage() {
     setPreviewOpen,
     previewRows,
     setPreviewRows,
-    keyword,
-    setKeyword,
-    status,
-    setStatus,
+    headerFilters,
+    setHeaderFilter,
   } = useAssetPageState();
-
-  const {
-    lv1,
-    lv2,
-    lv3,
-    lv4,
-    setLv1,
-    setLv2,
-    setLv3,
-    setLv4,
-    selectedCategory,
-  } = useAssetCategoryTabs();
 
   const { exportExcel, downloadTemplate, readExcel } = useAssetExcel();
 
@@ -73,33 +64,29 @@ export default function ListAssetPage() {
   const [selectedRowKeys, setSelectedRowKeys] = useState([]);
   const [selectedRows, setSelectedRows] = useState([]);
   const [multiOpen, setMultiOpen] = useState(false);
+  const [replaceOpen, setReplaceOpen] = useState(false);
+  const [replaceAsset, setReplaceAsset] = useState(null);
+  const routeGroup = getAssetRouteGroup(location.pathname);
 
-  const getDescendantCategoryIds = useCallback((parentId, categoriesList) => {
-    if (!parentId) return [];
-    let ids = [parentId];
-    const children = categoriesList.filter((c) => String(c.parent_id) === String(parentId));
-    children.forEach((child) => {
-      ids = ids.concat(getDescendantCategoryIds(child.category_id, categoriesList));
-    });
-    return ids;
+  const handleReplace = useCallback((row) => {
+    setReplaceAsset(row);
+    setReplaceOpen(true);
   }, []);
 
   const buildFilters = useCallback(
     (override = {}) => {
-      let categoryIds = selectedCategory;
-      if (selectedCategory && categories?.length) {
-        categoryIds = getDescendantCategoryIds(selectedCategory, categories).join(",");
-      }
+      const scopedCategoryIds = getScopedCategoryIds(categories, routeGroup);
       return {
         ...filters,
-        search: keyword,
-        status,
+        ...headerFilters,
+        ...(scopedCategoryIds
+          ? { category_id: scopedCategoryIds }
+          : {}),
         exclude_status: "DISPOSE,DISPOSED",
-        category_id: categoryIds,
         ...override,
       };
     },
-    [filters, keyword, status, selectedCategory, categories, getDescendantCategoryIds]
+    [filters, headerFilters, categories, routeGroup]
   );
 
   const openDetail = useCallback(
@@ -182,15 +169,10 @@ export default function ListAssetPage() {
     return false; // Prevent auto upload
   }, [readExcel, setPreviewRows, setPreviewOpen]);
 
-  const handleKeywordChange = useCallback((value) => {
-    setKeyword(value);
-    reload(1, pageSize, buildFilters({ search: value }));
-  }, [reload, pageSize, buildFilters, setKeyword]);
-
-  const handleStatusChange = useCallback((value) => {
-    setStatus(value);
-    reload(1, pageSize, buildFilters({ status: value }));
-  }, [reload, pageSize, buildFilters, setStatus]);
+  const handleHeaderFilterChange = useCallback((field, value) => {
+    setHeaderFilter(field, value);
+    reload(1, pageSize, buildFilters({ [field]: value }));
+  }, [reload, pageSize, buildFilters, setHeaderFilter]);
 
   const handleTableChange = useCallback((pagination) => {
     reload(
@@ -205,36 +187,31 @@ export default function ListAssetPage() {
   }, [reload, page, pageSize, buildFilters]);
 
   useEffect(() => {
-    reload(1, pageSize, buildFilters());
-    // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [selectedCategory]);
+    const routeGroupLabel = getAssetRouteGroupLabel(routeGroup);
+    const routeActionLabel = getAssetRouteActionLabel(location.pathname);
+    const breadcrumbParts = ["Asset Management"];
+    if (routeGroupLabel) breadcrumbParts.push(routeGroupLabel);
+    if (routeActionLabel) breadcrumbParts.push(routeActionLabel);
 
-  useEffect(() => {
+    if (setHeaderBreadcrumb) setHeaderBreadcrumb(breadcrumbParts.join(" > "));
     if (setHeaderTitle) setHeaderTitle("Manajemen Aset");
     if (setHeaderSubtitle) {
       setHeaderSubtitle("Kelola, pantau, dan lacak aset IT Anda dengan mudah.");
     }
-  }, [setHeaderTitle, setHeaderSubtitle]);
+  }, [location.pathname, routeGroup, setHeaderBreadcrumb, setHeaderTitle, setHeaderSubtitle]);
+
+  useEffect(() => {
+    if (categories.length > 0) {
+      reload(1, pageSize, buildFilters());
+    }
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [categories, routeGroup]);
 
   return (
     <div className="workspace-page">
-      <div className="asset-category-card" style={{ marginBottom: '16px' }}>
-        <AssetCategoryTabs
-          categories={categories}
-          lv1={lv1}
-          lv2={lv2}
-          lv3={lv3}
-          lv4={lv4}
-          setLv1={setLv1}
-          setLv2={setLv2}
-          setLv3={setLv3}
-          setLv4={setLv4}
-        />
-      </div>
-
       <Card 
         className="workspace-card" 
-        bordered={false}
+        variant="borderless"
         style={{ 
           borderRadius: '12px', 
           boxShadow: '0 4px 24px rgba(0, 0, 0, 0.04)',
@@ -243,31 +220,23 @@ export default function ListAssetPage() {
         styles={{ body: { padding: '24px' } }}
       >
         <Flex 
+          className="workspace-card-toolbar"
           justify="space-between" 
           align="center" 
           wrap="wrap" 
-          gap="middle" 
-          style={{ marginBottom: '24px' }}
+          gap="middle"
         >
-          <div className="workspace-filter-area" style={{ flex: '1 1 300px' }}>
-            <AssetFilter
-              keyword={keyword}
-              status={status}
-              onKeywordChange={handleKeywordChange}
-              onStatusChange={handleStatusChange}
-            />
+          <div className="workspace-actions-left">
+            <Button
+              icon={<ReloadOutlined />}
+              loading={loading}
+              onClick={handleRefresh}
+            >
+              Refresh
+            </Button>
           </div>
-
-          <div className="workspace-actions-area" style={{ flex: '0 0 auto' }}>
+          <div className="workspace-actions-right">
             <Space wrap size="small">
-              <Button
-                icon={<ReloadOutlined />}
-                loading={loading}
-                onClick={handleRefresh}
-              >
-                Refresh
-              </Button>
-              <Divider type="vertical" style={{ height: '24px', margin: '0 8px' }} />
               <AssetToolbar
                 onTemplate={downloadTemplate}
                 onImport={importExcel}
@@ -301,6 +270,10 @@ export default function ListAssetPage() {
             onDelete={onDelete}
             onViewDetail={openDetail}
             onDepreciationClick={handleDepreciationClick}
+            onReplace={handleReplace}
+            headerFilters={headerFilters}
+            onHeaderFilterChange={handleHeaderFilterChange}
+            contextRouteGroup={routeGroup}
           />
         </div>
       </Card>
@@ -309,6 +282,7 @@ export default function ListAssetPage() {
         open={open}
         initialValues={editing}
         categories={categories}
+        routeGroup={routeGroup}
         onCancel={closeModal}
         onSubmit={onSubmit}
       />
@@ -327,6 +301,12 @@ export default function ListAssetPage() {
         open={multiOpen}
         rows={selectedRows}
         onCancel={closeMultiPrint}
+      />
+
+      <AssetReplacementModal
+        open={replaceOpen}
+        asset={replaceAsset}
+        onCancel={() => setReplaceOpen(false)}
       />
     </div>
   );

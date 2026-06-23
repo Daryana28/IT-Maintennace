@@ -8,6 +8,7 @@ import {
 
 import { message } from "antd";
 import assetService from "../services/assetService";
+import { syncAssetCategoryStructure } from "../utils/categoryStructure";
 
 export default function useAsset() {
   const [rows, setRows] = useState([]);
@@ -29,15 +30,29 @@ export default function useAsset() {
     });
 
   const requestIdRef = useRef(0);
+  const categorySyncRef = useRef(false);
 
   const loadCategories =
     useCallback(async () => {
       try {
         const data =
-          await assetService.getCategories();
+          await assetService.getCategories({ all: true });
+
+        let rows =
+          Array.isArray(data) ? data : [];
+
+        if (!categorySyncRef.current) {
+          categorySyncRef.current = true;
+          const result =
+            await syncAssetCategoryStructure(
+              assetService,
+              rows
+            );
+          rows = result.rows;
+        }
 
         setCategories(
-          Array.isArray(data) ? data : []
+          Array.isArray(rows) ? rows : []
         );
       } catch {
         message.error(
@@ -62,14 +77,7 @@ export default function useAsset() {
           await assetService.getAll({
             page: nextPage,
             pageSize: nextPageSize,
-            search:
-              nextFilters.search,
-            status:
-              nextFilters.status,
-            exclude_status:
-              nextFilters.exclude_status,
-            category_id:
-              nextFilters.category_id,
+            ...nextFilters,
           });
 
         if (
@@ -118,8 +126,13 @@ export default function useAsset() {
   );
 
   useEffect(() => {
-    loadCategories();
-    loadData(1, 20, filters);
+    const timerId = window.setTimeout(() => {
+      void loadCategories();
+      void loadData(1, 20, filters);
+    }, 0);
+
+    return () => window.clearTimeout(timerId);
+    // eslint-disable-next-line react-hooks/exhaustive-deps
   }, []);
 
   const reload = useCallback(
