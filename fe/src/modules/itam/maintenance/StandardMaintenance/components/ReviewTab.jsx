@@ -1,8 +1,67 @@
 import React, { useState, useEffect, useMemo } from 'react';
-import { Card, Table, Typography, Tag, Input, Space, Row, Col, Button } from 'antd';
+import { Card, Table, Typography, Tag, Input, Space, Row, Col, Button, Checkbox } from 'antd';
 import { SearchOutlined } from '@ant-design/icons';
 
 const { Title, Text } = Typography;
+
+// Helper to determine active months based on periodic configuration
+const getActiveMonthsForPeriodic = (periodik) => {
+  const p = (periodik || "").toLowerCase().trim();
+  const active = Array(12).fill(false);
+  
+  if (!p || p === "-") return active;
+  
+  // Weekly or Monthly
+  if (p.includes("minggu") || p.includes("/w") || p.includes("week") || p.includes("1 bulan") || p.includes("1x/month") || p === "monthly" || p === "bulan") {
+    return Array(12).fill(true);
+  }
+  
+  // Quarterly (every 3 months)
+  if (p.includes("3 bulan") || p.includes("quarter") || p.includes("3x/month") || p.includes("3x/bulan")) {
+    active[0] = true; // Jan
+    active[3] = true; // Apr
+    active[6] = true; // Jul
+    active[9] = true; // Oct
+    return active;
+  }
+  
+  // Half-yearly (every 6 months)
+  if (p.includes("6 bulan") || p.includes("half") || p.includes("semester")) {
+    active[0] = true; // Jan
+    active[6] = true; // Jul
+    return active;
+  }
+  
+  // Yearly (every 12 months or yearly)
+  if (p.includes("tahun") || p.includes("yearly") || p.includes("12 bulan") || p.includes("1 tahun")) {
+    active[0] = true; // Jan
+    return active;
+  }
+  
+  // Fallback: If it's something like "2-bulan", check every 2 months
+  if (p.includes("2 bulan")) {
+    for (let i = 0; i < 12; i += 2) active[i] = true;
+    return active;
+  }
+  
+  // Default to all active if not matching specific patterns
+  return Array(12).fill(true);
+};
+
+// Helper to recursively collect all maintenanceItems from category tree nodes
+const collectMaintenanceItems = (nodes) => {
+  let items = [];
+  if (!nodes) return items;
+  nodes.forEach(node => {
+    if (node.maintenanceItems && node.maintenanceItems.length > 0) {
+      items = items.concat(node.maintenanceItems);
+    }
+    if (node.children && node.children.length > 0) {
+      items = items.concat(collectMaintenanceItems(node.children));
+    }
+  });
+  return items;
+};
 
 export default function ReviewTab({ sortedData = [], headerTitle }) {
   const [data, setData] = useState([]);
@@ -12,57 +71,75 @@ export default function ReviewTab({ sortedData = [], headerTitle }) {
     setData(sortedData);
   }, [sortedData]);
 
-  // Flatten the hierarchical data into a single array
+  // Flatten the hierarchical tree data into a flat array of checks
   const flatData = useMemo(() => {
+    const items = collectMaintenanceItems(data);
     const result = [];
-    data.forEach((katNode, katIndex) => {
-      const pKat = { kategori: katNode.kategori };
+    const categorySeqs = {};
+    const detailIdsSeen = new Set();
 
-      if (!katNode.subKategoriList || katNode.subKategoriList.length === 0) {
-        result.push({ ...pKat, key: `k-${katIndex}` });
+    items.forEach((item) => {
+      const cat = (item.kategori || "Default").toLowerCase();
+      if (categorySeqs[cat] === undefined) {
+        categorySeqs[cat] = 1;
+      }
+
+      if (!item.details && !item.formattedDetails) {
+        result.push({
+          kategori: item.kategori,
+          subKategori: item.subKategori,
+          namaPerangkat: item.namaPerangkat,
+          subPerangkat: item.subPerangkat,
+          key: `sm-${item.id}`,
+          detailSeq: null
+        });
         return;
       }
 
-      katNode.subKategoriList.forEach((subKatNode, subKatIndex) => {
-        const pSubKat = { ...pKat, subKategori: subKatNode.subKategori };
+      const detailsList = item.formattedDetails || item.details || [];
+      detailsList.forEach((det) => {
+        const detailId = det.detailId || det.id;
+        if (!detailIdsSeen.has(detailId)) {
+          detailIdsSeen.add(detailId);
+          det._seq = categorySeqs[cat]++;
+        }
+        const currentDetailSeq = det._seq;
 
-        subKatNode.namaPerangkatList?.forEach((namaNode, namaIndex) => {
-          const pNama = { ...pSubKat, namaPerangkat: namaNode.namaPerangkat };
+        const checksList = det.pengecekanList || [];
+        if (checksList.length === 0) {
+          result.push({
+            kategori: item.kategori,
+            subKategori: item.subKategori,
+            namaPerangkat: item.namaPerangkat,
+            subPerangkat: item.subPerangkat,
+            fungsi: det.fungsi,
+            deskripsi: det.deskripsi,
+            key: `det-${detailId}`,
+            detailSeq: currentDetailSeq
+          });
+          return;
+        }
 
-          if (!namaNode.jenisPerangkatList || namaNode.jenisPerangkatList.length === 0) {
-            result.push({ ...pNama, key: `np-${katIndex}-${subKatIndex}-${namaIndex}` });
-            return;
-          }
-
-          namaNode.jenisPerangkatList.forEach((jenisNode, jenisIndex) => {
-            const pJenis = { ...pNama, jenisPerangkat: jenisNode.jenisPerangkat };
-
-            if (!jenisNode.details || jenisNode.details.length === 0) {
-              result.push({ ...pJenis, key: `jp-${katIndex}-${subKatIndex}-${namaIndex}-${jenisIndex}` });
-              return;
-            }
-
-            jenisNode.details.forEach((det, dIndex) => {
-              const dBase = { ...pJenis, fungsi: det.fungsi, deskripsi: det.deskripsi };
-
-              if (!det.pengecekanList || det.pengecekanList.length === 0) {
-                result.push({ ...dBase, key: `d-${katIndex}-${subKatIndex}-${namaIndex}-${jenisIndex}-${dIndex}` });
-                return;
-              }
-
-              det.pengecekanList.forEach((cek, cIndex) => {
-                result.push({
-                  ...dBase,
-                  key: `c-${katIndex}-${subKatIndex}-${namaIndex}-${jenisIndex}-${dIndex}-${cIndex}`,
-                  pengecekan: cek.pengecekan,
-                  standard: cek.standard,
-                  bagian: cek.bagian,
-                  metode: cek.metode,
-                  alat: cek.alat,
-                  periodik: cek.periodik,
-                });
-              });
-            });
+        checksList.forEach((cek) => {
+          const cekId = cek.cekId || cek.id;
+          result.push({
+            kategori: item.kategori,
+            subKategori: item.subKategori,
+            namaPerangkat: item.namaPerangkat,
+            subPerangkat: item.subPerangkat,
+            fungsi: det.fungsi,
+            deskripsi: det.deskripsi,
+            pengecekan: cek.pengecekan,
+            standard: cek.standard,
+            metode: cek.metode,
+            alat: cek.alat,
+            periodik: cek.periodik,
+            bagian: cek.bagian,
+            cekId,
+            detailId,
+            smId: item.id,
+            key: `cek-${cekId || Math.random()}`,
+            detailSeq: currentDetailSeq
           });
         });
       });
@@ -104,12 +181,34 @@ export default function ReviewTab({ sortedData = [], headerTitle }) {
     return spanCount;
   };
 
+  const monthNames = [
+    { key: 'jan', label: 'Jan', index: 0 },
+    { key: 'feb', label: 'Feb', index: 1 },
+    { key: 'mar', label: 'Mar', index: 2 },
+    { key: 'apr', label: 'Apr', index: 3 },
+    { key: 'mei', label: 'Mei', index: 4 },
+    { key: 'jun', label: 'Jun', index: 5 },
+    { key: 'jul', label: 'Jul', index: 6 },
+    { key: 'agt', label: 'Agt', index: 7 },
+    { key: 'sep', label: 'Sep', index: 8 },
+    { key: 'okt', label: 'Okt', index: 9 },
+    { key: 'nov', label: 'Nov', index: 10 },
+    { key: 'des', label: 'Des', index: 11 },
+  ];
+
   const columns = [
+    {
+      title: 'No',
+      key: 'no',
+      width: 50,
+      align: 'center',
+      render: (text, record, index) => index + 1,
+    },
     {
       title: 'Kategori',
       dataIndex: 'kategori',
       key: 'kategori',
-      width: 150,
+      width: 130,
       onCell: (record, index) => ({ rowSpan: getRowSpan(record, index, 'kategori', []), style: { verticalAlign: 'top' } }),
       render: (kat) => {
         const color = kat?.toLowerCase() === 'utama' ? 'blue' : 'cyan';
@@ -117,53 +216,88 @@ export default function ReviewTab({ sortedData = [], headerTitle }) {
       }
     },
     { 
-      title: 'Sub Kategori', dataIndex: 'subKategori', key: 'subKategori', width: 150,
-      onCell: (record, index) => ({ rowSpan: getRowSpan(record, index, 'subKategori', ['kategori']), style: { verticalAlign: 'top' } })
-    },
-    { 
-      title: 'Nama Perangkat', dataIndex: 'namaPerangkat', key: 'namaPerangkat', width: 150, 
+      title: 'Nama Perangkat', dataIndex: 'namaPerangkat', key: 'namaPerangkat', width: 130, 
       onCell: (record, index) => ({ rowSpan: getRowSpan(record, index, 'namaPerangkat', ['kategori', 'subKategori']), style: { verticalAlign: 'top' } }),
       render: (text) => <Text>{text || '-'}</Text> 
     },
     { 
-      title: 'Jenis Perangkat', dataIndex: 'jenisPerangkat', key: 'jenisPerangkat', width: 150,
-      onCell: (record, index) => ({ rowSpan: getRowSpan(record, index, 'jenisPerangkat', ['kategori', 'subKategori', 'namaPerangkat']), style: { verticalAlign: 'top' } }),
+      title: 'Sub Perangkat', dataIndex: 'subPerangkat', key: 'subPerangkat', width: 130,
+      onCell: (record, index) => ({ rowSpan: getRowSpan(record, index, 'subPerangkat', ['kategori', 'subKategori', 'namaPerangkat']), style: { verticalAlign: 'top' } }),
       render: t => <Tag color="geekblue">{t || '-'}</Tag> 
     },
-    { 
-      title: 'Fungsi', dataIndex: 'fungsi', key: 'fungsi', width: 200,
-      onCell: (record, index) => ({ rowSpan: getRowSpan(record, index, 'fungsi', ['kategori', 'subKategori', 'namaPerangkat', 'jenisPerangkat']), style: { verticalAlign: 'top' } })
+    {
+      title: 'No Detail',
+      dataIndex: 'detailSeq',
+      key: 'detailSeq',
+      width: 80,
+      align: 'center',
+      onCell: (record, index) => ({ rowSpan: getRowSpan(record, index, 'detailSeq', ['kategori', 'subKategori', 'namaPerangkat', 'subPerangkat', 'fungsi']), style: { verticalAlign: 'top' } }),
+      render: (val) => val || '-'
     },
     { 
-      title: 'Deskripsi', dataIndex: 'deskripsi', key: 'deskripsi', width: 200,
-      onCell: (record, index) => ({ rowSpan: getRowSpan(record, index, 'deskripsi', ['kategori', 'subKategori', 'namaPerangkat', 'jenisPerangkat', 'fungsi']), style: { verticalAlign: 'top' } })
+      title: 'Fungsi', dataIndex: 'fungsi', key: 'fungsi', width: 150,
+      onCell: (record, index) => ({ rowSpan: getRowSpan(record, index, 'fungsi', ['kategori', 'subKategori', 'namaPerangkat', 'subPerangkat']), style: { verticalAlign: 'top' } })
     },
-    { title: 'Pengecekan', dataIndex: 'pengecekan', key: 'pengecekan', width: 200, render: t => t ? <Tag variant="filled" color="processing">{t}</Tag> : '-', onCell: () => ({ style: { verticalAlign: 'top' } }) },
-    { title: 'Standard', dataIndex: 'standard', key: 'standard', width: 150, onCell: () => ({ style: { verticalAlign: 'top' } }) },
-    { title: 'Bagian', dataIndex: 'bagian', key: 'bagian', width: 120, onCell: () => ({ style: { verticalAlign: 'top' } }) },
-    { title: 'Metode', dataIndex: 'metode', key: 'metode', width: 120, onCell: () => ({ style: { verticalAlign: 'top' } }) },
-    { title: 'Alat', dataIndex: 'alat', key: 'alat', width: 120, onCell: () => ({ style: { verticalAlign: 'top' } }) },
-    { title: 'Periodik', dataIndex: 'periodik', key: 'periodik', width: 120, render: t => t ? <Tag color="purple">{t}</Tag> : '-', onCell: () => ({ style: { verticalAlign: 'top' } }) },
-    { title: 'Approval', dataIndex: 'approval', key: 'approval', width: 120, render: t => t ? <Tag color="green">{t}</Tag> : '-', onCell: () => ({ style: { verticalAlign: 'top' } }) },
+    { 
+      title: 'Desc', dataIndex: 'deskripsi', key: 'deskripsi', width: 180,
+      onCell: (record, index) => ({ rowSpan: getRowSpan(record, index, 'deskripsi', ['kategori', 'subKategori', 'namaPerangkat', 'subPerangkat', 'fungsi']), style: { verticalAlign: 'top' } })
+    },
+    { title: 'Pengecekan', dataIndex: 'pengecekan', key: 'pengecekan', width: 180, render: t => t ? <Tag variant="filled" color="processing">{t}</Tag> : '-', onCell: () => ({ style: { verticalAlign: 'top' } }) },
+    {
+      title: 'Pengecekan Normal',
+      children: [
+        { title: 'Standar', dataIndex: 'standard', key: 'standard', width: 120, onCell: () => ({ style: { verticalAlign: 'top' } }) },
+        { title: 'Metode', dataIndex: 'metode', key: 'metode', width: 120, onCell: () => ({ style: { verticalAlign: 'top' } }) },
+        { title: 'Alat', dataIndex: 'alat', key: 'alat', width: 120, onCell: () => ({ style: { verticalAlign: 'top' } }) },
+      ]
+    },
+    { title: 'Periodic', dataIndex: 'periodik', key: 'periodik', width: 100, render: t => t ? <Tag color="purple">{t}</Tag> : '-', onCell: () => ({ style: { verticalAlign: 'top' } }) },
+    {
+      title: 'Bulan (Plan)',
+      children: monthNames.map(m => ({
+        title: m.label,
+        key: m.key,
+        width: 50,
+        align: 'center',
+        render: (_, record) => {
+          const activeMonths = getActiveMonthsForPeriodic(record.periodik);
+          return <Checkbox checked={activeMonths[m.index]} disabled />;
+        }
+      }))
+    }
   ];
 
   const exportExcel = () => {
     import('xlsx').then(XLSX => {
-      const ws = XLSX.utils.json_to_sheet(filteredData.map(item => ({
-        'Kategori': item.kategori || '',
-        'Sub Kategori': item.subKategori || '',
-        'Nama Perangkat': item.namaPerangkat || '',
-        'Jenis Perangkat': item.jenisPerangkat || '',
-        'Fungsi': item.fungsi || '',
-        'Deskripsi': item.deskripsi || '',
-        'Pengecekan': item.pengecekan || '',
-        'Standard': item.standard || '',
-        'Bagian': item.bagian || '',
-        'Metode': item.metode || '',
-        'Alat': item.alat || '',
-        'Periodik': item.periodik || '',
-        'Approval': item.approval || '',
-      })));
+      const ws = XLSX.utils.json_to_sheet(filteredData.map((item, index) => {
+        const activeMonths = getActiveMonthsForPeriodic(item.periodik);
+        return {
+          'No': index + 1,
+          'Kategori': item.kategori || '',
+          'Nama Perangkat': item.namaPerangkat || '',
+          'Sub Perangkat': item.subPerangkat || '',
+          'No Detail': item.detailSeq || '',
+          'Fungsi': item.fungsi || '',
+          'Deskripsi': item.deskripsi || '',
+          'Pengecekan': item.pengecekan || '',
+          'Standar': item.standard || '',
+          'Metode': item.metode || '',
+          'Alat': item.alat || '',
+          'Periodik': item.periodik || '',
+          'Jan': activeMonths[0] ? '✓' : '',
+          'Feb': activeMonths[1] ? '✓' : '',
+          'Mar': activeMonths[2] ? '✓' : '',
+          'Apr': activeMonths[3] ? '✓' : '',
+          'Mei': activeMonths[4] ? '✓' : '',
+          'Jun': activeMonths[5] ? '✓' : '',
+          'Jul': activeMonths[6] ? '✓' : '',
+          'Agt': activeMonths[7] ? '✓' : '',
+          'Sep': activeMonths[8] ? '✓' : '',
+          'Okt': activeMonths[9] ? '✓' : '',
+          'Nov': activeMonths[10] ? '✓' : '',
+          'Des': activeMonths[11] ? '✓' : '',
+        };
+      }));
       const wb = XLSX.utils.book_new();
       XLSX.utils.book_append_sheet(wb, ws, "Standard_Maintenance");
       XLSX.writeFile(wb, `${headerTitle || "Review_Standard_Maintenance"}.xlsx`);
@@ -194,7 +328,7 @@ export default function ReviewTab({ sortedData = [], headerTitle }) {
     // Vertical dividers
     doc.line(pageWidth - margin - rightColWidth, startY, pageWidth - margin - rightColWidth, startY + headerHeight);
 
-    // 2. Middle Text (Now spans left and middle)
+    // Middle Text (Now spans left and middle)
     const titleWidth = usableWidth - rightColWidth;
     
     doc.setFont("helvetica", "bold");
@@ -204,7 +338,7 @@ export default function ReviewTab({ sortedData = [], headerTitle }) {
     doc.setFontSize(18);
     doc.text("2026", margin + titleWidth / 2, startY + 20, { align: "center" });
 
-    // 3. Right Table
+    // Right Table
     const rightStartX = pageWidth - margin - rightColWidth;
     const subColW = rightColWidth / 3;
     const signHeaderH = 8;
@@ -218,32 +352,43 @@ export default function ReviewTab({ sortedData = [], headerTitle }) {
     doc.text("Diperiksa", rightStartX + subColW + subColW / 2, startY + 5, { align: "center" });
     doc.text("Dibuat", rightStartX + 2 * subColW + subColW / 2, startY + 5, { align: "center" });
 
-    const head = [["Kategori", "Sub Kategori", "Nama", "Jenis", "Fungsi", "Pengecekan", "Standard", "Bagian", "Periodik"]];
+    const head = [["No", "Kategori", "Nama Perangkat", "Sub Perangkat", "No Det", "Fungsi", "Pengecekan", "Standar", "Periodik", "Jan", "Feb", "Mar", "Apr", "Mei", "Jun", "Jul", "Agt", "Sep", "Okt", "Nov", "Des"]];
     
     const body = filteredData.map((item, index) => {
+      const activeMonths = getActiveMonthsForPeriodic(item.periodik);
       const arr = [
+        index + 1,
         item.kategori || "-",
-        item.subKategori || "-",
         item.namaPerangkat || "-",
-        item.jenisPerangkat || "-",
+        item.subPerangkat || "-",
+        item.detailSeq || "-",
         item.fungsi || "-",
         item.pengecekan || "-",
         item.standard || "-",
-        item.bagian || "-",
-        item.periodik || "-"
+        item.periodik || "-",
+        activeMonths[0] ? "✓" : "",
+        activeMonths[1] ? "✓" : "",
+        activeMonths[2] ? "✓" : "",
+        activeMonths[3] ? "✓" : "",
+        activeMonths[4] ? "✓" : "",
+        activeMonths[5] ? "✓" : "",
+        activeMonths[6] ? "✓" : "",
+        activeMonths[7] ? "✓" : "",
+        activeMonths[8] ? "✓" : "",
+        activeMonths[9] ? "✓" : "",
+        activeMonths[10] ? "✓" : "",
+        activeMonths[11] ? "✓" : "",
       ];
       arr._item = item;
       arr._index = index;
       return arr;
     });
 
-
-
     autoTable(doc, {
       head,
       body,
       startY: startY + headerHeight + 5,
-      styles: { fontSize: 7, cellPadding: 1, lineColor: [0, 0, 0], lineWidth: 0.1 },
+      styles: { fontSize: 6, cellPadding: 1, lineColor: [0, 0, 0], lineWidth: 0.1 },
       theme: 'grid',
       headStyles: { fillColor: [240, 240, 240], textColor: [0, 0, 0], fontStyle: 'bold' },
       willDrawCell: function(data) {
@@ -254,24 +399,24 @@ export default function ReviewTab({ sortedData = [], headerTitle }) {
             doc.firstRowOfPage[data.pageNumber] = data.row.index;
           }
 
-          const groupKeys = [
-            ['kategori'], // Col 0
-            ['kategori', 'subKategori'], // Col 1
-            ['kategori', 'subKategori', 'namaPerangkat'], // Col 2
-            ['kategori', 'subKategori', 'namaPerangkat', 'jenisPerangkat'], // Col 3
-            ['kategori', 'subKategori', 'namaPerangkat', 'jenisPerangkat', 'fungsi'] // Col 4
-          ];
+          const groupKeys = {
+            1: ['kategori'],
+            2: ['kategori', 'namaPerangkat'],
+            3: ['kategori', 'namaPerangkat', 'subPerangkat'],
+            4: ['kategori', 'namaPerangkat', 'subPerangkat', 'detailSeq'],
+            5: ['kategori', 'namaPerangkat', 'subPerangkat', 'detailSeq', 'fungsi']
+          };
 
-          if (data.column.index < groupKeys.length) {
+          if (groupKeys[data.column.index]) {
             const keys = groupKeys[data.column.index];
             const rowIndex = data.row.raw._index;
             const record = data.row.raw._item;
             const prevRecord = rowIndex > 0 ? filteredData[rowIndex - 1] : null;
             const nextRecord = rowIndex < filteredData.length - 1 ? filteredData[rowIndex + 1] : null;
+            const isFirstRowOnPage = doc.firstRowOfPage[data.pageNumber] === rowIndex;
 
             const isSameAsPrev = prevRecord && keys.every(k => prevRecord[k] === record[k]);
             const isSameAsNext = nextRecord && keys.every(k => nextRecord[k] === record[k]);
-            const isFirstRowOnPage = doc.firstRowOfPage[data.pageNumber] === rowIndex;
 
             if (isSameAsPrev && !isFirstRowOnPage) {
               data.cell.text = []; // Hide text for subsequent merged cells, EXCEPT on new pages
@@ -280,10 +425,7 @@ export default function ReviewTab({ sortedData = [], headerTitle }) {
             // Simulate merge by removing internal borders
             let top = 0.1, bottom = 0.1, left = 0.1, right = 0.1;
             
-            // If it's connected to the previous row AND it's on the same page, remove top border
             if (isSameAsPrev && !isFirstRowOnPage) top = 0;
-            
-            // If it's connected to the next row, remove bottom border
             if (isSameAsNext) bottom = 0;
             
             data.cell.styles.lineWidth = { top, bottom, left, right };
@@ -300,7 +442,7 @@ export default function ReviewTab({ sortedData = [], headerTitle }) {
     <Card variant="borderless" className="main-card">
       <div style={{ marginBottom: 20 }}>
         <Title level={5} style={{ color: "#1e293b", margin: 0 }}>{headerTitle || "Review Standard Maintenance"}</Title>
-        <Text type="secondary">Melihat hasil akhir konfigurasi Standard Maintenance secara mendatar (Flat Table).</Text>
+        <Text type="secondary">Melihat hasil akhir konfigurasi Standard Maintenance secara mendatar (Excel Table).</Text>
       </div>
 
       <Row justify="space-between" align="middle" className="filter-section" style={{ marginBottom: 16 }}>

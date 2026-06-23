@@ -196,6 +196,7 @@ export default function StandardMaintenancePage({ overrideCategory, overrideYear
           sortedData={sortedData}
           onSave={loadData}
           yearlyStandardId={yearlyStandardId}
+          overrideCategory={overrideCategory}
         />
       )}
 

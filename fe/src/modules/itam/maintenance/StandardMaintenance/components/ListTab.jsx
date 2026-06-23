@@ -4,7 +4,7 @@ import { SearchOutlined, ReloadOutlined, PlusOutlined, EditOutlined, DeleteOutli
 import standardMaintenanceService from '../../services/standardMaintenanceService';
 import Swal from 'sweetalert2';
 
-export default function ListTab({ categories = [], sortedData, onSave, yearlyStandardId }) {
+export default function ListTab({ categories = [], sortedData, onSave, yearlyStandardId, overrideCategory }) {
   const [data, setData] = useState([]);
   const [isModalOpen, setIsModalOpen] = useState(false);
   const [detailModalOpen, setDetailModalOpen] = useState(false);
@@ -15,10 +15,27 @@ export default function ListTab({ categories = [], sortedData, onSave, yearlySta
     setData(sortedData || []);
   }, [sortedData]);
 
+  const categoryMap = {
+    hardware: ["hardware"],
+    "software-hardware": ["hardware"],
+    application: ["software"],
+    software: ["software"],
+    network: ["networking"],
+    networking: ["networking"],
+    cyber: ["cyber"],
+    "cyber-security": ["cyber"],
+    "network-cyber": ["networking", "cyber"],
+  };
+  const activeCategoryList = categoryMap[overrideCategory] || (overrideCategory ? [overrideCategory] : []);
+
   const level1Categories = categories.filter(c => !c.parent_id);
+  const filteredLevel1Categories = activeCategoryList.length > 0
+    ? level1Categories.filter(c => activeCategoryList.includes(c.category_name?.toLowerCase()))
+    : level1Categories;
+
   const filterKategoriOptions = [
     { value: '', label: 'Semua Kategori' },
-    ...level1Categories.map(c => ({ value: c.category_name, label: c.category_name }))
+    ...filteredLevel1Categories.map(c => ({ value: c.category_name, label: c.category_name }))
   ];
 
   const subKategoriOptionsGrouped = level1Categories.map(parent => {
@@ -217,7 +234,7 @@ export default function ListTab({ categories = [], sortedData, onSave, yearlySta
       >
         <Form form={modalForm} layout="vertical">
           <Form.Item name="kategori" label="Kategori" rules={[{ required: true }]}>
-            <Select showSearch allowClear options={level1Categories.map(c => ({ value: c.category_name, label: c.category_name }))} 
+            <Select showSearch allowClear options={filteredLevel1Categories.map(c => ({ value: c.category_name, label: c.category_name }))} 
               onChange={() => modalForm.setFieldsValue({ subKategori: undefined, tipePerangkat: undefined, namaPerangkat: undefined, jenisPerangkat: undefined })}
             />
           </Form.Item>
