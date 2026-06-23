@@ -1,6 +1,7 @@
 import { sequelize, MaintenanceSchedule, Asset, StandardMaintenance, YearlyStandardMaintenance, AssetCategory, StandardMaintenanceDetail, StandardMaintenanceCheck, MaintenanceActual } from "../../../models/index.js";
 import { generateCheckboxDates } from "./checkboxGenerator.js";
 import dayjs from "dayjs";
+import { Op } from "sequelize";
 
 export const generateSchedule = async (req, res) => {
   try {
@@ -70,10 +71,10 @@ export const generateSchedule = async (req, res) => {
         if (!val) return Infinity;
         const str = val.toLowerCase();
         const num = parseInt(str) || 1;
-        if (str.includes("hari")) return num;
-        if (str.includes("minggu")) return num * 7;
-        if (str.includes("bulan")) return num * 30;
-        if (str.includes("tahun")) return num * 365;
+        if (str.includes("hari") || str.includes("d")) return num;
+        if (str.includes("minggu") || str.includes("week") || str.includes("w")) return num * 7;
+        if (str.includes("bulan") || str.includes("month") || str.includes("m")) return num * 30;
+        if (str.includes("tahun") || str.includes("year") || str.includes("y")) return num * 365;
         return Infinity;
       };
 
@@ -103,45 +104,61 @@ export const generateSchedule = async (req, res) => {
           }
         });
 
+        let targetSchedule = existing;
         if (!existing) {
-          const newSchedule = await MaintenanceSchedule.create({
+          targetSchedule = await MaintenanceSchedule.create({
             asset_id: asset.asset_id,
             yearly_standard_id: yearly_standard_id,
             standard_maintenance_id: sm.id,
             periodik: derivedPeriodik,
             status: "ACTIVE"
           });
-
-          // Auto-generate actual checkbox matrix for this schedule
-          const checks = await StandardMaintenanceCheck.findAll({
-            include: {
-              model: StandardMaintenanceDetail,
-              where: { standard_maintenance_id: sm.id }
-            }
-          });
-
-          const actualRecords = [];
-          for (const check of checks) {
-            const periodikString = check.periodik || derivedPeriodik || "1 Bulan";
-            const dates = await generateCheckboxDates(yearlyStandard.tahun, periodikString);
-            for (const date of dates) {
-              actualRecords.push({
-                schedule_id: newSchedule.id,
-                check_id: check.id,
-                tanggal: date,
-                status: "PLAN",
-                legend: "□",
-                created_at: new Date(),
-                updated_at: new Date()
-              });
-            }
-          }
-
-          if (actualRecords.length > 0) {
-            await MaintenanceActual.bulkCreate(actualRecords, { ignoreDuplicates: true });
-          }
-
           createdCount++;
+        } else {
+          await existing.update({ status: "ACTIVE", periodik: derivedPeriodik });
+        }
+
+        // Auto-generate actual checkbox matrix for this schedule
+        const checks = await StandardMaintenanceCheck.findAll({
+          include: {
+            model: StandardMaintenanceDetail,
+            where: { standard_maintenance_id: sm.id }
+          }
+        });
+
+        const actualRecords = [];
+        for (const check of checks) {
+          const periodikString = check.periodik || targetSchedule.periodik || derivedPeriodik || "1 Bulan";
+          const dates = await generateCheckboxDates(yearlyStandard.tahun, periodikString);
+          for (const date of dates) {
+            actualRecords.push({
+              schedule_id: targetSchedule.id,
+              check_id: check.id,
+              tanggal: date,
+              status: "PLAN",
+              legend: "□",
+              created_at: new Date(),
+              updated_at: new Date()
+            });
+          }
+        }
+
+        if (actualRecords.length > 0) {
+          const existingActuals = await MaintenanceActual.findAll({
+            where: { schedule_id: targetSchedule.id },
+            raw: true
+          });
+          const existingKeys = new Set(
+            existingActuals.map(act => `${act.schedule_id}-${act.check_id}-${act.tanggal}`)
+          );
+
+          const newActualRecords = actualRecords.filter(
+            rec => !existingKeys.has(`${rec.schedule_id}-${rec.check_id}-${rec.tanggal}`)
+          );
+
+          if (newActualRecords.length > 0) {
+            await MaintenanceActual.bulkCreate(newActualRecords);
+          }
         }
       }
     }
@@ -425,7 +442,7 @@ export const getScheduleCheckboxes = async (req, res) => {
     const whereClause = { schedule_id: id };
     if (month) {
       const monthNum = parseInt(month);
-      whereClause[sequelize.Op.and] = [
+      whereClause[Op.and] = [
         sequelize.where(sequelize.fn("MONTH", sequelize.col("tanggal")), monthNum)
       ];
     }
@@ -520,7 +537,7 @@ export const getMonthlyScheduleMatrix = async (req, res) => {
       
       const mappedCats = catMap[category.toLowerCase()] || [category];
       standardWhere.kategori = {
-        [sequelize.Op.in]: mappedCats
+        [Op.in]: mappedCats
       };
     }
 
@@ -566,7 +583,7 @@ export const getMonthlyScheduleMatrix = async (req, res) => {
             where: {
               schedule_id: schedule.id,
               check_id: check.id,
-              [sequelize.Op.and]: [
+              [Op.and]: [
                 sequelize.where(sequelize.fn("YEAR", sequelize.col("tanggal")), yearNum),
                 sequelize.where(sequelize.fn("MONTH", sequelize.col("tanggal")), monthNum)
               ]

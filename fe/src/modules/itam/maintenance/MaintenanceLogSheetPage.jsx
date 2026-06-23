@@ -157,14 +157,70 @@ export default function MaintenanceLogSheetPage({ overrideCategory }) {
     {
       title: "Aksi",
       key: "action",
-      width: 100,
+      width: 180,
       align: "center",
-      render: (_, record) => (
-        <Space>
-          <Button type="text" icon={<EditOutlined />} onClick={() => handleOpenEditModal(record)} />
-          <Button type="text" danger icon={<DeleteOutlined />} onClick={() => handleDelete(record)} />
-        </Space>
-      ),
+      render: (_, record) => {
+        const status = record.status_temuan;
+        const actualId = record.actual_id || record.actual?.id;
+        
+        return (
+          <Space>
+            {status === "OPEN" && (
+              <Button 
+                type="primary" 
+                size="small"
+                onClick={async () => {
+                  try {
+                    await maintenanceScheduleService.submitAbnormalLog(actualId, {
+                      deskripsi_kerusakan: record.deskripsi_kerusakan,
+                      tindakan: record.tindakan || "Sedang ditangani",
+                      status_temuan: "IN_PROGRESS"
+                    });
+                    message.success("Status diubah ke IN PROGRESS");
+                    fetchLogSheets();
+                  } catch {
+                    message.error("Gagal mengubah status");
+                  }
+                }}
+              >
+                Kerjakan
+              </Button>
+            )}
+            {status === "IN_PROGRESS" && (
+              <Button 
+                type="primary"
+                style={{ background: "#eab308", borderColor: "#eab308", color: "#fff" }}
+                size="small"
+                onClick={() => {
+                  Modal.confirm({
+                    title: "Selesaikan Masalah",
+                    content: "Apakah Anda yakin ingin menyelesaikan temuan abnormal ini?",
+                    okText: "Ya, Selesaikan",
+                    cancelText: "Batal",
+                    onOk: async () => {
+                      try {
+                        await maintenanceScheduleService.submitAbnormalLog(actualId, {
+                          deskripsi_kerusakan: record.deskripsi_kerusakan,
+                          tindakan: record.tindakan || "Perbaikan selesai dilakukan",
+                          status_temuan: "RESOLVED"
+                        });
+                        message.success("Temuan abnormal berhasil diselesaikan");
+                        fetchLogSheets();
+                      } catch {
+                        message.error("Gagal menyelesaikan temuan");
+                      }
+                    }
+                  });
+                }}
+              >
+                Selesaikan
+              </Button>
+            )}
+            <Button type="text" icon={<EditOutlined />} onClick={() => handleOpenEditModal(record)} />
+            <Button type="text" danger icon={<DeleteOutlined />} onClick={() => handleDelete(record)} />
+          </Space>
+        );
+      },
     },
   ];
 

@@ -69,24 +69,14 @@ export default function ScheduleWithCheckboxView({ overrideCategory, overrideYea
     }
   }, [selectedYear, selectedMonth, overrideCategory, loadMatrixData]);
 
-  // Determine week numbers for selected month
-  const weeksInMonth = useMemo(() => {
-    const startOfMonth = dayjs(`${selectedYear}-${selectedMonth}-01`).startOf('month');
-    const endOfMonth = dayjs(`${selectedYear}-${selectedMonth}-01`).endOf('month');
-    
-    let startWeek = startOfMonth.isoWeek();
-    let endWeek = endOfMonth.isoWeek();
-    
-    // Handle crossover at end of year
-    if (endWeek < startWeek) {
-      endWeek = 53;
+  // Determine days of the selected month
+  const daysInMonth = useMemo(() => {
+    const totalDays = dayjs(`${selectedYear}-${selectedMonth}-01`).daysInMonth();
+    const days = [];
+    for (let d = 1; d <= totalDays; d++) {
+      days.push(d);
     }
-    
-    const weeks = [];
-    for (let w = startWeek; w <= endWeek; w++) {
-      weeks.push(w);
-    }
-    return weeks;
+    return days;
   }, [selectedYear, selectedMonth]);
 
   // Handle cell status updates
@@ -133,10 +123,10 @@ export default function ScheduleWithCheckboxView({ overrideCategory, overrideYea
   };
 
   // Render checkbox matrix cell
-  const renderCell = (record, weekNum) => {
-    const checkbox = (record.checkboxes || []).find(cb => cb.week === weekNum);
+  const renderCell = (record, dayNum) => {
+    const checkbox = (record.checkboxes || []).find(cb => dayjs(cb.date).date() === dayNum);
     if (!checkbox) {
-      // No check planned for this week
+      // No check planned for this day
       return <div style={{ minHeight: "28px", background: "#f1f5f9", borderRadius: "4px" }} />;
     }
 
@@ -329,12 +319,12 @@ export default function ScheduleWithCheckboxView({ overrideCategory, overrideYea
     },
     {
       title: dayjs(`${selectedYear}-${selectedMonth}-01`).format("MMMM YYYY").toUpperCase(),
-      children: weeksInMonth.map((w, index) => ({
-        title: `W${index + 1}`,
-        key: `week_${w}`,
-        width: 65,
+      children: daysInMonth.map((d) => ({
+        title: String(d),
+        key: `day_${d}`,
+        width: 45,
         align: "center",
-        render: (_, record) => renderCell(record, w)
+        render: (_, record) => renderCell(record, d)
       }))
     }
   ];

@@ -120,6 +120,14 @@ async function seed() {
       where: { category_name: 'Laptop', parent_id: catHW.category_id },
       defaults: { category_code: 'LPT', show_in_tabs: true, level_no: 2, sort_no: 1, is_active: true, created_at: new Date() }
     });
+    const [catServer] = await db.AssetCategory.findOrCreate({
+      where: { category_name: 'Server', parent_id: catHW.category_id },
+      defaults: { category_code: 'SRV', show_in_tabs: true, level_no: 2, sort_no: 2, is_active: true, created_at: new Date() }
+    });
+    const [catCCTV] = await db.AssetCategory.findOrCreate({
+      where: { category_name: 'CCTV', parent_id: catHW.category_id },
+      defaults: { category_code: 'CCTV', show_in_tabs: true, level_no: 2, sort_no: 3, is_active: true, created_at: new Date() }
+    });
 
     const [catSW] = await db.AssetCategory.findOrCreate({
       where: { category_name: 'Software' },
@@ -128,6 +136,10 @@ async function seed() {
     const [catERP] = await db.AssetCategory.findOrCreate({
       where: { category_name: 'ERP System', parent_id: catSW.category_id },
       defaults: { category_code: 'ERP', show_in_tabs: true, level_no: 2, sort_no: 1, is_active: true, created_at: new Date() }
+    });
+    const [catDatabase] = await db.AssetCategory.findOrCreate({
+      where: { category_name: 'Database', parent_id: catSW.category_id },
+      defaults: { category_code: 'DB', show_in_tabs: true, level_no: 2, sort_no: 2, is_active: true, created_at: new Date() }
     });
 
     const [catNW] = await db.AssetCategory.findOrCreate({
@@ -138,6 +150,10 @@ async function seed() {
       where: { category_name: 'Switch Router', parent_id: catNW.category_id },
       defaults: { category_code: 'SWT', show_in_tabs: true, level_no: 2, sort_no: 1, is_active: true, created_at: new Date() }
     });
+    const [catAP] = await db.AssetCategory.findOrCreate({
+      where: { category_name: 'Access Point', parent_id: catNW.category_id },
+      defaults: { category_code: 'AP', show_in_tabs: true, level_no: 2, sort_no: 2, is_active: true, created_at: new Date() }
+    });
 
     const [catCY] = await db.AssetCategory.findOrCreate({
       where: { category_name: 'Cyber' },
@@ -147,68 +163,46 @@ async function seed() {
       where: { category_name: 'Firewall Protection', parent_id: catCY.category_id },
       defaults: { category_code: 'FW', show_in_tabs: true, level_no: 2, sort_no: 1, is_active: true, created_at: new Date() }
     });
+    const [catEndpoint] = await db.AssetCategory.findOrCreate({
+      where: { category_name: 'Endpoint Protection', parent_id: catCY.category_id },
+      defaults: { category_code: 'END', show_in_tabs: true, level_no: 2, sort_no: 2, is_active: true, created_at: new Date() }
+    });
     console.log("✓ Seeded Asset Categories");
 
     // 8. Seed Assets
-    const [asset1] = await db.Asset.findOrCreate({
-      where: { asset_code: 'AST-LPT-001' },
-      defaults: {
-        category_id: catLaptop.category_id,
-        location_id: loc.location_id,
-        asset_name: 'ThinkPad T14 QA Tester',
-        serial_number: 'SN-THINK-LPT001',
-        status: 'ACTIVE',
-        created_at: new Date(),
-        purchase_date: '2025-01-10',
-        hostname: 'qa-tester-lpt',
-        ip_main: '192.168.10.45'
-      }
-    });
+    const assetsData = [
+      { code: 'AST-LPT-001', cat: catLaptop, name: 'ThinkPad T14 QA Tester', host: 'qa-tester-lpt', ip: '192.168.10.45' },
+      { code: 'AST-LPT-002', cat: catLaptop, name: 'MacBook Pro Developer', host: 'dev-macbook-01', ip: '192.168.10.46' },
+      { code: 'AST-SRV-001', cat: catServer, name: 'Active Directory Core Server', host: 'ad-core-dc', ip: '192.168.10.5' },
+      { code: 'AST-SRV-002', cat: catServer, name: 'Local File Storage Server', host: 'nas-storage-local', ip: '192.168.10.6' },
+      { code: 'AST-CCTV-001', cat: catCCTV, name: 'Datacenter CCTV Camera', host: 'cctv-dc-cam01', ip: '192.168.10.100' },
+      { code: 'AST-ERP-001', cat: catERP, name: 'Production SAP ERP Server', host: 'sap-production-srv', ip: '192.168.10.10' },
+      { code: 'AST-DB-001', cat: catDatabase, name: 'Production MS SQL Database', host: 'mssql-prod-db', ip: '192.168.10.11' },
+      { code: 'AST-NET-001', cat: catSwitch, name: 'Cisco Catalyst Core Switch', host: 'switch-core-datacenter', ip: '192.168.10.2' },
+      { code: 'AST-NET-002', cat: catSwitch, name: 'Ubiquiti UniFi Switch 24P', host: 'switch-floor-1', ip: '192.168.10.3' },
+      { code: 'AST-AP-001', cat: catAP, name: 'Lobby AP Wifi', host: 'lobby-ap-wifi', ip: '192.168.10.20' },
+      { code: 'AST-FW-001', cat: catFW, name: 'Fortigate 100F Firewall Core', host: 'firewall-core', ip: '192.168.10.1' },
+      { code: 'AST-END-001', cat: catEndpoint, name: 'Sophos Security Central Server', host: 'sophos-mgt-console', ip: '192.168.10.25' }
+    ];
 
-    const [asset2] = await db.Asset.findOrCreate({
-      where: { asset_code: 'AST-ERP-001' },
-      defaults: {
-        category_id: catERP.category_id,
-        location_id: loc.location_id,
-        asset_name: 'Production SAP ERP Server',
-        serial_number: 'SN-ERP-SRV909',
-        status: 'ACTIVE',
-        created_at: new Date(),
-        purchase_date: '2024-06-15',
-        hostname: 'sap-production-srv',
-        ip_main: '192.168.10.10'
-      }
-    });
-
-    const [asset3] = await db.Asset.findOrCreate({
-      where: { asset_code: 'AST-NET-001' },
-      defaults: {
-        category_id: catSwitch.category_id,
-        location_id: loc.location_id,
-        asset_name: 'Cisco Catalyst Switch IT',
-        serial_number: 'SN-CISCO-SW01',
-        status: 'ACTIVE',
-        created_at: new Date(),
-        purchase_date: '2024-11-20',
-        hostname: 'switch-core-datacenter',
-        ip_main: '192.168.10.2'
-      }
-    });
-
-    const [asset4] = await db.Asset.findOrCreate({
-      where: { asset_code: 'AST-FW-001' },
-      defaults: {
-        category_id: catFW.category_id,
-        location_id: loc.location_id,
-        asset_name: 'Fortigate 100F Firewall Core',
-        serial_number: 'SN-FORTI-FW100F',
-        status: 'ACTIVE',
-        created_at: new Date(),
-        purchase_date: '2025-02-05',
-        hostname: 'firewall-core',
-        ip_main: '192.168.10.1'
-      }
-    });
+    const seededAssets = [];
+    for (const a of assetsData) {
+      const [assetObj] = await db.Asset.findOrCreate({
+        where: { asset_code: a.code },
+        defaults: {
+          category_id: a.cat.category_id,
+          location_id: loc.location_id,
+          asset_name: a.name,
+          serial_number: `SN-${a.code}-${Math.floor(1000 + Math.random() * 9000)}`,
+          status: 'ACTIVE',
+          created_at: new Date(),
+          purchase_date: '2025-01-10',
+          hostname: a.host,
+          ip_main: a.ip
+        }
+      });
+      seededAssets.push(assetObj);
+    }
     console.log("✓ Seeded Asset Records");
 
     // 9. Seed Yearly Standard
@@ -224,12 +218,94 @@ async function seed() {
     });
     console.log("✓ Seeded Yearly Standard Maintenance:", yearly.judul);
 
-    // 10. Seed Standard Maintenances
+    // 10. Seed Standard Maintenances & Standard Check Items
     const standardSpecs = [
-      { kategori: 'Hardware', subKategori: 'Laptop', namaPerangkat: 'Laptop', tipePerangkat: 'ThinkPad' },
-      { kategori: 'Software', subKategori: 'ERP System', namaPerangkat: 'ERP System', tipePerangkat: 'SAP ERP' },
-      { kategori: 'Networking', subKategori: 'Switch Router', namaPerangkat: 'Switch Router', tipePerangkat: 'Cisco Catalyst' },
-      { kategori: 'Cyber', subKategori: 'Firewall Protection', namaPerangkat: 'Firewall Protection', tipePerangkat: 'ASA Firewall' }
+      {
+        kategori: 'Hardware',
+        subKategori: 'Laptop',
+        namaPerangkat: 'Laptop',
+        tipePerangkat: 'ThinkPad',
+        checks: [
+          { pengecekan: 'Check keyboard & trackpad', standard: 'Semua tombol berfungsi normal', periodik: '1X/W', bagian: 'Input Devices', metode: 'Pengujian ketikan langsung', alat: 'Keyboard Test Utility' },
+          { pengecekan: 'Pembersihan debu & fan', standard: 'Bebas debu & sirkulasi fan lancar', periodik: '1 Bulan', bagian: 'Casing & Heat Sink', metode: 'Kuas halus & blower', alat: 'Blower & Kuas' }
+        ]
+      },
+      {
+        kategori: 'Hardware',
+        subKategori: 'Server',
+        namaPerangkat: 'Server Rackmount',
+        tipePerangkat: 'PowerEdge',
+        checks: [
+          { pengecekan: 'Check physical disks health', standard: 'Status LED disk hijau, tidak ada alarm', periodik: '1X/W', bagian: 'Disk Controller', metode: 'Visual & IDRAC review', alat: 'iDRAC Dashboard' },
+          { pengecekan: 'Check backup configuration status', standard: 'Status backup harian SUCCESS', periodik: '2X/W', bagian: 'Backup OS', metode: 'Review logs Veeam', alat: 'Veeam Console' }
+        ]
+      },
+      {
+        kategori: 'Hardware',
+        subKategori: 'CCTV',
+        namaPerangkat: 'CCTV Camera',
+        tipePerangkat: 'IP Camera Dome',
+        checks: [
+          { pengecekan: 'Pemeriksaan rekaman & DVR', standard: 'Rekaman 30 hari tersimpan normal', periodik: '1X/W', bagian: 'Storage DVR', metode: 'Playback test & free space check', alat: 'NVR Client Web' }
+        ]
+      },
+      {
+        kategori: 'Software',
+        subKategori: 'ERP System',
+        namaPerangkat: 'ERP System',
+        tipePerangkat: 'SAP ERP',
+        checks: [
+          { pengecekan: 'Review transaction error logs', standard: 'Tidak ada status failure pada batch jobs', periodik: '1X/W', bagian: 'Application Layer', metode: 'Transaction code ST22 review', alat: 'SAP GUI' },
+          { pengecekan: 'Database size review & shrinkage', standard: 'Free storage space > 20%', periodik: '1 Bulan', bagian: 'Storage Layer', metode: 'SQL Disk usage report', alat: 'SQL Management Studio' }
+        ]
+      },
+      {
+        kategori: 'Software',
+        subKategori: 'Database',
+        namaPerangkat: 'Database Server',
+        tipePerangkat: 'MS SQL Server',
+        checks: [
+          { pengecekan: 'Index reorganization & stats', standard: 'Fragmentasi index < 10%', periodik: '1 Bulan', bagian: 'SQL Indexes', metode: 'Rebuild & Reorganize query execution', alat: 'SQL Job Scheduler' }
+        ]
+      },
+      {
+        kategori: 'Networking',
+        subKategori: 'Switch Router',
+        namaPerangkat: 'Core Switch',
+        tipePerangkat: 'Cisco Catalyst',
+        checks: [
+          { pengecekan: 'Check port status & link load', standard: 'Load utilitas port di bawah 70%', periodik: '1X/W', bagian: 'Port Interfaces', metode: 'SNMP query & SolarWinds logs', alat: 'SolarWinds Monitoring' },
+          { pengecekan: 'Firmware update review', standard: 'Menggunakan Cisco IOS recommended stable release', periodik: '6 Bulan', bagian: 'Cisco IOS Image', metode: 'Cisco support portal compatibility verification', alat: 'CLI SSH Console' }
+        ]
+      },
+      {
+        kategori: 'Networking',
+        subKategori: 'Access Point',
+        namaPerangkat: 'Access Point AP',
+        tipePerangkat: 'Ubiquiti AP',
+        checks: [
+          { pengecekan: 'Test user authentication latency', standard: 'Maksimal latency DHCP lease < 3 detik', periodik: '2X/W', bagian: 'WLAN Auth', metode: 'Test connection from admin device', alat: 'Unifi Controller' }
+        ]
+      },
+      {
+        kategori: 'Cyber',
+        subKategori: 'Firewall Protection',
+        namaPerangkat: 'Firewall Core',
+        tipePerangkat: 'FortiGate 100F',
+        checks: [
+          { pengecekan: 'Review blocked attempts & logs', standard: 'Intrusion prevention logs aman & ter-filter', periodik: '1X/W', bagian: 'Security Profiles', metode: 'FortiView logs review', alat: 'FortiOS Dashboard' },
+          { pengecekan: 'SSL VPN user access audit', standard: 'Hanya user terdaftar aktif yang login', periodik: '1X/W', bagian: 'VPN SSL Access', metode: 'Export report active VPN users', alat: 'FortiAnalyzer' }
+        ]
+      },
+      {
+        kategori: 'Cyber',
+        subKategori: 'Endpoint Protection',
+        namaPerangkat: 'Sophos Endpoint Server',
+        tipePerangkat: 'Endpoint Protection Agent',
+        checks: [
+          { pengecekan: 'Verify definition update status', standard: '100% agent running update terbaru < 24 jam', periodik: '2X/W', bagian: 'Endpoint Client Agent', metode: 'Sophos central cloud device audit', alat: 'Sophos Central Dashboard' }
+        ]
+      }
     ];
 
     for (const spec of standardSpecs) {
@@ -258,38 +334,26 @@ async function seed() {
         }
       });
 
-      // Seed Standard Checks
-      // Check 1: Pembersihan Fisik (Bulanan)
-      const [check1] = await db.StandardMaintenanceCheck.findOrCreate({
-        where: { standard_maintenance_detail_id: detail.id, pengecekan: 'Pembersihan debu & fan' },
-        defaults: {
-          standard: 'Bebas debu & sirkulasi fan lancar',
-          periodik: '1 Bulan',
-          bagian: 'Casing & Heat Sink',
-          metode: 'Kuas halus & blower',
-          alat: 'Blower & Kuas',
-          created_at: new Date(),
-          updated_at: new Date()
-        }
-      });
+      // Seed checks and schedules
+      const createdChecks = [];
+      for (const checkSpec of spec.checks) {
+        const [check] = await db.StandardMaintenanceCheck.findOrCreate({
+          where: { standard_maintenance_detail_id: detail.id, pengecekan: checkSpec.pengecekan },
+          defaults: {
+            standard: checkSpec.standard,
+            periodik: checkSpec.periodik,
+            bagian: checkSpec.bagian,
+            metode: checkSpec.metode,
+            alat: checkSpec.alat,
+            created_at: new Date(),
+            updated_at: new Date()
+          }
+        });
+        createdChecks.push(check);
+      }
 
-      // Check 2: Update Sistem (Mingguan)
-      const [check2] = await db.StandardMaintenanceCheck.findOrCreate({
-        where: { standard_maintenance_detail_id: detail.id, pengecekan: 'Review security logs & patches' },
-        defaults: {
-          standard: 'Security logs bersih & tidak ada alert kritis',
-          periodik: '1 Minggu',
-          bagian: 'Sistem Operasi / Firmware',
-          metode: 'Web console monitoring & log review',
-          alat: 'Admin Dashboards',
-          created_at: new Date(),
-          updated_at: new Date()
-        }
-      });
-
-      // 11. Generate Maintenance Schedule
-      let categoryName = sm.subKategori;
-      const categoryObj = await db.AssetCategory.findOne({ where: { category_name: categoryName }, raw: true });
+      // Find matching assets and generate schedules
+      const categoryObj = await db.AssetCategory.findOne({ where: { category_name: spec.subKategori }, raw: true });
       if (categoryObj) {
         const assets = await db.Asset.findAll({ where: { category_id: categoryObj.category_id }, raw: true });
         for (const asset of assets) {
@@ -300,15 +364,14 @@ async function seed() {
               standard_maintenance_id: sm.id
             },
             defaults: {
-              periodik: '1 Minggu',
+              periodik: spec.checks[0].periodik, // default to first check periodicity
               status: 'ACTIVE'
             }
           });
 
           // Generate check cells
-          const checks = [check1, check2];
           const actualRecords = [];
-          for (const check of checks) {
+          for (const check of createdChecks) {
             const dates = await generateCheckboxDates(currentYear, check.periodik);
             for (const date of dates) {
               actualRecords.push({
@@ -324,15 +387,14 @@ async function seed() {
           }
 
           if (actualRecords.length > 0) {
-            // Bulk insert check cells
             await db.MaintenanceActual.bulkCreate(actualRecords);
             
-            // To make testing realistic, let's set some cells to Done (✓) and one cell to Abnormal (✗)
+            // Fetch created actuals to selectively modify some as Done/Abnormal
             const createdActuals = await db.MaintenanceActual.findAll({
               where: { schedule_id: schedule.id }
             });
 
-            // Set first 3 checks of each schedule to Done
+            // Set first 3 checks to Done (✓)
             for (let i = 0; i < Math.min(createdActuals.length, 3); i++) {
               await createdActuals[i].update({
                 status: 'ACTUAL',
@@ -340,7 +402,7 @@ async function seed() {
               });
             }
 
-            // Set the 4th check of the first laptop schedule to Abnormal (✗) and create abnormal log
+            // Set one check to Abnormal (✗) on Laptop T14 for testing
             if (asset.asset_code === 'AST-LPT-001' && createdActuals.length > 3) {
               const abnormalCell = createdActuals[3];
               await abnormalCell.update({
@@ -348,7 +410,7 @@ async function seed() {
                 legend: '✗'
               });
 
-              const [log] = await db.MaintenanceAbnormalLog.findOrCreate({
+              await db.MaintenanceAbnormalLog.findOrCreate({
                 where: { actual_id: abnormalCell.id },
                 defaults: {
                   deskripsi_kerusakan: 'Laptop mengalami overheating parah saat membuka visual studio. Kipas berbunyi bising.',
@@ -359,7 +421,6 @@ async function seed() {
                 }
               });
 
-              // Create legacy record in maintenance_log_sheets
               await db.MaintenanceLogSheet.findOrCreate({
                 where: { actual_id: abnormalCell.id },
                 defaults: {
@@ -371,8 +432,6 @@ async function seed() {
                   created_by: user1.user_id
                 }
               });
-              
-              console.log("✓ Seeded Abnormal check cell and Reported Log Sheet for Laptop T14");
             }
           }
         }

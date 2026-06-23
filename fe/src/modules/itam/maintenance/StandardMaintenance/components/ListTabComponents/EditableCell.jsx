@@ -14,7 +14,9 @@ const EditableCell = ({
   let inputNode = <Input />;
   if (inputType === 'periodik') {
     inputNode = (
-      <Select allowClear>
+      <Select allowClear style={{ width: '100%' }}>
+        <Select.Option value="1X/W">1X/W</Select.Option>
+        <Select.Option value="2X/W">2X/W</Select.Option>
         <Select.Option value="Daily">Daily</Select.Option>
         <Select.Option value="Weekly">Weekly</Select.Option>
         <Select.Option value="Monthly">Monthly</Select.Option>

@@ -1,4 +1,4 @@
-import { MaintenanceActual, MaintenanceAbnormalLog, MaintenanceLogSheet, MaintenanceSchedule, Asset, StandardMaintenanceCheck, sequelize } from "../../../models/index.js";
+import { MaintenanceActual, MaintenanceAbnormalLog, MaintenanceLogSheet, MaintenanceSchedule, Asset, StandardMaintenanceCheck, StandardMaintenanceDetail, StandardMaintenance, AssetCategory, sequelize } from "../../../models/index.js";
 
 export const submitAbnormalLog = async (req, res) => {
   const transaction = await sequelize.transaction();
@@ -47,11 +47,18 @@ export const submitAbnormalLog = async (req, res) => {
       }, { transaction });
     }
 
-    // 2. Update status and legend in MaintenanceActual to ABNORMAL (✗)
-    await actual.update({
-      status: "ABNORMAL",
-      legend: "✗"
-    }, { transaction });
+    // 2. Update status and legend in MaintenanceActual depending on status_temuan
+    if (statusTemuan === "RESOLVED" || statusTemuan === "APPROVED") {
+      await actual.update({
+        status: "ACTUAL",
+        legend: "✓"
+      }, { transaction });
+    } else {
+      await actual.update({
+        status: "ABNORMAL",
+        legend: "✗"
+      }, { transaction });
+    }
 
     // 3. Sync to legacy MaintenanceLogSheet table to preserve compatibility
     let logSheet = await MaintenanceLogSheet.findOne({
@@ -128,11 +135,38 @@ export const getAllAbnormalLogs = async (req, res) => {
             {
               model: MaintenanceSchedule,
               as: "schedule",
-              include: [{ model: Asset, as: "asset" }]
+              include: [
+                {
+                  model: Asset,
+                  as: "asset",
+                  include: [
+                    {
+                      model: AssetCategory,
+                      as: "category",
+                      include: [
+                        {
+                          model: AssetCategory,
+                          as: "parent"
+                        }
+                      ]
+                    }
+                  ]
+                }
+              ]
             },
             {
               model: StandardMaintenanceCheck,
-              as: "check"
+              as: "check",
+              include: [
+                {
+                  model: StandardMaintenanceDetail,
+                  include: [
+                    {
+                      model: StandardMaintenance
+                    }
+                  ]
+                }
+              ]
             }
           ]
         }

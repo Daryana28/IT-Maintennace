@@ -188,6 +188,8 @@ export default function StandardForm({
                                       <Col span={8}>
                                         <Form.Item {...pRestField} name={[pName, 'periodik']} label="Periodik" rules={[{ required: true, message: 'Wajib diisi' }]}>
                                           <Select placeholder="Pilih Periodik" allowClear>
+                                            <Select.Option value="1X/W">1X/W</Select.Option>
+                                            <Select.Option value="2X/W">2X/W</Select.Option>
                                             <Select.Option value="Daily">Daily</Select.Option>
                                             <Select.Option value="Weekly">Weekly</Select.Option>
                                             <Select.Option value="Monthly">Monthly</Select.Option>
