@@ -3,14 +3,14 @@
 ## 🗺️ Execution Phases
 
 ### 📁 Fase 0 — Foundation
-- [ ] **T-001**: Repository & Git Setup (Initialize tracking docs, pre-commit scripts)  
-  *Status*: 🟡 In Progress | *Started*: 2026-06-23 20:31 | *Done*: - | *Commit*: -
+- [x] **T-001**: Repository & Git Setup (Initialize tracking docs, pre-commit scripts)  
+  *Status*: 🟢 Done | *Started*: 2026-06-23 20:31 | *Done*: 2026-06-23 20:32 | *Commit*: [586f249](https://github.com/Daryana28/IT-Maintennace/commit/586f249)
 
 ### 📁 Fase 1 — Parallel Core
-- [ ] **T-002**: Database Migration Setup  
-  *Status*: 🔴 Not Started | *Started*: - | *Done*: - | *Commit*: -
+- [x] **T-002**: Database Migration Setup  
+  *Status*: 🟢 Done | *Started*: 2026-06-23 20:32 | *Done*: 2026-06-23 20:34 | *Commit*: [a9cc38b](https://github.com/Daryana28/IT-Maintennace/commit/a9cc38b)
 - [ ] **T-003**: Model Definition & Hooks  
-  *Status*: 🔴 Not Started | *Started*: - | *Done*: - | *Commit*: -
+  *Status*: 🟡 In Progress | *Started*: 2026-06-23 20:34 | *Done*: - | *Commit*: -
 - [ ] **T-004**: Checkbox Generation Engine  
   *Status*: 🔴 Not Started | *Started*: - | *Done*: - | *Commit*: -
 - [ ] **T-005**: Schedule Checkbox & Actual API  
