@@ -60,7 +60,7 @@ async function seed() {
       where: { role_name: 'Admin' }
     });
     const [superAdminRole] = await db.Role.findOrCreate({
-      where: { role_name: 'Super Admin' }
+      where: { role_name: 'SuperAdmin' }
     });
     console.log("✓ Seeded Roles");
 
