@@ -1,4 +1,6 @@
-import { MaintenanceSchedule, Asset, StandardMaintenance, YearlyStandardMaintenance, AssetCategory, StandardMaintenanceDetail, StandardMaintenanceCheck } from "../../../models/index.js";
+import { sequelize, MaintenanceSchedule, Asset, StandardMaintenance, YearlyStandardMaintenance, AssetCategory, StandardMaintenanceDetail, StandardMaintenanceCheck, MaintenanceActual } from "../../../models/index.js";
+import { generateCheckboxDates } from "./checkboxGenerator.js";
+import dayjs from "dayjs";
 
 export const generateSchedule = async (req, res) => {
   try {
@@ -102,13 +104,43 @@ export const generateSchedule = async (req, res) => {
         });
 
         if (!existing) {
-          await MaintenanceSchedule.create({
+          const newSchedule = await MaintenanceSchedule.create({
             asset_id: asset.asset_id,
             yearly_standard_id: yearly_standard_id,
             standard_maintenance_id: sm.id,
             periodik: derivedPeriodik,
             status: "ACTIVE"
           });
+
+          // Auto-generate actual checkbox matrix for this schedule
+          const checks = await StandardMaintenanceCheck.findAll({
+            include: {
+              model: StandardMaintenanceDetail,
+              where: { standard_maintenance_id: sm.id }
+            }
+          });
+
+          const actualRecords = [];
+          for (const check of checks) {
+            const periodikString = check.periodik || derivedPeriodik || "1 Bulan";
+            const dates = await generateCheckboxDates(yearlyStandard.tahun, periodikString);
+            for (const date of dates) {
+              actualRecords.push({
+                schedule_id: newSchedule.id,
+                check_id: check.id,
+                tanggal: date,
+                status: "PLAN",
+                legend: "□",
+                created_at: new Date(),
+                updated_at: new Date()
+              });
+            }
+          }
+
+          if (actualRecords.length > 0) {
+            await MaintenanceActual.bulkCreate(actualRecords, { ignoreDuplicates: true });
+          }
+
           createdCount++;
         }
       }
@@ -283,6 +315,170 @@ export const cancelSchedule = async (req, res) => {
     });
   } catch (error) {
     console.error("Cancel schedule error:", error);
+    res.status(500).json({ success: false, message: error.message });
+  }
+};
+
+export const generateCheckboxes = async (req, res) => {
+  const transaction = await sequelize.transaction();
+  try {
+    const { yearly_standard_id, schedule_id } = req.body;
+
+    let schedules = [];
+    let year = null;
+
+    if (schedule_id) {
+      const schedule = await MaintenanceSchedule.findByPk(schedule_id, {
+        include: [{ model: YearlyStandardMaintenance }]
+      });
+      if (!schedule) {
+        await transaction.rollback();
+        return res.status(404).json({ success: false, message: "Schedule not found" });
+      }
+      schedules = [schedule];
+      year = schedule.YearlyStandardMaintenance?.tahun;
+    } else if (yearly_standard_id) {
+      const yearlyStandard = await YearlyStandardMaintenance.findByPk(yearly_standard_id);
+      if (!yearlyStandard) {
+        await transaction.rollback();
+        return res.status(404).json({ success: false, message: "Yearly Standard not found" });
+      }
+      schedules = await MaintenanceSchedule.findAll({
+        where: { yearly_standard_id }
+      });
+      year = yearlyStandard.tahun;
+    } else {
+      await transaction.rollback();
+      return res.status(400).json({ success: false, message: "yearly_standard_id or schedule_id is required" });
+    }
+
+    if (schedules.length === 0) {
+      await transaction.rollback();
+      return res.status(200).json({ success: true, message: "No schedules found to generate checkboxes.", data: { created: 0 } });
+    }
+
+    let createdCount = 0;
+
+    for (const schedule of schedules) {
+      const checks = await StandardMaintenanceCheck.findAll({
+        include: {
+          model: StandardMaintenanceDetail,
+          where: { standard_maintenance_id: schedule.standard_maintenance_id }
+        }
+      });
+
+      const actualRecords = [];
+
+      for (const check of checks) {
+        const periodikString = check.periodik || schedule.periodik || "1 Bulan";
+        const dates = await generateCheckboxDates(year, periodikString);
+
+        for (const date of dates) {
+          actualRecords.push({
+            schedule_id: schedule.id,
+            check_id: check.id,
+            tanggal: date,
+            status: "PLAN",
+            legend: "□",
+            created_at: new Date(),
+            updated_at: new Date()
+          });
+        }
+      }
+
+      if (actualRecords.length > 0) {
+        await MaintenanceActual.bulkCreate(actualRecords, {
+          transaction,
+          ignoreDuplicates: true
+        });
+        createdCount += actualRecords.length;
+      }
+    }
+
+    await transaction.commit();
+    return res.status(200).json({
+      success: true,
+      message: `Successfully generated ${createdCount} checkbox cells.`,
+      data: { created: createdCount }
+    });
+
+  } catch (error) {
+    await transaction.rollback();
+    console.error("Generate checkboxes error:", error);
+    return res.status(500).json({ success: false, message: error.message });
+  }
+};
+
+export const getScheduleCheckboxes = async (req, res) => {
+  try {
+    const { id } = req.params;
+    const { month } = req.query;
+
+    const schedule = await MaintenanceSchedule.findByPk(id, {
+      include: [{ model: YearlyStandardMaintenance }]
+    });
+
+    if (!schedule) {
+      return res.status(404).json({ success: false, message: "Jadwal tidak ditemukan" });
+    }
+
+    const whereClause = { schedule_id: id };
+    if (month) {
+      const monthNum = parseInt(month);
+      whereClause[sequelize.Op.and] = [
+        sequelize.where(sequelize.fn("MONTH", sequelize.col("tanggal")), monthNum)
+      ];
+    }
+
+    const checkboxes = await MaintenanceActual.findAll({
+      where: whereClause,
+      include: [
+        {
+          model: StandardMaintenanceCheck,
+          as: "check",
+          include: {
+            model: StandardMaintenanceDetail
+          }
+        },
+        {
+          model: MaintenanceActual.sequelize.models.MaintenanceAbnormalLog,
+          as: "abnormalLogs"
+        }
+      ],
+      order: [["tanggal", "ASC"]]
+    });
+
+    const formatted = checkboxes.map(cb => {
+      const cbJSON = cb.toJSON();
+      const abnormal = cbJSON.abnormalLogs && cbJSON.abnormalLogs.length > 0 ? cbJSON.abnormalLogs[0] : null;
+      return {
+        actual_id: cbJSON.id,
+        date: cbJSON.tanggal,
+        week: dayjs(cbJSON.tanggal).isoWeek(),
+        status: cbJSON.status,
+        legend: cbJSON.legend,
+        check_id: cbJSON.check_id,
+        check: cbJSON.check,
+        abnormal: abnormal ? {
+          id: abnormal.id,
+          deskripsi_kerusakan: abnormal.deskripsi_kerusakan,
+          tindakan: abnormal.tindakan,
+          status: abnormal.status_temuan
+        } : null
+      };
+    });
+
+    res.status(200).json({
+      success: true,
+      data: {
+        year: schedule.YearlyStandardMaintenance?.tahun,
+        periodik: schedule.periodik,
+        checkboxes: formatted
+      }
+    });
+
+  } catch (error) {
+    console.error("Get schedule checkboxes error:", error);
     res.status(500).json({ success: false, message: error.message });
   }
 };
