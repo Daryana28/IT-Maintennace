@@ -5,14 +5,27 @@ import {
   CompassOutlined,
   CustomerServiceOutlined,
   HomeOutlined,
+  LogoutOutlined,
 } from "@ant-design/icons";
 import { Button } from "antd";
 import { Link, useNavigate } from "react-router-dom";
 import { encodePath } from "@/shared/utils/routeCipher";
+import { useAuthStore } from "@/modules/auth/store/authStore";
 import "@/styles/pages/notfound.css";
 
 export default function NotFoundPage() {
   const navigate = useNavigate();
+  const logout = useAuthStore((s) => s.logout);
+
+  const handleLogout = async () => {
+    try {
+      await logout();
+      navigate("/login");
+    } catch {
+      localStorage.clear();
+      window.location.href = "/login";
+    }
+  };
 
   return (
     <section className="notfound-page">
@@ -65,6 +78,16 @@ export default function NotFoundPage() {
               onClick={() => navigate(-1)}
             >
               Kembali
+            </Button>
+
+            <Button
+              size="large"
+              icon={<LogoutOutlined />}
+              className="notfound-btn-secondary"
+              onClick={handleLogout}
+              danger
+            >
+              Logout
             </Button>
           </div>
         </div>
