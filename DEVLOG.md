@@ -32,6 +32,13 @@
 - **Blockers**: None.
 - **Next Step**: Implement Abnormal Logs API endpoints (T-006).
 
+### [2026-06-23 20:42] - T-006 - Backend Dev
+- **Summary**: Created endpoints for submitting and retrieving abnormal logs.
+- **Technical Decisions**: Implemented `submitAbnormalLog` (which creates/updates the abnormal log, sets actual status to `ABNORMAL` and legend to `✗`, and creates/syncs a corresponding record in `maintenance_log_sheets` for backwards compatibility), `getAllAbnormalLogs`, and `getAbnormalLogsBySchedule` inside `maintenanceAbnormalLogController.js`. Registered routes under `/maintenance-abnormal-logs` and `/maintenance-actual/:id/abnormal`.
+- **Blockers**: None.
+- **Next Step**: Implement the monthly view matrix endpoint (T-007).
+
+
 
 
 
