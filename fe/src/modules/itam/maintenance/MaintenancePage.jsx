@@ -2,7 +2,7 @@ import React, { useState, useEffect } from "react";
 import { Typography, Row, Col, Tabs } from "antd";
 import { useSearchParams, useLocation } from "react-router-dom";
 import StandardMaintenancePage from "./StandardMaintenance/StandardMaintenancePage";
-import MaintenanceSchedulePage from "./MaintenanceSchedulePage";
+import ScheduleWithCheckboxView from "./components/ScheduleWithCheckboxView";
 import MaintenanceLogSheetPage from "./MaintenanceLogSheetPage";
 import "./StandardMaintenance/StandardMaintenancePage.css";
 
@@ -86,7 +86,7 @@ export default function MaintenancePage() {
             />
           )}
           {tab === "schedule" && (
-            <MaintenanceSchedulePage 
+            <ScheduleWithCheckboxView 
               overrideCategory={category} 
               overrideYearlyId={yearlyStandardId}
             />

@@ -41,6 +41,21 @@ async function getMonthlyView(year, month, category) {
   return unwrap(res, []);
 }
 
+async function updateActualStatus(actualId, status) {
+  const res = await apiClient.put(`/maintenance-actual/${actualId}/status`, { status });
+  return res.data;
+}
+
+async function submitAbnormalLog(actualId, payload) {
+  const res = await apiClient.post(`/maintenance-actual/${actualId}/abnormal`, payload);
+  return res.data;
+}
+
+async function getAllAbnormalLogs(params) {
+  const res = await apiClient.get(`/maintenance-abnormal-logs`, { params });
+  return unwrap(res, []);
+}
+
 export default {
   generateSchedule,
   getSchedules,
@@ -48,5 +63,8 @@ export default {
   updateSchedule,
   cancelSchedule,
   getMonthlyView,
+  updateActualStatus,
+  submitAbnormalLog,
+  getAllAbnormalLogs,
 };
 
