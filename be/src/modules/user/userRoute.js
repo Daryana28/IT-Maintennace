@@ -82,6 +82,13 @@ router.post(
     userController.create
 );
 
+router.post(
+    "/:id/reset-password",
+    authMiddleware,
+    roleMiddleware(...ADMIN_ROLES),
+    userController.resetPassword
+);
+
 router.put(
     "/:id",
     authMiddleware,

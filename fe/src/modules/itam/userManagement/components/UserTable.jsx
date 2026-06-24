@@ -1,6 +1,6 @@
 import { memo } from "react";
-import { Table, Space, Tag, Button, Popconfirm } from "antd";
-import { EditOutlined, DeleteOutlined } from "@ant-design/icons";
+import { Table, Space, Tag, Button, Popconfirm, Modal } from "antd";
+import { EditOutlined, DeleteOutlined, KeyOutlined } from "@ant-design/icons";
 
 import UserAvatar from "./UserAvatar";
 
@@ -22,6 +22,7 @@ const UserTable = memo(function UserTable({
     total,
     onEdit,
     onDelete,
+    onResetPassword,
     onChange,
 }) {
     const columns = [
@@ -106,6 +107,19 @@ const UserTable = memo(function UserTable({
                         onClick={() => onEdit(record)}
                         style={{ color: "var(--primary)" }}
                     />
+                    <Popconfirm
+                        title="Reset password pengguna ini?"
+                        description="Password baru akan di-generate otomatis."
+                        onConfirm={() => onResetPassword(record.user_id)}
+                        okText="Ya, reset"
+                        cancelText="Batal"
+                    >
+                        <Button
+                            type="link"
+                            icon={<KeyOutlined />}
+                            style={{ color: "#faad14" }}
+                        />
+                    </Popconfirm>
                     <Popconfirm
                         title="Hapus pengguna ini?"
                         description="Tindakan ini tidak dapat dibatalkan."

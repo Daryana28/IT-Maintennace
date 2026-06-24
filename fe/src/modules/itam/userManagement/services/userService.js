@@ -16,6 +16,9 @@ const userService = {
     remove: (id) =>
         http.delete(`/users/${id}`).then((res) => res.data),
 
+    resetPassword: (id) =>
+        http.post(`/users/${id}/reset-password`).then((res) => res.data),
+
     getRoles: () =>
         http.get("/users/roles").then((res) => res.data),
 };

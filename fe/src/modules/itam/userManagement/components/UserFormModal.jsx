@@ -136,29 +136,22 @@ const UserFormModal = memo(function UserFormModal({
                 </Row>
 
                 <Row gutter={16}>
-                    <Col xs={24} sm={12}>
-                        <Form.Item
-                            name="password"
-                            label={editing ? "Password Baru (kosongkan jika tidak diubah)" : "Password"}
-                            rules={
-                                editing
-                                    ? []
-                                    : [
-                                        { required: true, message: "Password wajib diisi" },
-                                        { min: 6, message: "Minimal 6 karakter" },
-                                    ]
-                            }
-                            tooltip="Minimal 6 karakter"
-                        >
-                            <Input.Password
-                                placeholder={
-                                    editing ? "Biarkan kosong jika tidak diubah" : "Masukkan password"
-                                }
-                                className="um-modal-input"
-                            />
-                        </Form.Item>
-                    </Col>
-                    <Col xs={24} sm={12}>
+                    {editing && (
+                        <Col xs={24} sm={12}>
+                            <Form.Item
+                                name="password"
+                                label="Password Baru (kosongkan jika tidak diubah)"
+                                rules={[]}
+                                tooltip="Biarkan kosong jika tidak ingin mengubah password"
+                            >
+                                <Input.Password
+                                    placeholder="Biarkan kosong jika tidak diubah"
+                                    className="um-modal-input"
+                                />
+                            </Form.Item>
+                        </Col>
+                    )}
+                    <Col xs={24} sm={editing ? 12 : 24}>
                         <Form.Item
                             name="is_active"
                             label="Status Aktif"

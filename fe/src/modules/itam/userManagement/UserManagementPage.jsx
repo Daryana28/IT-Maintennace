@@ -1,5 +1,5 @@
 import { useState, useEffect, useCallback } from "react";
-import { Card, Button, Input, Flex } from "antd";
+import { Card, Button, Input, Flex, Modal } from "antd";
 import {
     PlusOutlined,
     ReloadOutlined,
@@ -91,8 +91,19 @@ export default function UserManagementPage() {
                     await userService.update(editing.user_id, values);
                     toast.success("Pengguna berhasil diperbarui");
                 } else {
-                    await userService.create(values);
-                    toast.success("Pengguna berhasil ditambahkan");
+                    const res = await userService.create(values);
+                    Modal.info({
+                        title: 'User Baru Berhasil Dibuat',
+                        content: (
+                            <div>
+                                <p>Silakan simpan informasi akun berikut dengan aman:</p>
+                                <p style={{ marginBottom: 8 }}><strong>Username:</strong> {res.user?.username || values.username}</p>
+                                <p style={{ marginBottom: 8 }}><strong>Plaintext Password:</strong> <code style={{ background: '#f5f5f5', padding: '2px 6px', borderRadius: '4px', fontSize: '15px', color: '#d91e18', fontWeight: 'bold' }}>{res.plaintextPassword}</code></p>
+                                <p style={{ marginBottom: 0 }}><strong>Password Hash:</strong> <code style={{ background: '#f5f5f5', padding: '2px 6px', borderRadius: '4px', wordBreak: 'break-all', fontSize: '12px' }}>{res.passwordHash}</code></p>
+                            </div>
+                        ),
+                        okText: 'OK',
+                    });
                 }
                 closeModal();
                 fetchData(page, pageSize, search);
@@ -116,6 +127,29 @@ export default function UserManagementPage() {
             }
         },
         [page, pageSize, search, fetchData]
+    );
+
+    const handleResetPassword = useCallback(
+        async (id) => {
+            try {
+                const res = await userService.resetPassword(id);
+                Modal.info({
+                    title: 'Password Berhasil Direset',
+                    content: (
+                        <div>
+                            <p>Silakan simpan informasi login baru berikut:</p>
+                            <p style={{ marginBottom: 8 }}><strong>Username:</strong> {res.user?.username}</p>
+                            <p style={{ marginBottom: 8 }}><strong>Plaintext Password:</strong> <code style={{ background: '#f5f5f5', padding: '2px 6px', borderRadius: '4px', fontSize: '15px', color: '#d91e18', fontWeight: 'bold' }}>{res.plaintextPassword}</code></p>
+                            <p style={{ marginBottom: 0 }}><strong>Password Hash:</strong> <code style={{ background: '#f5f5f5', padding: '2px 6px', borderRadius: '4px', wordBreak: 'break-all', fontSize: '12px' }}>{res.passwordHash}</code></p>
+                        </div>
+                    ),
+                    okText: 'OK',
+                });
+            } catch (err) {
+                toast.error(err.message || "Gagal mereset password");
+            }
+        },
+        []
     );
 
     return (
@@ -173,6 +207,7 @@ export default function UserManagementPage() {
                     total={total}
                     onEdit={openEdit}
                     onDelete={handleDelete}
+                    onResetPassword={handleResetPassword}
                     onChange={handleTableChange}
                 />
             </Card>
