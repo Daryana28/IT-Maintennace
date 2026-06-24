@@ -1,4 +1,16 @@
-import { StandardMaintenance, StandardMaintenanceDetail, StandardMaintenanceCheck, YearlyStandardMaintenance, sequelize } from "../../../models/index.js";
+import { 
+  StandardMaintenance, 
+  StandardMaintenanceDetail, 
+  StandardMaintenanceCheck, 
+  YearlyStandardMaintenance, 
+  MaintenanceSchedule, 
+  Asset, 
+  AssetCategory, 
+  MaintenanceActual, 
+  MaintenanceLogSheet, 
+  sequelize 
+} from "../../../models/index.js";
+import { Op } from "sequelize";
 import xlsx from "xlsx";
 import { generateTemplate } from "./excelTemplateGenerator.js";
 
@@ -466,12 +478,11 @@ export const importStandardMaintenance = async (req, res) => {
     return res.status(400).json({ success: false, message: "File Excel wajib diunggah" });
   }
 
-  const { kategori, yearly_standard_id } = req.body;
-  if (!kategori || !yearly_standard_id) {
-    return res.status(400).json({ success: false, message: "Kategori dan yearly_standard_id wajib diisi" });
+  const { kategori } = req.body;
+  if (!kategori) {
+    return res.status(400).json({ success: false, message: "Kategori wajib diisi" });
   }
 
-  const transaction = await sequelize.transaction();
   try {
     const workbook = xlsx.read(req.file.buffer, { type: 'buffer' });
     const sheetName = workbook.SheetNames[0];
@@ -489,9 +500,7 @@ export const importStandardMaintenance = async (req, res) => {
     let lastFungsi = '';
     let lastDeskripsi = '';
 
-    let totalRows = 0;
-    let importedCount = 0;
-    let skippedCount = 0;
+    const parsedItems = [];
 
     // Excel data row starts at row 8 (index 8)
     for (let r = 8; r <= range.e.r; r++) {
@@ -532,18 +541,12 @@ export const importStandardMaintenance = async (req, res) => {
         continue;
       }
 
-      // If no check item, skip inserting check but count row
+      // If no check item, skip inserting check
       if (!col7Val) {
         continue;
       }
 
-      totalRows++;
-
       // We extract checks from any of the 4 sub-category columns that are populated
-      // 1. Hardware (C8-C11)
-      // 2. Infrastructure (C12-C15)
-      // 3. Software (C16-C19)
-      // 4. Cyber Security (C20-C23)
       const checkGroups = [];
 
       const extractGroup = (baseC) => {
@@ -572,14 +575,71 @@ export const importStandardMaintenance = async (req, res) => {
         checkGroups.push({ standard: '', bagian: '', metode: '', alat: '' });
       }
 
-      // Insert standard maintenance parent
-      const dbKategori = kategori.toUpperCase();
-      const dbSubKategori = lastSubKategori || '-';
-      const dbNamaPerangkat = lastNamaPerangkat || '-';
-      const dbTipePerangkat = lastTipePerangkat || '-';
-      const dbSubPerangkat = lastSubPerangkat || '-';
+      const periodik = col24Val || '1 Bulan';
 
-      const [sm] = await StandardMaintenance.findOrCreate({
+      for (const group of checkGroups) {
+        parsedItems.push({
+          kategori: kategori.toUpperCase(),
+          subKategori: lastSubKategori || '-',
+          namaPerangkat: lastNamaPerangkat || '-',
+          tipePerangkat: lastTipePerangkat || '-',
+          subPerangkat: lastSubPerangkat || '-',
+          fungsi: lastFungsi || '-',
+          deskripsi: lastDeskripsi || '-',
+          pengecekan: col7Val,
+          standard: group.standard || '',
+          bagian: group.bagian || '',
+          metode: group.metode || '',
+          alat: group.alat || '',
+          periodik,
+          planned_dates: []
+        });
+      }
+    }
+
+    return res.status(200).json({
+      success: true,
+      message: "File Excel berhasil dibaca",
+      data: parsedItems
+    });
+  } catch (error) {
+    console.error("Error in importStandardMaintenance:", error);
+    return res.status(500).json({
+      success: false,
+      message: error.message || "Gagal mengimpor standard maintenance"
+    });
+  }
+};
+
+export const saveAndGenerateSchedule = async (req, res) => {
+  const transaction = await sequelize.transaction();
+  try {
+    const { yearly_standard_id, kategori, checks } = req.body;
+
+    if (!yearly_standard_id || !kategori || !Array.isArray(checks)) {
+      await transaction.rollback();
+      return res.status(400).json({ success: false, message: "yearly_standard_id, kategori, dan checks wajib diisi" });
+    }
+
+    const targetYearly = await YearlyStandardMaintenance.findByPk(yearly_standard_id, { transaction });
+    if (!targetYearly) {
+      await transaction.rollback();
+      return res.status(404).json({ success: false, message: "Yearly standard maintenance tidak ditemukan" });
+    }
+
+    const savedCheckIds = [];
+    const savedDetailIds = [];
+    const savedSmIds = [];
+
+    for (const checkItem of checks) {
+      const dbKategori = kategori.toUpperCase();
+      const dbSubKategori = checkItem.subKategori || '-';
+      const dbNamaPerangkat = checkItem.namaPerangkat || '-';
+      const dbTipePerangkat = checkItem.tipePerangkat || '-';
+      const dbSubPerangkat = checkItem.subPerangkat || '-';
+
+      // 1. Find or create StandardMaintenance parent
+      let sm = await StandardMaintenance.findOne({
         where: {
           yearly_standard_id,
           kategori: dbKategori,
@@ -588,84 +648,340 @@ export const importStandardMaintenance = async (req, res) => {
           tipePerangkat: dbTipePerangkat,
           subPerangkat: dbSubPerangkat
         },
-        defaults: {
-          source_file: req.file.originalname,
-          imported_by: req.user?.user_id || null,
-          imported_at: new Date()
-        },
         transaction
       });
 
-      // Insert standard maintenance detail (fungsi)
-      const dbFungsi = lastFungsi || '-';
-      const dbDeskripsi = lastDeskripsi || '-';
-      const [smDetail] = await StandardMaintenanceDetail.findOrCreate({
+      if (!sm) {
+        sm = await StandardMaintenance.create({
+          yearly_standard_id,
+          kategori: dbKategori,
+          subKategori: dbSubKategori,
+          namaPerangkat: dbNamaPerangkat,
+          tipePerangkat: dbTipePerangkat,
+          subPerangkat: dbSubPerangkat,
+          imported_at: new Date()
+        }, { transaction });
+      }
+      if (!savedSmIds.includes(sm.id)) {
+        savedSmIds.push(sm.id);
+      }
+
+      // 2. Find or create StandardMaintenanceDetail
+      const dbFungsi = checkItem.fungsi || '-';
+      const dbDeskripsi = checkItem.deskripsi || '-';
+      let smDetail = await StandardMaintenanceDetail.findOne({
         where: {
           standard_maintenance_id: sm.id,
           fungsi: dbFungsi
         },
-        defaults: {
-          deskripsi: dbDeskripsi
-        },
         transaction
       });
 
-      // Update description if changed
-      if (smDetail.deskripsi !== dbDeskripsi) {
+      if (!smDetail) {
+        smDetail = await StandardMaintenanceDetail.create({
+          standard_maintenance_id: sm.id,
+          fungsi: dbFungsi,
+          deskripsi: dbDeskripsi
+        }, { transaction });
+      } else {
         await smDetail.update({ deskripsi: dbDeskripsi }, { transaction });
       }
+      if (!savedDetailIds.includes(smDetail.id)) {
+        savedDetailIds.push(smDetail.id);
+      }
 
-      // Insert checks
-      const periodik = col24Val || '1 Bulan';
-      let insertedAny = false;
+      // 3. Find or create StandardMaintenanceCheck
+      let smCheck = null;
+      if (checkItem.cekId) {
+        smCheck = await StandardMaintenanceCheck.findByPk(checkItem.cekId, { transaction });
+      }
 
-      for (const group of checkGroups) {
-        const [smCheck, created] = await StandardMaintenanceCheck.findOrCreate({
+      if (!smCheck) {
+        smCheck = await StandardMaintenanceCheck.findOne({
           where: {
             standard_maintenance_detail_id: smDetail.id,
-            pengecekan: col7Val,
-            standard: group.standard || '',
-            bagian: group.bagian || ''
+            pengecekan: checkItem.pengecekan,
+            standard: checkItem.standard || '',
+            bagian: checkItem.bagian || ''
+          },
+          transaction
+        });
+      }
+
+      if (!smCheck) {
+        smCheck = await StandardMaintenanceCheck.create({
+          standard_maintenance_detail_id: smDetail.id,
+          pengecekan: checkItem.pengecekan,
+          standard: checkItem.standard || '',
+          periodik: checkItem.periodik || '1 Bulan',
+          bagian: checkItem.bagian || '',
+          metode: checkItem.metode || '',
+          alat: checkItem.alat || '',
+          planned_dates: checkItem.planned_dates || []
+        }, { transaction });
+      } else {
+        await smCheck.update({
+          pengecekan: checkItem.pengecekan,
+          standard: checkItem.standard || '',
+          periodik: checkItem.periodik || '1 Bulan',
+          bagian: checkItem.bagian || '',
+          metode: checkItem.metode || '',
+          alat: checkItem.alat || '',
+          planned_dates: checkItem.planned_dates || []
+        }, { transaction });
+      }
+      savedCheckIds.push(smCheck.id);
+    }
+
+    // 4. Cleanup orphaned records that are not in configuration
+    const allSmForCat = await StandardMaintenance.findAll({
+      where: { yearly_standard_id, kategori: kategori.toUpperCase() },
+      transaction
+    });
+
+    for (const smItem of allSmForCat) {
+      const smDetails = await StandardMaintenanceDetail.findAll({
+        where: { standard_maintenance_id: smItem.id },
+        transaction
+      });
+
+      for (const detail of smDetails) {
+        const smChecks = await StandardMaintenanceCheck.findAll({
+          where: { standard_maintenance_detail_id: detail.id },
+          transaction
+        });
+
+        for (const check of smChecks) {
+          if (!savedCheckIds.includes(check.id)) {
+            // Check if this check has completed actual records
+            const completedCount = await MaintenanceActual.count({
+              where: {
+                check_id: check.id,
+                [Op.or]: [
+                  { status: { [Op.ne]: "PLAN" } },
+                  { legend: { [Op.ne]: "□" } }
+                ]
+              },
+              transaction
+            });
+
+            if (completedCount > 0) {
+              console.log(`Preserving check ${check.id} due to existing logged actual records`);
+            } else {
+              // Delete uncompleted actual records first
+              await MaintenanceActual.destroy({
+                where: { check_id: check.id },
+                transaction
+              });
+              await check.destroy({ transaction });
+            }
+          }
+        }
+
+        // Clean up detail if no remaining checks
+        const remainingChecksCount = await StandardMaintenanceCheck.count({
+          where: { standard_maintenance_detail_id: detail.id },
+          transaction
+        });
+        if (remainingChecksCount === 0 && !savedDetailIds.includes(detail.id)) {
+          await detail.destroy({ transaction });
+        }
+      }
+
+      // Clean up parent if no remaining details
+      const remainingDetailsCount = await StandardMaintenanceDetail.count({
+        where: { standard_maintenance_id: smItem.id },
+        transaction
+      });
+      if (remainingDetailsCount === 0 && !savedSmIds.includes(smItem.id)) {
+        await MaintenanceSchedule.destroy({
+          where: { standard_maintenance_id: smItem.id },
+          transaction
+        });
+        await smItem.destroy({ transaction });
+      }
+    }
+
+    // 5. Generate and sync schedules
+    const updatedSms = await StandardMaintenance.findAll({
+      where: { yearly_standard_id, kategori: kategori.toUpperCase() },
+      include: [
+        {
+          model: StandardMaintenanceDetail,
+          as: "details",
+          include: [{ model: StandardMaintenanceCheck, as: "pengecekanList" }]
+        }
+      ],
+      transaction
+    });
+
+    let schedulesSynced = 0;
+
+    for (const sm of updatedSms) {
+      const leafName = sm.subKategori && sm.subKategori.trim() !== "-" ? sm.subKategori : sm.kategori;
+      if (!leafName) continue;
+
+      const category = await AssetCategory.findOne({ 
+        where: { category_name: leafName },
+        transaction
+      });
+
+      if (!category) continue;
+
+      const assets = await Asset.findAll({
+        where: { category_id: category.category_id },
+        transaction
+      });
+
+      let derivedPeriodik = "1 Bulan";
+      if (sm.details && sm.details.length > 0 && sm.details[0].pengecekanList && sm.details[0].pengecekanList.length > 0) {
+        derivedPeriodik = sm.details[0].pengecekanList[0].periodik || "1 Bulan";
+      }
+
+      for (const asset of assets) {
+        let [schedule] = await MaintenanceSchedule.findOrCreate({
+          where: {
+            asset_id: asset.asset_id,
+            yearly_standard_id,
+            standard_maintenance_id: sm.id
           },
           defaults: {
-            periodik,
-            metode: group.metode || '',
-            alat: group.alat || ''
+            periodik: derivedPeriodik,
+            status: "ACTIVE"
           },
           transaction
         });
 
-        if (created) {
-          insertedAny = true;
-        }
-      }
+        await schedule.update({ status: "ACTIVE", periodik: derivedPeriodik }, { transaction });
+        schedulesSynced++;
 
-      if (insertedAny) {
-        importedCount++;
-      } else {
-        skippedCount++;
+        if (sm.details) {
+          for (const detail of sm.details) {
+            if (detail.pengecekanList) {
+              for (const check of detail.pengecekanList) {
+                const targetDates = check.planned_dates || [];
+
+                const existingActuals = await MaintenanceActual.findAll({
+                  where: { schedule_id: schedule.id, check_id: check.id },
+                  transaction
+                });
+
+                const completedActuals = existingActuals.filter(a => a.status !== "PLAN" || a.legend !== "□");
+                const planActuals = existingActuals.filter(a => a.status === "PLAN" && a.legend === "□");
+
+                const targetDatesSet = new Set(targetDates);
+
+                // Delete planned actuals that are not in target dates list
+                const toDelete = planActuals.filter(a => !targetDatesSet.has(a.tanggal));
+                if (toDelete.length > 0) {
+                  await MaintenanceActual.destroy({
+                    where: { id: toDelete.map(a => a.id) },
+                    transaction
+                  });
+                }
+
+                // Insert new planned actuals
+                const existingDates = new Set(existingActuals.map(a => a.tanggal));
+                const toInsert = targetDates.filter(d => !existingDates.has(d));
+
+                if (toInsert.length > 0) {
+                  const bulkData = toInsert.map(d => ({
+                    schedule_id: schedule.id,
+                    check_id: check.id,
+                    tanggal: d,
+                    status: "PLAN",
+                    legend: "□",
+                    created_at: new Date(),
+                    updated_at: new Date()
+                  }));
+                  await MaintenanceActual.bulkCreate(bulkData, { transaction });
+                }
+              }
+            }
+          }
+        }
       }
     }
 
     await transaction.commit();
-
     return res.status(200).json({
       success: true,
-      message: "Import berhasil",
-      data: {
-        total_rows: totalRows,
-        imported: importedCount,
-        skipped: skippedCount,
-        errors: []
-      }
+      message: `Berhasil men-generate schedule untuk ${schedulesSynced} perangkat.`,
+      data: { schedules_synced: schedulesSynced }
     });
+
   } catch (error) {
     await transaction.rollback();
-    console.error("Error in importStandardMaintenance:", error);
-    return res.status(500).json({
-      success: false,
-      message: error.message || "Gagal mengimpor standard maintenance"
+    console.error("Save and Generate Schedule Error:", error);
+    return res.status(500).json({ success: false, message: error.message });
+  }
+};
+
+export const resetStandardMaintenance = async (req, res) => {
+  const transaction = await sequelize.transaction();
+  try {
+    const { yearly_standard_id, kategori } = req.body;
+    if (!yearly_standard_id || !kategori) {
+      await transaction.rollback();
+      return res.status(400).json({ success: false, message: "yearly_standard_id dan kategori wajib diisi" });
+    }
+
+    const sms = await StandardMaintenance.findAll({
+      where: { yearly_standard_id, kategori: kategori.toUpperCase() },
+      transaction
     });
+
+    for (const sm of sms) {
+      const details = await StandardMaintenanceDetail.findAll({
+        where: { standard_maintenance_id: sm.id },
+        transaction
+      });
+
+      for (const detail of details) {
+        const checks = await StandardMaintenanceCheck.findAll({
+          where: { standard_maintenance_detail_id: detail.id },
+          transaction
+        });
+
+        for (const check of checks) {
+          const actuals = await MaintenanceActual.findAll({
+            where: { check_id: check.id },
+            transaction
+          });
+          const actualIds = actuals.map(a => a.id);
+          if (actualIds.length > 0) {
+            await MaintenanceSchedule.sequelize.models.MaintenanceAbnormalLog.destroy({
+              where: { actual_id: actualIds },
+              transaction
+            });
+            await MaintenanceLogSheet.destroy({
+              where: { actual_id: actualIds },
+              transaction
+            });
+            await MaintenanceActual.destroy({
+              where: { id: actualIds },
+              transaction
+            });
+          }
+          await check.destroy({ transaction });
+        }
+        await detail.destroy({ transaction });
+      }
+
+      await MaintenanceSchedule.destroy({
+        where: { standard_maintenance_id: sm.id, yearly_standard_id },
+        transaction
+      });
+
+      await sm.destroy({ transaction });
+    }
+
+    await transaction.commit();
+    return res.status(200).json({ success: true, message: "Reset standard maintenance dan schedule berhasil dilakukan" });
+  } catch (error) {
+    await transaction.rollback();
+    console.error("Reset Standard Maintenance Error:", error);
+    return res.status(500).json({ success: false, message: error.message });
   }
 };
 

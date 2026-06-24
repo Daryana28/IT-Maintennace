@@ -37,6 +37,17 @@ export default (sequelize) =>
         type: DataTypes.STRING(255),
         allowNull: true,
       },
+      planned_dates: {
+        type: DataTypes.TEXT,
+        allowNull: true,
+        get() {
+          const rawValue = this.getDataValue('planned_dates');
+          return rawValue ? JSON.parse(rawValue) : [];
+        },
+        set(val) {
+          this.setDataValue('planned_dates', val ? JSON.stringify(val) : null);
+        }
+      },
       created_at: {
         type: DataTypes.DATE,
         allowNull: false,

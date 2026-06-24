@@ -165,3 +165,14 @@
   2. Modified backend `roleMiddleware.js` to convert roles to uppercase before comparison, enabling case-insensitive matching for `SUPERADMIN`/`ADMIN` role checks (fixing 403 Forbidden errors when adding users).
   3. Prepended `VITE_API_URL` to the download url in `ImportTab.jsx` to target the backend API server directly instead of the Vite dev server.
 - **Blockers**: None.
+
+### [2026-06-24 22:50] - T-028 s.d. T-035 - Lead DevOps / Backend & Frontend Developer
+- **Summary**: Implemented standard maintenance date-mapping refactoring and user management password hash displays.
+- **Technical Decisions**:
+  1. **Database Schema**: Executed `alter_planned_dates.js` adding the `planned_dates` (NVARCHAR(MAX)) column to standard maintenance checks and configured Sequelize JSON serialization.
+  2. **Excel Template**: Removed month/day columns from the template generator worksheet, restricting headers up to column index 24.
+  3. **Backend Sync Engine**: Refactored `importStandardMaintenance` to parse and return JSON configuration without saving. Added `/save-and-generate` to upsert configurations, sync asset schedules, delete orphaned checks (preserving those with logged history), and preserve completed checkboxes (Normal/Abnormal) while shifting planned checks. Added `/reset` to clean all category and year configurations.
+  4. **Calendar Preview Grid**: Developed `PreviewGrid.jsx` and `PreviewGrid.css` with sticky columns, scrollable days of the year, weekend visual highlighting, check item additions/deletions, and strict periodic validations (Weekly, Monthly, Quarterly checks).
+  5. **Import flow**: Integrated `ImportTab.jsx` with Edit Current and Reset choices, file upload parsing, and E2E confirmations.
+  6. **User Management**: Fixed axios unwrapping bug in `UserManagementPage.jsx` when reading the auto-generated user details from `res.data`.
+- **Blockers**: None.

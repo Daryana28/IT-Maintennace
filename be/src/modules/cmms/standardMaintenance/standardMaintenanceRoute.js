@@ -16,12 +16,16 @@ import {
   deleteStandardMaintenanceDetail,
   importStandardMaintenance,
   downloadTemplate,
+  saveAndGenerateSchedule,
+  resetStandardMaintenance,
 } from "./standardMaintenanceController.js";
 
 const router = express.Router();
 const upload = multer({ storage: multer.memoryStorage() });
 
 router.post("/import", upload.single("file"), importStandardMaintenance);
+router.post("/save-and-generate", saveAndGenerateSchedule);
+router.post("/reset", resetStandardMaintenance);
 router.get("/template/:kategori", downloadTemplate);
 
 router.post("/", createStandardMaintenance);

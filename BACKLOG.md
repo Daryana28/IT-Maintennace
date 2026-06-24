@@ -10,6 +10,14 @@
 *None*
 
 ## 🟢 Done
+- `T-035` Verification & Documentation updates
+- `T-034` User Management Password Hash Display Fix
+- `T-033` Frontend Edit Current vs Reset Mode Integration
+- `T-032` Frontend Periodicity Validations (Weekly, Monthly, Quarterly checks)
+- `T-031` Frontend Spreadsheet Calendar Mapping View with Freeze Pane
+- `T-030` Backend Save, Generate & Reset Sync Engine Endpoints
+- `T-029` Excel Template Date Columns Removal
+- `T-028` Database Schema Migration for Planned Dates
 - `T-027` E2E testing, verification, polish, and devlog synchronization
 - `T-026` Implement first-time login redirect guard in frontend
 - `T-025` Implement admin reset password flow with popconfirm validation & display popups

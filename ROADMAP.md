@@ -69,3 +69,21 @@
   *Status*: 🟢 Done | *Started*: 2026-06-24 21:54 | *Done*: 2026-06-24 21:56 | *Commit*: [6968617](https://github.com/Daryana28/IT-Maintennace/commit/6968617)
 - [x] **T-027**: E2E testing, verification, polish, and devlog synchronization  
   *Status*: 🟢 Done | *Started*: 2026-06-24 21:56 | *Done*: 2026-06-24 21:58 | *Commit*: [ec4d6ca](https://github.com/Daryana28/IT-Maintennace/commit/ec4d6ca)
+
+### 📁 Fase 7 — Interactive Grid Mapping & Validations
+- [x] **T-028**: Database Schema Migration for Planned Dates
+  *Status*: 🟢 Done | *Started*: 2026-06-24 22:21 | *Done*: 2026-06-24 22:22
+- [x] **T-029**: Excel Template Date Columns Removal
+  *Status*: 🟢 Done | *Started*: 2026-06-24 22:22 | *Done*: 2026-06-24 22:24
+- [x] **T-030**: Backend Save, Generate & Reset Sync Engine Endpoints
+  *Status*: 🟢 Done | *Started*: 2026-06-24 22:24 | *Done*: 2026-06-24 22:34
+- [x] **T-031**: Frontend Spreadsheet Calendar Mapping View with Freeze Pane
+  *Status*: 🟢 Done | *Started*: 2026-06-24 22:34 | *Done*: 2026-06-24 22:38
+- [x] **T-032**: Frontend Periodicity Validations (Weekly, Monthly, Quarterly checks)
+  *Status*: 🟢 Done | *Started*: 2026-06-24 22:38 | *Done*: 2026-06-24 22:40
+- [x] **T-033**: Frontend Edit Current vs Reset Mode Integration
+  *Status*: 🟢 Done | *Started*: 2026-06-24 22:40 | *Done*: 2026-06-24 22:41
+- [x] **T-034**: User Management Password Hash Display Fix
+  *Status*: 🟢 Done | *Started*: 2026-06-24 22:41 | *Done*: 2026-06-24 22:43
+- [x] **T-035**: Verification & Documentation updates
+  *Status*: 🟢 Done | *Started*: 2026-06-24 22:43 | *Done*: 2026-06-24 22:50

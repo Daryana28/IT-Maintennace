@@ -1,7 +1,8 @@
-import React, { useState } from 'react';
-import { Card, Typography, Button, Upload, Alert, Space, Steps, Result, Spin, message } from 'antd';
-import { DownloadOutlined, UploadOutlined, FileExcelOutlined, CheckCircleOutlined } from '@ant-design/icons';
+import React, { useState, useEffect } from 'react';
+import { Card, Typography, Button, Upload, Alert, Space, Steps, Result, Spin, message, Modal } from 'antd';
+import { DownloadOutlined, UploadOutlined, FileExcelOutlined, EditOutlined, WarningOutlined, ReloadOutlined } from '@ant-design/icons';
 import axios from 'axios';
+import PreviewGrid from './PreviewGrid';
 
 const { Title, Text, Paragraph } = Typography;
 
@@ -19,10 +20,55 @@ export default function ImportTab({ overrideCategory, yearlyStandardId, onImport
   const routeCategory = overrideCategory || pathParts[3] || 'hardware';
   const apiCategory = getApiCategory(routeCategory);
 
+  const [checkingExistence, setCheckingExistence] = useState(true);
+  const [hasExisting, setHasExisting] = useState(false);
+  const [existingData, setExistingData] = useState([]);
+  
+  const [targetYear, setTargetYear] = useState(new Date().getFullYear());
   const [fileList, setFileList] = useState([]);
   const [uploading, setUploading] = useState(false);
-  const [importResult, setImportResult] = useState(null);
-  const [currentStep, setCurrentStep] = useState(0);
+  const [parsedChecks, setParsedChecks] = useState([]);
+  const [currentStep, setCurrentStep] = useState(0); // 0: Import/Select, 1: Preview Grid, 2: Success
+  const [syncStatus, setSyncStatus] = useState(null);
+
+  // Check if standard maintenance already exists for this year and category
+  const checkMaintenanceExistence = async () => {
+    setCheckingExistence(true);
+    try {
+      // 1. Fetch Year number
+      const yearRes = await axios.get(`/api/standard-maintenance/years/${yearlyStandardId}`);
+      if (yearRes.data?.success && yearRes.data?.data) {
+        setTargetYear(yearRes.data.data.tahun);
+      }
+
+      // 2. Fetch standard maintenance data
+      const res = await axios.get('/api/standard-maintenance', {
+        params: {
+          yearly_standard_id: yearlyStandardId,
+          kategori: apiCategory
+        }
+      });
+
+      if (res.data?.success && res.data?.data && res.data.data.length > 0) {
+        setHasExisting(true);
+        setExistingData(res.data.data);
+      } else {
+        setHasExisting(false);
+        setExistingData([]);
+      }
+    } catch (err) {
+      console.error(err);
+      message.error("Gagal memeriksa data standard maintenance yang ada");
+    } finally {
+      setCheckingExistence(false);
+    }
+  };
+
+  useEffect(() => {
+    if (yearlyStandardId) {
+      checkMaintenanceExistence();
+    }
+  }, [yearlyStandardId, apiCategory]);
 
   const downloadTemplate = () => {
     const baseUrl = import.meta.env.VITE_API_URL || 'http://localhost:3000/api';
@@ -31,6 +77,42 @@ export default function ImportTab({ overrideCategory, yearlyStandardId, onImport
     message.success(`Template ${apiCategory} berhasil di-download`);
   };
 
+  // Reset standard maintenance on backend (Wipe checks and schedules)
+  const handleResetMaintenance = () => {
+    Modal.confirm({
+      title: 'Reset Standard Maintenance?',
+      icon: <WarningOutlined style={{ color: '#d9363e' }} />,
+      content: 'Tindakan ini akan menghapus semua konfigurasi standard maintenance beserta seluruh jadwal schedule & actual matrix yang sudah tergenerate untuk kategori ini di tahun berjalan. Rapor logsheet abnormal yang terkait juga akan disesuaikan. Apakah Anda yakin?',
+      okText: 'Ya, Reset Semua',
+      okType: 'danger',
+      cancelText: 'Batal',
+      onOk: async () => {
+        setUploading(true);
+        try {
+          const res = await axios.post('/api/standard-maintenance/reset', {
+            yearly_standard_id: yearlyStandardId,
+            kategori: apiCategory
+          });
+          if (res.data?.success) {
+            message.success("Standard maintenance berhasil di-reset");
+            setHasExisting(false);
+            setExistingData([]);
+            setFileList([]);
+            setParsedChecks([]);
+            setCurrentStep(0);
+          } else {
+            message.error(res.data?.message || "Gagal mereset data");
+          }
+        } catch (err) {
+          message.error(err.response?.data?.message || "Terjadi kesalahan sistem saat mereset");
+        } finally {
+          setUploading(false);
+        }
+      }
+    });
+  };
+
+  // Parse Excel buffer
   const handleUpload = async () => {
     if (fileList.length === 0) {
       message.error('Silakan pilih file Excel terlebih dahulu');
@@ -40,7 +122,6 @@ export default function ImportTab({ overrideCategory, yearlyStandardId, onImport
     const formData = new FormData();
     formData.append('file', fileList[0]);
     formData.append('kategori', apiCategory);
-    formData.append('yearly_standard_id', yearlyStandardId);
 
     setUploading(true);
     try {
@@ -51,16 +132,41 @@ export default function ImportTab({ overrideCategory, yearlyStandardId, onImport
       });
 
       if (response.data.success) {
-        setImportResult(response.data.data);
-        setCurrentStep(2);
-        message.success('Data standard maintenance berhasil di-import');
-        if (onImportSuccess) onImportSuccess();
+        setParsedChecks(response.data.data || []);
+        setCurrentStep(1); // Go to grid mapping step
+        message.success('Excel berhasil dibaca, silakan petakan tanggal rencana (plan)');
       } else {
-        message.error(response.data.message || 'Gagal mengimpor data');
+        message.error(response.data.message || 'Gagal membaca file Excel');
       }
     } catch (error) {
       console.error(error);
-      message.error(error.response?.data?.message || 'Terjadi kesalahan sistem saat mengimpor data');
+      message.error(error.response?.data?.message || 'Terjadi kesalahan sistem saat membaca Excel');
+    } finally {
+      setUploading(false);
+    }
+  };
+
+  // Submit preview changes to backend to save and sync schedule
+  const handleSaveAndGenerate = async (checksList) => {
+    setUploading(true);
+    try {
+      const response = await axios.post('/api/standard-maintenance/save-and-generate', {
+        yearly_standard_id: yearlyStandardId,
+        kategori: apiCategory,
+        checks: checksList
+      });
+
+      if (response.data.success) {
+        setSyncStatus(response.data.data);
+        setCurrentStep(2); // Go to success step
+        message.success('Jadwal maintenance berhasil disimpan dan disinkronkan');
+        if (onImportSuccess) onImportSuccess();
+      } else {
+        message.error(response.data.message || 'Gagal menyimpan konfigurasi');
+      }
+    } catch (error) {
+      console.error(error);
+      message.error(error.response?.data?.message || 'Terjadi kesalahan saat men-generate schedule');
     } finally {
       setUploading(false);
     }
@@ -77,144 +183,211 @@ export default function ImportTab({ overrideCategory, yearlyStandardId, onImport
         return Upload.LIST_IGNORE;
       }
       setFileList([file]);
-      setCurrentStep(1);
       return false; // Prevent automatic upload
     },
     fileList,
     maxCount: 1,
   };
 
-  const resetImport = () => {
-    setFileList([]);
-    setImportResult(null);
-    setCurrentStep(0);
+  const handleCancelPreview = () => {
+    Modal.confirm({
+      title: 'Batalkan Rencana?',
+      content: 'Perubahan pemetaan tanggal yang belum disimpan akan hilang. Apakah Anda yakin ingin kembali?',
+      okText: 'Ya',
+      cancelText: 'Tidak',
+      onOk: () => {
+        setFileList([]);
+        setParsedChecks([]);
+        setCurrentStep(0);
+        checkMaintenanceExistence();
+      }
+    });
   };
 
+  const handleEditCurrent = () => {
+    setParsedChecks(existingData);
+    setCurrentStep(1); // Open preview grid directly
+  };
+
+  if (checkingExistence) {
+    return (
+      <div style={{ textAlign: 'center', padding: '80px 0' }}>
+        <Spin size="large" tip="Memeriksa status konfigurasi..." />
+      </div>
+    );
+  }
+
+  // STEP 1: PREVIEW GRID MAPPING
+  if (currentStep === 1) {
+    return (
+      <PreviewGrid
+        initialChecks={parsedChecks}
+        year={targetYear}
+        categoryName={apiCategory}
+        onSave={handleSaveAndGenerate}
+        onCancel={handleCancelPreview}
+      />
+    );
+  }
+
+  // STEP 2: SUCCESS STATUS
+  if (currentStep === 2) {
+    return (
+      <Card variant="borderless" style={{ maxWidth: 700, margin: '0 auto', padding: '24px' }}>
+        <Result
+          status="success"
+          title="Schedule Berhasil Di-generate!"
+          subTitle={`Proses sinkronisasi standard maintenance dan matrix schedule untuk tahun ${targetYear} telah selesai.`}
+          extra={[
+            <Card key="summary" size="small" style={{ maxWidth: 450, margin: '0 auto 24px auto', textAlign: 'left', background: '#f6ffed', border: '1px solid #b7eb8f' }}>
+              <div style={{ display: 'flex', justify: 'space-between', marginBottom: 8 }}>
+                <Text type="secondary">Kategori:</Text>
+                <Text strong>{apiCategory}</Text>
+              </div>
+              <div style={{ display: 'flex', justify: 'space-between', marginBottom: 8 }}>
+                <Text type="secondary">Tahun Rencana:</Text>
+                <Text strong>{targetYear}</Text>
+              </div>
+              <div style={{ display: 'flex', justify: 'space-between' }}>
+                <Text type="secondary">Perangkat Disinkronkan:</Text>
+                <Text strong style={{ color: '#52c41a' }}>{syncStatus?.schedules_synced || 0} Assets</Text>
+              </div>
+            </Card>,
+            <Button key="back" type="primary" onClick={() => {
+              setCurrentStep(0);
+              checkMaintenanceExistence();
+            }}>
+              Kembali ke Menu Utama
+            </Button>
+          ]}
+        />
+      </Card>
+    );
+  }
+
+  // STEP 0: SELECTION / UPLOADER
   return (
     <Card variant="borderless" style={{ maxWidth: 800, margin: '0 auto', padding: '24px 0' }}>
-      <div style={{ textAlign: 'center', marginBottom: 40 }}>
-        <Title level={4}>Import Standard Maintenance via Excel</Title>
-        <Text type="secondary">Unggah konfigurasi standard maintenance secara bulk dengan file template Excel.</Text>
+      <div style={{ textAlign: 'center', marginBottom: 32 }}>
+        <Title level={4}>Standard Maintenance - Import & Konfigurasi</Title>
+        <Text type="secondary">Atur item pengecekan standar dan petakan tanggal rencana pemeliharaan (schedule plan).</Text>
       </div>
 
-      <Steps
-        current={currentStep}
-        style={{ marginBottom: 40 }}
-        items={[
-          { title: 'Download Template', description: 'Gunakan format standard' },
-          { title: 'Pilih & Review File', description: 'Unggah file excel Anda' },
-          { title: 'Selesai', description: 'Data tersimpan ke database' },
-        ]}
-      />
+      {hasExisting ? (
+        // STATE: Standard maintenance already exists
+        <div style={{ padding: '20px 0' }}>
+          <Alert
+            message="Standard Maintenance Sudah Terkonfigurasi"
+            description={
+              <div style={{ marginTop: 8 }}>
+                Jadwal standard maintenance untuk kategori <strong>{apiCategory}</strong> di tahun <strong>{targetYear}</strong> sudah dikonfigurasi dan schedules sudah tergenerate.
+                <Paragraph style={{ marginTop: 12, marginBottom: 0 }}>
+                  Pilihlah salah satu aksi di bawah untuk memodifikasi jadwal:
+                </Paragraph>
+              </div>
+            }
+            type="success"
+            showIcon
+            style={{ marginBottom: 24 }}
+          />
 
-      {currentStep === 0 && (
+          <Card style={{ marginBottom: 24, background: '#fafafa' }} size="small">
+            <Paragraph strong style={{ marginBottom: 8 }}>Pilihan Tindakan:</Paragraph>
+            <ul style={{ paddingLeft: 20, marginBottom: 0 }}>
+              <li><strong>Edit Current Standard Maintenance Schedule</strong>: Membuka editor Preview Grid menggunakan data yang ada di database untuk menggeser plan atau menambah item pengecekan.</li>
+              <li><strong>Reset</strong>: Menghapus seluruh data standard maintenance dan schedule matrix kategori ini pada tahun {targetYear} agar Anda bisa mengimpor template Excel baru dari awal.</li>
+            </ul>
+          </Card>
+
+          <Space size="middle" style={{ width: '100%', justifyContent: 'center' }}>
+            <Button
+              type="primary"
+              icon={<EditOutlined />}
+              size="large"
+              onClick={handleEditCurrent}
+              style={{ minWidth: 200 }}
+            >
+              Edit Current Schedule
+            </Button>
+            <Button
+              danger
+              icon={<ReloadOutlined />}
+              size="large"
+              onClick={handleResetMaintenance}
+              style={{ minWidth: 200 }}
+            >
+              Reset / Import Ulang
+            </Button>
+          </Space>
+        </div>
+      ) : (
+        // STATE: No standard maintenance exists, show uploader
         <div style={{ textAlign: 'center', padding: '20px 0' }}>
           <Alert
             message="Petunjuk Penggunaan Import Excel"
             description={
               <Paragraph style={{ margin: 0, textAlign: 'left', marginTop: 8 }}>
-                <ul>
+                <ol>
                   <li>Download template Excel khusus kategori <strong>{apiCategory}</strong> di bawah.</li>
-                  <li>Isi kolom perangkat, fungsi, item pengecekan, standar normal, dan periodik.</li>
-                  <li>Jangan mengubah tata letak baris header (Baris 1 s.d. 8) agar file dapat dibaca sistem.</li>
-                  <li>Data duplikat secara otomatis akan di-skip oleh sistem.</li>
-                </ul>
+                  <li>Isi kolom perangkat, fungsi, item pengecekan, standar normal, dan periodik. (Kolom tanggal sengaja dihilangkan karena pemetaan tanggal dilakukan secara visual di web setelah upload).</li>
+                  <li>Unggah file Excel yang telah diisi. Sistem akan membaca konfigurasi baris pengecekan.</li>
+                  <li>Di halaman selanjutnya, lakukan pemetaan rencana pengecekan (plan) di calendar preview grid.</li>
+                </ol>
               </Paragraph>
             }
             type="info"
             showIcon
-            style={{ marginBottom: 16 }}
+            style={{ marginBottom: 20 }}
           />
+
           <Alert
-            message="PENTING: Aturan Penyesuaian Jadwal (Plan Resync)"
+            message="Integrasi & Validasi Rencana (Schedule Integrity)"
             description={
               <div style={{ textAlign: 'left', marginTop: 8 }}>
-                Jika Anda mengimpor data standard maintenance baru di tengah periode berjalan, sistem akan menyinkronkan ulang jadwal:
-                <ul>
-                  <li>Hanya jadwal yang masih berstatus <strong>Plan (□)</strong> yang akan diperbarui/digeser tanggalnya berdasarkan parameter Excel baru.</li>
-                  <li>Catatan pengecekan yang sudah berstatus <strong>Normal (✓)</strong> atau <strong>Abnormal (✗)</strong> tidak akan diubah atau dihapus untuk menjaga keutuhan riwayat audit.</li>
-                </ul>
+                Saat memetakan tanggal rencana di preview grid, pastikan Anda memenuhi batas minimum periodic pengecekan (misal: 1X/W wajib ditaro minimal 1 plan di setiap ISO week).
               </div>
             }
             type="warning"
             showIcon
             style={{ marginBottom: 24 }}
           />
-          <Button
-            type="primary"
-            icon={<DownloadOutlined />}
-            size="large"
-            onClick={downloadTemplate}
-            style={{ backgroundColor: '#107c41', borderColor: '#107c41' }}
-          >
-            Download Template Excel ({apiCategory})
-          </Button>
-          <div style={{ marginTop: 24 }}>
-            <Upload {...uploadProps}>
-              <Button icon={<UploadOutlined />} size="large">Pilih File Excel untuk Di-import</Button>
-            </Upload>
-          </div>
-        </div>
-      )}
 
-      {currentStep === 1 && (
-        <div style={{ textAlign: 'center', padding: '20px 0' }}>
-          <div style={{ display: 'flex', flexDirection: 'column', alignItems: 'center', marginBottom: 24 }}>
-            <FileExcelOutlined style={{ fontSize: 64, color: '#107c41', marginBottom: 16 }} />
-            <Text strong style={{ fontSize: 16 }}>{fileList[0]?.name}</Text>
-            <Text type="secondary">Kategori Target: {apiCategory}</Text>
-          </div>
-
-          <Alert
-            message="Siap Di-import"
-            description="Pastikan semua baris data telah diisi dengan benar. Proses ini akan menulis data secara aman ke database."
-            type="warning"
-            showIcon
-            style={{ marginBottom: 24, textAlign: 'left' }}
-          />
-
-          <Space size="large">
-            <Button onClick={resetImport} disabled={uploading}>Kembali</Button>
+          <Space direction="vertical" size="middle" style={{ width: '100%' }}>
             <Button
               type="primary"
-              onClick={handleUpload}
-              loading={uploading}
-              style={{ backgroundColor: '#107c41', borderColor: '#107c41' }}
+              icon={<DownloadOutlined />}
+              size="large"
+              onClick={downloadTemplate}
+              style={{ backgroundColor: '#107c41', borderColor: '#107c41', minWidth: 280 }}
             >
-              Mulai Import Excel
+              Download Template Excel ({apiCategory})
             </Button>
+
+            <div style={{ border: '2px dashed #d9d9d9', borderRadius: 8, padding: 32, marginTop: 16 }}>
+              <Upload {...uploadProps}>
+                <Button icon={<UploadOutlined />} size="large">Pilih File Excel Anda</Button>
+              </Upload>
+              {fileList.length > 0 && (
+                <div style={{ marginTop: 24 }}>
+                  <Button
+                    type="primary"
+                    onClick={handleUpload}
+                    loading={uploading}
+                    size="large"
+                    style={{ backgroundColor: '#107c41', borderColor: '#107c41', minWidth: 200 }}
+                  >
+                    Lanjut ke Grid Mapping
+                  </Button>
+                </div>
+              )}
+            </div>
           </Space>
         </div>
       )}
 
-      {currentStep === 2 && importResult && (
-        <Result
-          status="success"
-          title="Import Data Berhasil!"
-          subTitle="Sistem telah berhasil membaca dan memetakan data Excel Anda."
-          extra={[
-            <Card key="summary" size="small" style={{ maxWidth: 400, margin: '0 auto 24px auto', textAlign: 'left' }}>
-              <div style={{ display: 'flex', justifyContent: 'space-between', marginBottom: 8 }}>
-                <Text type="secondary">Total Baris Terproses:</Text>
-                <Text strong>{importResult.total_rows}</Text>
-              </div>
-              <div style={{ display: 'flex', justifyContent: 'space-between', marginBottom: 8 }}>
-                <Text type="secondary">Data Baru Di-import:</Text>
-                <Text strong style={{ color: '#52c41a' }}>{importResult.imported}</Text>
-              </div>
-              <div style={{ display: 'flex', justifyContent: 'space-between' }}>
-                <Text type="secondary">Data Di-skip (Duplikat):</Text>
-                <Text strong style={{ color: '#faad14' }}>{importResult.skipped}</Text>
-              </div>
-            </Card>,
-            <Button key="back" type="primary" onClick={resetImport}>Import File Lain</Button>
-          ]}
-        />
-      )}
-
       {uploading && (
         <div style={{ position: 'absolute', top: 0, left: 0, right: 0, bottom: 0, display: 'flex', justifyContent: 'center', alignItems: 'center', backgroundColor: 'rgba(255,255,255,0.7)', zIndex: 10 }}>
-          <Spin size="large" tip="Sedang membaca dan memetakan Excel..." />
+          <Spin size="large" tip="Sedang memproses data..." />
         </div>
       )}
     </Card>

@@ -66,12 +66,6 @@ export const generateTemplate = (kategoriKey) => {
   ws[xlsx.utils.encode_cell({ c: 20, r: 6 })] = { v: 'CYBER SECURITY' };
   ws[xlsx.utils.encode_cell({ c: 24, r: 6 })] = { v: 'Periodik' };
   
-  let currentCol = 25;
-  MONTH_DAYS.forEach(m => {
-    ws[xlsx.utils.encode_cell({ c: currentCol, r: 6 })] = { v: m.name };
-    currentCol += m.days;
-  });
-  
   // Row 7 (Sub headers)
   const subTypesArr = ['HARDWARE', 'INFRASTRUCTURE', 'SOFTWARE', 'CYBER SECURITY'];
   subTypesArr.forEach((t, idx) => {
@@ -80,14 +74,6 @@ export const generateTemplate = (kategoriKey) => {
     ws[xlsx.utils.encode_cell({ c: baseC + 1, r: 7 })] = { v: 'Bagian' };
     ws[xlsx.utils.encode_cell({ c: baseC + 2, r: 7 })] = { v: idx === 1 ? 'Methode' : 'Methode' }; // standard spelling
     ws[xlsx.utils.encode_cell({ c: baseC + 3, r: 7 })] = { v: idx === 1 || idx === 2 ? 'ALAT' : 'Alat' };
-  });
-  
-  currentCol = 25;
-  MONTH_DAYS.forEach(m => {
-    for (let day = 1; day <= m.days; day++) {
-      ws[xlsx.utils.encode_cell({ c: currentCol, r: 7 })] = { v: String(day) };
-      currentCol++;
-    }
   });
   
   // Row 8 (Sample Row)
@@ -132,7 +118,7 @@ export const generateTemplate = (kategoriKey) => {
   // Set sheet range ref
   ws['!ref'] = xlsx.utils.encode_range({
     s: { c: 0, r: 0 },
-    e: { c: currentCol - 1, r: 8 }
+    e: { c: 24, r: 8 }
   });
   
   xlsx.utils.book_append_sheet(wb, ws, sheetName);
