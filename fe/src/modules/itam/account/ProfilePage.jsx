@@ -1,11 +1,14 @@
 import React, { useState, useEffect } from 'react';
 import { Card, Row, Col, Typography, Input, Button, Form, Upload, Tag, Space, message } from 'antd';
 import { UserOutlined, PhoneOutlined, MailOutlined, KeyOutlined, UploadOutlined, SafetyCertificateOutlined } from '@ant-design/icons';
+import { useAuthStore } from "@/modules/auth/store/authStore";
 import profileService from '../userManagement/services/profileService';
 
 const { Title, Text } = Typography;
 
 export default function ProfilePage() {
+  const user = useAuthStore(s => s.user);
+  const setUser = useAuthStore(s => s.setUser);
   const [profile, setProfile] = useState(null);
   const [loading, setLoading] = useState(true);
   const [savingProfile, setSavingProfile] = useState(false);
@@ -59,6 +62,12 @@ export default function ProfilePage() {
       if (res.success) {
         message.success("Password berhasil diganti");
         passwordForm.resetFields();
+        if (user) {
+          setUser({
+            ...user,
+            must_change_password: 0
+          });
+        }
       }
     } catch (err) {
       message.error(err.response?.data?.message || "Gagal mengganti password");

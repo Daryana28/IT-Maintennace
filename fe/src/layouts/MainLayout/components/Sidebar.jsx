@@ -128,7 +128,21 @@ const Sidebar = memo(function Sidebar({ mode = "horizontal" }) {
     return [];
   }, [user]);
 
-  const menus = useMemo(() => filterMenuByRole(MENU, roles), [roles]);
+  const menus = useMemo(() => {
+    const baseMenus = filterMenuByRole(MENU, roles);
+    if (user?.must_change_password) {
+      const accountMenu = baseMenus.find(m => m.key === "account");
+      if (accountMenu) {
+        return [{
+          ...accountMenu,
+          children: accountMenu.children?.filter(c => c.key === "profile") || []
+        }];
+      }
+      return [];
+    }
+    return baseMenus;
+  }, [roles, user?.must_change_password]);
+
   const items = useMemo(() => mapMenu(menus), [menus]);
 
   const keyPathMap = useMemo(() => buildKeyPathMap(menus), [menus]);
