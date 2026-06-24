@@ -1,7 +1,7 @@
 import React, { useState, useEffect } from 'react';
 import { Card, Typography, Button, Upload, Alert, Space, Steps, Result, Spin, message, Modal } from 'antd';
 import { DownloadOutlined, UploadOutlined, FileExcelOutlined, EditOutlined, WarningOutlined, ReloadOutlined } from '@ant-design/icons';
-import axios from 'axios';
+import axios from '@/shared/services/apiClient';
 import PreviewGrid from './PreviewGrid';
 
 const { Title, Text, Paragraph } = Typography;
@@ -36,13 +36,13 @@ export default function ImportTab({ overrideCategory, yearlyStandardId, onImport
     setCheckingExistence(true);
     try {
       // 1. Fetch Year number
-      const yearRes = await axios.get(`/api/standard-maintenance/years/${yearlyStandardId}`);
+      const yearRes = await axios.get(`/standard-maintenance/years/${yearlyStandardId}`);
       if (yearRes.data?.success && yearRes.data?.data) {
         setTargetYear(yearRes.data.data.tahun);
       }
 
       // 2. Fetch standard maintenance data
-      const res = await axios.get('/api/standard-maintenance', {
+      const res = await axios.get('/standard-maintenance', {
         params: {
           yearly_standard_id: yearlyStandardId,
           kategori: apiCategory
@@ -91,7 +91,7 @@ export default function ImportTab({ overrideCategory, yearlyStandardId, onImport
       onOk: async () => {
         setUploading(true);
         try {
-          const res = await axios.post('/api/standard-maintenance/reset', {
+          const res = await axios.post('/standard-maintenance/reset', {
             yearly_standard_id: yearlyStandardId,
             kategori: apiCategory
           });
@@ -127,7 +127,7 @@ export default function ImportTab({ overrideCategory, yearlyStandardId, onImport
 
     setUploading(true);
     try {
-      const response = await axios.post('/api/standard-maintenance/import', formData, {
+      const response = await axios.post('/standard-maintenance/import', formData, {
         headers: {
           'Content-Type': 'multipart/form-data',
         },
@@ -152,7 +152,7 @@ export default function ImportTab({ overrideCategory, yearlyStandardId, onImport
   const handleSaveAndGenerate = async (checksList) => {
     setUploading(true);
     try {
-      const response = await axios.post('/api/standard-maintenance/save-and-generate', {
+      const response = await axios.post('/standard-maintenance/save-and-generate', {
         yearly_standard_id: yearlyStandardId,
         kategori: apiCategory,
         checks: checksList
