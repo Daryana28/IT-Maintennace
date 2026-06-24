@@ -266,7 +266,8 @@ const changePassword = async (req, res) => {
     const newHash = await bcrypt.hash(new_password, salt);
 
     await user.update({
-      password_hash: newHash
+      password_hash: newHash,
+      must_change_password: false
     });
 
     return res.status(200).json({
@@ -276,6 +277,22 @@ const changePassword = async (req, res) => {
   } catch (error) {
     console.error("Error in changePassword:", error);
     return res.status(500).json({ success: false, message: error.message });
+  }
+};
+
+const resetPassword = async (req, res) => {
+  try {
+    const result = await userService.resetPassword(req.params.id);
+    return res.status(200).json({
+      success: true,
+      message: "Password reset successfully",
+      data: result
+    });
+  } catch (error) {
+    return res.status(error.status || 500).json({
+      success: false,
+      message: error.message
+    });
   }
 };
 
@@ -289,4 +306,5 @@ export default {
     updateUserProfile,
     updateUserProfilePicture,
     changePassword,
+    resetPassword,
 };

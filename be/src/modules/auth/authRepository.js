@@ -15,6 +15,7 @@ const findByEmail = async (email) => {
       "full_name",
       "email",
       "password_hash",
+      "must_change_password",
     ],
     include: [
       {

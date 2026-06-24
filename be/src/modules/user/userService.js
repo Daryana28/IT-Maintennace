@@ -5,6 +5,15 @@ import { User, Role, UserRole } from "../../models/index.js";
 
 const SALT_ROUNDS = 10;
 
+const generateRandomPassword = () => {
+    const chars = "abcdefghijklmnopqrstuvwxyzABCDEFGHIJKLMNOPQRSTUVWXYZ0123456789";
+    let pass = "";
+    for (let i = 0; i < 8; i++) {
+        pass += chars.charAt(Math.floor(Math.random() * chars.length));
+    }
+    return pass;
+};
+
 const getAll = async (query = {}) => {
     const {
         page = 1,
@@ -70,7 +79,7 @@ const getById = async (id) => {
 };
 
 const create = async (data) => {
-    const { username, full_name, email = `${username}@ikoito.co.id `, password, role_ids = [], is_active = true } = data;
+    const { username, full_name, email = `${username}@ikoito.co.id`, role_ids = [], is_active = true } = data;
 
     const existing = await User.findOne({
         where: { username },
@@ -82,7 +91,8 @@ const create = async (data) => {
         throw err;
     }
 
-    const password_hash = await bcrypt.hash(password, SALT_ROUNDS);
+    const plaintextPassword = generateRandomPassword();
+    const password_hash = await bcrypt.hash(plaintextPassword, SALT_ROUNDS);
 
     const user = await User.create({
         company_id: 1,
@@ -90,6 +100,7 @@ const create = async (data) => {
         full_name,
         email,
         password_hash,
+        must_change_password: true,
         is_active,
         created_at: new Date(),
     });
@@ -102,7 +113,12 @@ const create = async (data) => {
         await user.setRoles(roleRecords);
     }
 
-    return await getById(user.user_id);
+    const userDetails = await getById(user.user_id);
+    return {
+        user: userDetails,
+        plaintextPassword,
+        passwordHash: password_hash
+    };
 };
 
 const update = async (id, data) => {
@@ -144,6 +160,29 @@ const update = async (id, data) => {
     return await getById(id);
 };
 
+const resetPassword = async (id) => {
+    const user = await User.findByPk(id);
+    if (!user) {
+        const err = new Error("User not found");
+        err.status = 404;
+        throw err;
+    }
+
+    const plaintextPassword = generateRandomPassword();
+    const password_hash = await bcrypt.hash(plaintextPassword, SALT_ROUNDS);
+
+    await user.update({
+        password_hash,
+        must_change_password: true
+    });
+
+    return {
+        user,
+        plaintextPassword,
+        passwordHash: password_hash
+    };
+};
+
 const remove = async (id) => {
     const user = await User.findByPk(id);
 
@@ -160,5 +199,6 @@ export default {
     getById,
     create,
     update,
+    resetPassword,
     remove,
 };

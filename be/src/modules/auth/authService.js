@@ -83,6 +83,7 @@ const login = async (
   email:
    user.email,
   roles,
+  must_change_password: user.must_change_password ? 1 : 0,
  };
 
  const token =
@@ -132,6 +133,7 @@ const login = async (
    email:
     user.email,
    roles,
+   must_change_password: user.must_change_password ? 1 : 0,
   },
  };
 };
@@ -176,6 +178,7 @@ const refresh = async (refreshToken) => {
   email:
    user.email,
   roles,
+  must_change_password: user.must_change_password ? 1 : 0,
  };
 
  const token =
@@ -211,6 +214,7 @@ const refresh = async (refreshToken) => {
    email:
     user.email,
    roles,
+   must_change_password: user.must_change_password ? 1 : 0,
   },
  };
 };
