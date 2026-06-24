@@ -9,7 +9,12 @@ import {
 import dayjs from "dayjs";
 import isoWeek from "dayjs/plugin/isoWeek";
 import customParseFormat from "dayjs/plugin/customParseFormat";
+import isLeapYear from "dayjs/plugin/isLeapYear";
 import "./PreviewGrid.css";
+
+dayjs.extend(isoWeek);
+dayjs.extend(customParseFormat);
+dayjs.extend(isLeapYear);
 
 const { Title, Text } = Typography;
 
