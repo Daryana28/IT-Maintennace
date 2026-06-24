@@ -1,5 +1,9 @@
 // be/src/modules/user/userController.js
 import userService from "./userService.js";
+import { User, Role, Department } from "../../models/index.js";
+import bcrypt from "bcrypt";
+import path from "path";
+import fs from "fs";
 
 const getAll = async (req, res) => {
     try {
@@ -112,10 +116,177 @@ const remove = async (req, res) => {
     }
 };
 
+const getUserProfile = async (req, res) => {
+  try {
+    if (!req.user || !req.user.id) {
+      return res.status(401).json({ success: false, message: "Unauthorized" });
+    }
+
+    const user = await User.findByPk(req.user.id, {
+      include: [
+        {
+          model: Role,
+          as: "roles",
+          attributes: ["role_name"],
+        },
+        {
+          model: Department,
+          attributes: ["department_name"],
+        }
+      ]
+    });
+
+    if (!user) {
+      return res.status(404).json({ success: false, message: "User tidak ditemukan" });
+    }
+
+    const roles = user.roles?.map(r => r.role_name) || [];
+
+    return res.status(200).json({
+      success: true,
+      data: {
+        user_id: user.user_id,
+        username: user.username,
+        full_name: user.full_name,
+        email: user.email,
+        phone: user.phone || "",
+        profile_picture: user.profile_picture || "",
+        department: user.Department?.department_name || "IT",
+        roles,
+      }
+    });
+  } catch (error) {
+    console.error("Error in getUserProfile:", error);
+    return res.status(500).json({ success: false, message: error.message });
+  }
+};
+
+const updateUserProfile = async (req, res) => {
+  try {
+    if (!req.user || !req.user.id) {
+      return res.status(401).json({ success: false, message: "Unauthorized" });
+    }
+
+    const { full_name, phone } = req.body;
+    if (!full_name) {
+      return res.status(400).json({ success: false, message: "Nama lengkap wajib diisi" });
+    }
+
+    const user = await User.findByPk(req.user.id);
+    if (!user) {
+      return res.status(404).json({ success: false, message: "User tidak ditemukan" });
+    }
+
+    await user.update({
+      full_name,
+      phone: phone || null
+    });
+
+    return res.status(200).json({
+      success: true,
+      message: "Profil berhasil diperbarui",
+      data: {
+        full_name: user.full_name,
+        phone: user.phone || ""
+      }
+    });
+  } catch (error) {
+    console.error("Error in updateUserProfile:", error);
+    return res.status(500).json({ success: false, message: error.message });
+  }
+};
+
+const updateUserProfilePicture = async (req, res) => {
+  try {
+    if (!req.user || !req.user.id) {
+      return res.status(401).json({ success: false, message: "Unauthorized" });
+    }
+
+    if (!req.file) {
+      return res.status(400).json({ success: false, message: "File gambar wajib diunggah" });
+    }
+
+    const user = await User.findByPk(req.user.id);
+    if (!user) {
+      return res.status(404).json({ success: false, message: "User tidak ditemukan" });
+    }
+
+    // Delete old profile picture if exists
+    if (user.profile_picture) {
+      const oldPath = path.resolve(".", user.profile_picture.replace(/^\//, ""));
+      if (fs.existsSync(oldPath)) {
+        fs.unlinkSync(oldPath);
+      }
+    }
+
+    const picturePath = `/uploads/profile/${req.file.filename}`;
+    await user.update({
+      profile_picture: picturePath
+    });
+
+    return res.status(200).json({
+      success: true,
+      message: "Foto profil berhasil diperbarui",
+      data: {
+        profile_picture: picturePath
+      }
+    });
+  } catch (error) {
+    console.error("Error in updateUserProfilePicture:", error);
+    return res.status(500).json({ success: false, message: error.message });
+  }
+};
+
+const changePassword = async (req, res) => {
+  try {
+    if (!req.user || !req.user.id) {
+      return res.status(401).json({ success: false, message: "Unauthorized" });
+    }
+
+    const { current_password, new_password, confirm_password } = req.body;
+    if (!current_password || !new_password || !confirm_password) {
+      return res.status(400).json({ success: false, message: "Semua kolom password wajib diisi" });
+    }
+
+    if (new_password !== confirm_password) {
+      return res.status(400).json({ success: false, message: "Konfirmasi password baru tidak cocok" });
+    }
+
+    const user = await User.findByPk(req.user.id);
+    if (!user) {
+      return res.status(404).json({ success: false, message: "User tidak ditemukan" });
+    }
+
+    const isMatch = await bcrypt.compare(current_password, user.password_hash);
+    if (!isMatch) {
+      return res.status(400).json({ success: false, message: "Password lama salah" });
+    }
+
+    const salt = await bcrypt.genSalt(10);
+    const newHash = await bcrypt.hash(new_password, salt);
+
+    await user.update({
+      password_hash: newHash
+    });
+
+    return res.status(200).json({
+      success: true,
+      message: "Password berhasil diganti"
+    });
+  } catch (error) {
+    console.error("Error in changePassword:", error);
+    return res.status(500).json({ success: false, message: error.message });
+  }
+};
+
 export default {
     getAll,
     getById,
     create,
     update,
     remove,
+    getUserProfile,
+    updateUserProfile,
+    updateUserProfilePicture,
+    changePassword,
 };
