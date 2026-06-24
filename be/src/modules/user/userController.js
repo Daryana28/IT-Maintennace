@@ -4,6 +4,7 @@ import { User, Role, Department } from "../../models/index.js";
 import bcrypt from "bcrypt";
 import path from "path";
 import fs from "fs";
+import jwt from "jsonwebtoken";
 
 const getAll = async (req, res) => {
     try {
@@ -252,7 +253,10 @@ const changePassword = async (req, res) => {
       return res.status(400).json({ success: false, message: "Konfirmasi password baru tidak cocok" });
     }
 
-    const user = await User.findByPk(req.user.id);
+    const user = await User.findByPk(req.user.id, {
+      include: [{ model: Role, as: "roles", attributes: ["role_name"] }]
+    });
+
     if (!user) {
       return res.status(404).json({ success: false, message: "User tidak ditemukan" });
     }
@@ -270,9 +274,49 @@ const changePassword = async (req, res) => {
       must_change_password: false
     });
 
+    const roles = user.roles?.map((r) => r.role_name) || [];
+    const payload = {
+      id: user.user_id,
+      username: user.username,
+      email: user.email,
+      roles,
+      must_change_password: 0,
+    };
+
+    const token = jwt.sign(payload, process.env.JWT_SECRET, {
+      expiresIn: process.env.JWT_EXPIRES || "1d",
+    });
+
+    const refreshToken = jwt.sign({ ...payload, type: "refresh" }, process.env.JWT_SECRET, {
+      expiresIn: "7d",
+    });
+
+    res.cookie("access_token", token, {
+      httpOnly: true,
+      secure: false,
+      sameSite: "lax",
+      maxAge: 24 * 60 * 60 * 1000,
+    });
+
+    res.cookie("refresh_token", refreshToken, {
+      httpOnly: true,
+      secure: false,
+      sameSite: "lax",
+      maxAge: 7 * 24 * 60 * 60 * 1000,
+    });
+
     return res.status(200).json({
       success: true,
-      message: "Password berhasil diganti"
+      message: "Password berhasil diganti",
+      token,
+      user: {
+        id: user.user_id,
+        username: user.username,
+        full_name: user.full_name,
+        email: user.email,
+        roles,
+        must_change_password: 0,
+      },
     });
   } catch (error) {
     console.error("Error in changePassword:", error);

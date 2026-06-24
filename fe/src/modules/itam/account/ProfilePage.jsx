@@ -62,7 +62,12 @@ export default function ProfilePage() {
       if (res.success) {
         message.success("Password berhasil diganti");
         passwordForm.resetFields();
-        if (user) {
+        if (res.token && res.user) {
+          useAuthStore.getState().setAuth({
+            token: res.token,
+            user: res.user
+          });
+        } else if (user) {
           setUser({
             ...user,
             must_change_password: 0

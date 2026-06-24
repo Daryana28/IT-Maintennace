@@ -1,7 +1,7 @@
 // be\src\middlewares\roleMiddleware.js
 const roleMiddleware = (...allowedRoles) => {
   return (req, res, next) => {
-    const roles = req.user?.roles || [];
+    const roles = (req.user?.roles || []).map(r => String(r).toUpperCase());
 
     if (!roles.length) {
       return res.status(403).json({
@@ -10,11 +10,11 @@ const roleMiddleware = (...allowedRoles) => {
       });
     }
 
-    if (roles.includes("SUPERADMIN")) {
+    if (roles.includes("SUPERADMIN") || roles.includes("SUPERADMINISTRATOR")) {
       return next();
     }
 
-    const allowed = allowedRoles.some((role) =>
+    const allowed = allowedRoles.map(r => String(r).toUpperCase()).some((role) =>
       roles.includes(role)
     );
 

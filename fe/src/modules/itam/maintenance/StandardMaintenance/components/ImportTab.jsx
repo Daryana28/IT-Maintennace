@@ -25,7 +25,8 @@ export default function ImportTab({ overrideCategory, yearlyStandardId, onImport
   const [currentStep, setCurrentStep] = useState(0);
 
   const downloadTemplate = () => {
-    const url = `/api/standard-maintenance/template/${apiCategory.toLowerCase()}`;
+    const baseUrl = import.meta.env.VITE_API_URL || 'http://localhost:3000/api';
+    const url = `${baseUrl}/standard-maintenance/template/${apiCategory.toLowerCase()}`;
     window.open(url, '_blank');
     message.success(`Template ${apiCategory} berhasil di-download`);
   };
