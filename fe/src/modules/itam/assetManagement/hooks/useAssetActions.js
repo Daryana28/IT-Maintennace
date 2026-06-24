@@ -16,6 +16,7 @@ export default function useAssetActions({
  saveAsset,
  removeAsset,
  reload,
+ loadCategories,
  setPreviewOpen,
  setPreviewRows,
  previewRows,
@@ -63,9 +64,13 @@ export default function useAssetActions({
      message.success(
       "Asset deleted"
      );
-    } catch {
+    } catch (err) {
+     const errorMessage =
+      err?.response?.data?.message ||
+      err?.message ||
+      "Delete failed";
      message.error(
-      "Delete failed"
+      errorMessage
      );
     }
    },
@@ -86,9 +91,13 @@ export default function useAssetActions({
      );
 
      closeModal();
-    } catch {
+    } catch (err) {
+     const errorMessage =
+      err?.response?.data?.message ||
+      err?.message ||
+      "Save failed";
      message.error(
-      "Save failed"
+      errorMessage
      );
     }
    },
@@ -106,7 +115,11 @@ export default function useAssetActions({
    ) => {
     if (isImporting) return;
     setIsImporting(true);
-    try {
+   try {
+     if (loadCategories) {
+      await loadCategories();
+     }
+
      await assetService.bulkImport(
       previewRows
      );
@@ -118,11 +131,19 @@ export default function useAssetActions({
      setPreviewOpen(false);
      setPreviewRows([]);
 
+     if (loadCategories) {
+      await loadCategories();
+     }
+
      reload();
     } catch (err) {
      console.error(err);
+     const errorMessage =
+      err?.response?.data?.message ||
+      err?.message ||
+      "Import failed";
      message.error(
-      "Import failed"
+      errorMessage
      );
     } finally {
      setIsImporting(false);

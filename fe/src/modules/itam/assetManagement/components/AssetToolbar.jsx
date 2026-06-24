@@ -1,9 +1,10 @@
-import { Button, Upload, Space } from "antd";
+import { Button, Upload, Space, Popconfirm } from "antd";
 import {
  DownloadOutlined,
  UploadOutlined,
  PrinterOutlined,
- FileExcelOutlined
+ FileExcelOutlined,
+ DeleteOutlined,
 } from "@ant-design/icons";
 
 export default function AssetToolbar({
@@ -11,6 +12,8 @@ export default function AssetToolbar({
  onImport,
  onExport,
  onPrintLabels,
+ onDeleteAll,
+ deleteAllLabel = "Delete All",
 }) {
  return (
   <Space wrap size="small">
@@ -41,6 +44,20 @@ export default function AssetToolbar({
    >
     Cetak Label
    </Button>
+
+   {onDeleteAll && (
+    <Popconfirm
+     title={`Hapus semua data ${deleteAllLabel}?`}
+     description="Data di tab aktif akan dihapus permanen."
+     onConfirm={onDeleteAll}
+     okText="Hapus"
+     cancelText="Batal"
+    >
+     <Button danger icon={<DeleteOutlined />}>
+      Delete All
+     </Button>
+    </Popconfirm>
+   )}
   </Space>
  );
 }

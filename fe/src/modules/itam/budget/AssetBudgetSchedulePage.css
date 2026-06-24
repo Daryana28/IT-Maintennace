@@ -232,6 +232,39 @@
   z-index: 2;
 }
 
+.timeline-table--excel .ant-table-thead > tr > th.ant-table-cell-fix-right,
+.timeline-table--excel .ant-table-tbody > tr > td.ant-table-cell-fix-right {
+  background: #ffffff !important;
+  background-clip: padding-box;
+}
+
+.timeline-table--excel .ant-table-thead > tr > th.ant-table-cell-fix-right {
+  background: #eef5fb !important;
+  z-index: 7;
+}
+
+.timeline-table--excel .ant-table-thead > tr:nth-child(2) > th.ant-table-cell-fix-right {
+  background: #f5f9fd !important;
+}
+
+.timeline-table--excel .ant-table-tbody > tr > td.ant-table-cell-fix-right {
+  z-index: 6;
+}
+
+.timeline-table--excel .ant-table-cell-fix-right-first::after {
+  width: 1px !important;
+  background: #dbe7f3 !important;
+  box-shadow: -6px 0 10px rgba(15, 23, 42, 0.06) !important;
+}
+
+.budget-monitoring__action-col {
+  white-space: nowrap;
+}
+
+.budget-monitoring__action-col .ant-space {
+  flex-wrap: nowrap !important;
+}
+
 .timeline-table--excel .ant-table-tbody > tr:hover > td,
 .timeline-table--excel .ant-table-cell-row-hover {
   background: inherit !important;

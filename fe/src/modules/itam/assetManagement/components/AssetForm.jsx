@@ -27,10 +27,11 @@ import {
  normalizeAssetType as normalizeName,
  resolveAssetTypeKey,
 } from "../utils/assetTypeProfiles";
+import { getWorkbookTabCategoryIds } from "../utils/assetWorkbookTabs";
 
 const ROOT_LABEL_MAP = {
  hardware: "Hardware",
- "software hardware": "Software Hardware",
+ "software hardware": "Software",
  software: "Application",
  application: "Application",
  networking: "Network",
@@ -46,6 +47,8 @@ export default function AssetForm({
  initialValues,
  categories = [],
  routeGroup = "",
+ workbookTabKey = "",
+ defaultCategoryId = null,
  onCancel,
  onSubmit,
 }) {
@@ -81,6 +84,14 @@ export default function AssetForm({
   () => getAssetTypeProfile(activeTypeKey),
   [activeTypeKey]
  );
+ const isWorkbookMode = Boolean(workbookTabKey);
+ const workbookCategoryIds = useMemo(
+  () => getWorkbookTabCategoryIds(categories, routeGroup, workbookTabKey),
+  [categories, routeGroup, workbookTabKey]
+ );
+ const defaultWorkbookCategoryId = workbookCategoryIds.length
+  ? Number(workbookCategoryIds[0])
+  : (defaultCategoryId ? Number(defaultCategoryId) : null);
 
  const getRootCategoryIdByRoute = useCallback(
   (groupName) => {
@@ -220,7 +231,14 @@ export default function AssetForm({
   const defaultRootId =
    getRootCategoryIdByRoute(routeGroup);
 
-  if (defaultRootId) {
+  if (isWorkbookMode && defaultWorkbookCategoryId) {
+   form.setFieldsValue({
+    category_id: defaultWorkbookCategoryId,
+    category_lv1: null,
+    main_type: null,
+    category_lv2: null,
+   });
+  } else if (defaultRootId) {
    form.setFieldsValue({
     category_lv1: defaultRootId,
     main_type: null,
@@ -244,7 +262,7 @@ export default function AssetForm({
   return () => {
    active = false;
   };
- }, [open, initialValues, form, routeGroup, getRootCategoryIdByRoute]);
+ }, [open, initialValues, form, routeGroup, getRootCategoryIdByRoute, isWorkbookMode, defaultWorkbookCategoryId]);
 
  useEffect(() => {
   if (!open) return;
@@ -315,7 +333,12 @@ export default function AssetForm({
 
     await onSubmit({
      ...values,
-     category_id: values.category_id || values.category_lv2 || values.main_type || values.category_lv1,
+     category_id:
+      values.category_id ||
+      values.category_lv2 ||
+      values.main_type ||
+      values.category_lv1 ||
+      defaultWorkbookCategoryId,
 
      purchase_date:
       values.purchase_date
@@ -337,8 +360,8 @@ export default function AssetForm({
     setSaving(false);
    }
   },
-  [form, onSubmit, saving]
- );
+   [defaultWorkbookCategoryId, form, onSubmit, saving]
+  );
 
  const rootOptions = useMemo(
   () => buildOptions(null),
@@ -398,10 +421,12 @@ export default function AssetForm({
      lv2Options={lv2Options}
      lv3Options={lv3Options}
      typeProfile={typeProfile}
+     workbookTabKey={workbookTabKey}
     />
 
     <UserSection
      typeProfile={typeProfile}
+     workbookTabKey={workbookTabKey}
     />
 
     <FinanceSection
@@ -409,15 +434,19 @@ export default function AssetForm({
      onPurchaseChange={
       onPurchaseChange
      }
+     workbookTabKey={workbookTabKey}
     />
 
     <NetworkSection
      typeProfile={typeProfile}
+     workbookTabKey={workbookTabKey}
     />
 
-    <ClassificationSection
-     typeProfile={typeProfile}
-    />
+    {!isWorkbookMode && (
+     <ClassificationSection
+      typeProfile={typeProfile}
+     />
+    )}
    </Form>
   </Drawer>
  );

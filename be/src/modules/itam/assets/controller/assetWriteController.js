@@ -83,6 +83,28 @@ const bulkImport = async (req, res) => {
  }
 };
 
+const bulkDelete = async (req, res) => {
+ try {
+  const deletedCount = await assetService.bulkDelete(
+   req.body,
+   req
+  );
+
+  return res.status(200).json({
+   success: true,
+   message: "Bulk delete success",
+   data: {
+    deleted_count: deletedCount,
+   },
+  });
+ } catch (error) {
+  return res.status(400).json({
+   success: false,
+   message: error.message,
+  });
+ }
+};
+
 const transferOwner = async (
  req,
  res
@@ -223,6 +245,7 @@ export default {
  update,
  remove,
  bulkImport,
+ bulkDelete,
  transferOwner,
  changeAssignedUser,
  transferDepartment,

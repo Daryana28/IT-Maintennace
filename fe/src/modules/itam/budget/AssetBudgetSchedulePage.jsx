@@ -680,7 +680,8 @@ export default function AssetBudgetSchedulePage() {
       key: "action",
       width: 120,
       align: "center",
-      fixed: "left",
+      fixed: "right",
+      className: "budget-monitoring__action-col",
       render: (_, record, index) => ({
         children:
           index % 2 === 0 ? (
@@ -756,7 +757,7 @@ export default function AssetBudgetSchedulePage() {
           dataSource={tableRows}
           rowKey="rowKey"
           pagination={false}
-          scroll={{ x: 3400, y: 800 }}
+          scroll={{ x: "max-content", y: 800 }}
           bordered
           size="small"
           className="timeline-table timeline-table--excel"

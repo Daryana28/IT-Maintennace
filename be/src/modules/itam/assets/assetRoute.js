@@ -47,6 +47,12 @@ router.post(
 );
 
 router.post(
+ "/bulk-delete",
+ authMiddleware,
+ write.bulkDelete
+);
+
+router.post(
  "/",
  authMiddleware,
  write.create

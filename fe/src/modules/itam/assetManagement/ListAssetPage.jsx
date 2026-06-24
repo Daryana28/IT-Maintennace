@@ -1,6 +1,6 @@
 import { useState, useCallback, useEffect } from "react";
 import { useLocation, useNavigate } from "react-router-dom";
-import { Card, Space, Button, message, Flex, Modal } from "antd";
+import { Card, Space, Button, message, Flex, Modal, Tabs } from "antd";
 import { PlusOutlined, ReloadOutlined } from "@ant-design/icons";
 import { encodePath } from "@/shared/utils/routeCipher";
 import { usePageHeader } from "@/layouts/MainLayout/MainLayout";
@@ -25,6 +25,12 @@ import {
   getAssetRouteGroupLabel,
   getScopedCategoryIds,
 } from "./utils/routeCategoryScope";
+import {
+  getAssetWorkbookTabs,
+  getWorkbookTabCategoryIds,
+  matchAssetToWorkbookTab,
+  resolveImportCategory,
+} from "./utils/assetWorkbookTabs";
 
 export default function ListAssetPage() {
   const navigate = useNavigate();
@@ -40,6 +46,7 @@ export default function ListAssetPage() {
     total,
     filters,
     reload,
+    loadCategories,
     saveAsset,
     removeAsset,
   } = useAsset();
@@ -66,7 +73,23 @@ export default function ListAssetPage() {
   const [multiOpen, setMultiOpen] = useState(false);
   const [replaceOpen, setReplaceOpen] = useState(false);
   const [replaceAsset, setReplaceAsset] = useState(null);
+  const [activeWorkbookTab, setActiveWorkbookTab] = useState("");
   const routeGroup = getAssetRouteGroup(location.pathname);
+  const isSoftwareRoute = routeGroup === "software-hardware";
+  const workbookTabs = getAssetWorkbookTabs(routeGroup);
+  const displayedRows = workbookTabs.length > 0 && activeWorkbookTab
+    ? rows.filter(
+        (row) => matchAssetToWorkbookTab(row, categories, routeGroup) === activeWorkbookTab
+      )
+    : rows;
+  const activeTabDefaultCategoryId = activeWorkbookTab
+    ? (
+      getWorkbookTabCategoryIds(categories, routeGroup, activeWorkbookTab)[0] ||
+      displayedRows.find((row) => row.category_id || row.category?.category_id)?.category_id ||
+      displayedRows.find((row) => row.category_id || row.category?.category_id)?.category?.category_id ||
+      null
+    )
+    : null;
 
   const handleReplace = useCallback((row) => {
     setReplaceAsset(row);
@@ -76,17 +99,26 @@ export default function ListAssetPage() {
   const buildFilters = useCallback(
     (override = {}) => {
       const scopedCategoryIds = getScopedCategoryIds(categories, routeGroup);
+      const activeTabCategoryIds = activeWorkbookTab
+        ? getWorkbookTabCategoryIds(categories, routeGroup, activeWorkbookTab)
+        : [];
+      const resolvedCategoryId = activeTabCategoryIds.length > 0
+        ? activeTabCategoryIds.join(",")
+        : scopedCategoryIds;
+
       return {
         ...filters,
         ...headerFilters,
-        ...(scopedCategoryIds
-          ? { category_id: scopedCategoryIds }
+        ...(resolvedCategoryId
+          ? { category_id: resolvedCategoryId }
           : {}),
         exclude_status: "DISPOSE,DISPOSED",
+        sort_by: "purchase_date",
+        sort_order: "ASC",
         ...override,
       };
     },
-    [filters, headerFilters, categories, routeGroup]
+    [filters, headerFilters, categories, routeGroup, activeWorkbookTab]
   );
 
   const openDetail = useCallback(
@@ -153,6 +185,7 @@ export default function ListAssetPage() {
     saveAsset,
     removeAsset,
     reload,
+    loadCategories,
     setPreviewRows,
     setPreviewOpen,
     previewRows,
@@ -161,13 +194,50 @@ export default function ListAssetPage() {
   const importExcel = useCallback(async (file) => {
     try {
       const rows = await readExcel(file);
-      setPreviewRows(rows);
+      const activeTabCategoryIds = activeWorkbookTab
+        ? getWorkbookTabCategoryIds(categories, routeGroup, activeWorkbookTab)
+        : [];
+      const activeTabFallbackCategory = activeTabCategoryIds.length
+        ? categories.find((item) => String(item.category_id) === String(activeTabCategoryIds[0]))
+        : null;
+
+      const normalizedRows = rows.map((row) => {
+        const resolvedCategory = resolveImportCategory(categories, row, routeGroup);
+        const finalCategoryId =
+          row.category_id ||
+          resolvedCategory.category_id ||
+          activeTabFallbackCategory?.category_id ||
+          null;
+        const finalCategoryName =
+          resolvedCategory.category_name ||
+          activeTabFallbackCategory?.category_name ||
+          row.category_name ||
+          "";
+        const fallbackImportType =
+          row.TYPE ||
+          row.type ||
+          finalCategoryName ||
+          row.type_code ||
+          row["TYPE CODE"] ||
+          row.__sheet_name ||
+          "";
+
+        return {
+          ...row,
+          category_id: finalCategoryId,
+          category_name: finalCategoryName,
+          TYPE: fallbackImportType,
+          type: fallbackImportType,
+        };
+      });
+
+      setPreviewRows(normalizedRows);
       setPreviewOpen(true);
     } catch {
       message.error("Gagal membaca file Excel.");
     }
     return false; // Prevent auto upload
-  }, [readExcel, setPreviewRows, setPreviewOpen]);
+  }, [readExcel, setPreviewRows, setPreviewOpen, categories, routeGroup, activeWorkbookTab]);
 
   const handleHeaderFilterChange = useCallback((field, value) => {
     setHeaderFilter(field, value);
@@ -183,8 +253,44 @@ export default function ListAssetPage() {
   }, [reload, buildFilters]);
 
   const handleRefresh = useCallback(() => {
-    reload(page, pageSize, buildFilters());
-  }, [reload, page, pageSize, buildFilters]);
+    void (async () => {
+      await loadCategories();
+      await reload(page, pageSize, buildFilters());
+    })();
+  }, [loadCategories, reload, page, pageSize, buildFilters]);
+
+  const handleDeleteAllActiveTab = useCallback(async () => {
+    const mappedTabCategoryIds = activeWorkbookTab
+      ? getWorkbookTabCategoryIds(categories, routeGroup, activeWorkbookTab)
+      : [];
+    const visibleTabCategoryIds = displayedRows
+      .map((row) => row.category_id || row.category?.category_id)
+      .filter(Boolean)
+      .map((id) => String(id));
+    const activeTabCategoryIds = Array.from(
+      new Set(
+        (mappedTabCategoryIds.length ? mappedTabCategoryIds : visibleTabCategoryIds)
+      )
+    );
+
+    if (!activeTabCategoryIds.length) {
+      message.warning("Kategori untuk tab aktif tidak ditemukan.");
+      return;
+    }
+
+    try {
+      await assetService.bulkDeleteByCategories(activeTabCategoryIds);
+      message.success("Semua data pada tab aktif berhasil dihapus.");
+      await loadCategories();
+      await reload(1, pageSize, buildFilters());
+    } catch (error) {
+      const errorMessage =
+        error?.response?.data?.message ||
+        error?.message ||
+        "Gagal menghapus data tab aktif.";
+      message.error(errorMessage);
+    }
+  }, [activeWorkbookTab, categories, routeGroup, displayedRows, loadCategories, reload, pageSize, buildFilters]);
 
   useEffect(() => {
     const routeGroupLabel = getAssetRouteGroupLabel(routeGroup);
@@ -205,7 +311,22 @@ export default function ListAssetPage() {
       reload(1, pageSize, buildFilters());
     }
     // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [categories, routeGroup]);
+  }, [categories, routeGroup, activeWorkbookTab]);
+
+  useEffect(() => {
+    if (!workbookTabs.length) {
+      setActiveWorkbookTab("");
+      return;
+    }
+
+    setActiveWorkbookTab((currentTab) => {
+      if (workbookTabs.some((tab) => tab.key === currentTab)) {
+        return currentTab;
+      }
+
+      return workbookTabs[0].key;
+    });
+  }, [workbookTabs]);
 
   return (
     <div className="workspace-page">
@@ -238,10 +359,12 @@ export default function ListAssetPage() {
           <div className="workspace-actions-right">
             <Space wrap size="small">
               <AssetToolbar
-                onTemplate={downloadTemplate}
+                onTemplate={() => downloadTemplate({ routeGroup, activeTabKey: activeWorkbookTab })}
                 onImport={importExcel}
-                onExport={() => exportExcel(rows)}
+                onExport={() => exportExcel(rows, { categories, routeGroup })}
                 onPrintLabels={openMultiPrint}
+                onDeleteAll={handleDeleteAllActiveTab}
+                deleteAllLabel={workbookTabs.find((tab) => tab.key === activeWorkbookTab)?.label || "tab aktif"}
               />
               <Button
                 type="primary"
@@ -255,8 +378,20 @@ export default function ListAssetPage() {
         </Flex>
 
         <div className="workspace-table-container">
+          {workbookTabs.length > 0 && (
+            <Tabs
+              className="asset-workbook-tabs"
+              activeKey={activeWorkbookTab}
+              onChange={setActiveWorkbookTab}
+              items={workbookTabs.map((tab) => ({
+                key: tab.key,
+                label: tab.label,
+              }))}
+              style={{ marginBottom: 16 }}
+            />
+          )}
           <AssetTable
-            rows={rows}
+            rows={displayedRows}
             categories={categories}
             loading={loading}
             page={page}
@@ -274,6 +409,9 @@ export default function ListAssetPage() {
             headerFilters={headerFilters}
             onHeaderFilterChange={handleHeaderFilterChange}
             contextRouteGroup={routeGroup}
+            showTimelineLegend={!isSoftwareRoute}
+            hidePlanColumns={isSoftwareRoute}
+            workbookTabKey={activeWorkbookTab}
           />
         </div>
       </Card>
@@ -283,6 +421,8 @@ export default function ListAssetPage() {
         initialValues={editing}
         categories={categories}
         routeGroup={routeGroup}
+        workbookTabKey={activeWorkbookTab}
+        defaultCategoryId={activeTabDefaultCategoryId}
         onCancel={closeModal}
         onSubmit={onSubmit}
       />

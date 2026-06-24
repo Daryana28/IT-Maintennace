@@ -1,5 +1,14 @@
 const ROUTE_GROUP_LABELS = {
   hardware: "Hardware",
+  "software-hardware": "Software",
+  software: "Application",
+  application: "Application",
+  network: "Network",
+  "cyber-security": "Cyber Security",
+};
+
+const ROUTE_GROUP_CATEGORY_NAMES = {
+  hardware: "Hardware",
   "software-hardware": "Software Hardware",
   software: "Application",
   application: "Application",
@@ -23,7 +32,7 @@ export function getAssetRouteGroup(pathname = "") {
 }
 
 export function getScopedCategoryIds(categories = [], routeGroup = "") {
-  const targetName = ROUTE_GROUP_LABELS[routeGroup];
+  const targetName = ROUTE_GROUP_CATEGORY_NAMES[routeGroup];
 
   if (!targetName) return "";
 
@@ -31,7 +40,7 @@ export function getScopedCategoryIds(categories = [], routeGroup = "") {
     (item) => (item.category_name || "").toLowerCase() === targetName.toLowerCase()
   );
 
-  if (!root) return "__empty__";
+  if (!root) return "";
 
   const ids = [];
   const visit = (parentId) => {
@@ -46,7 +55,7 @@ export function getScopedCategoryIds(categories = [], routeGroup = "") {
 }
 
 export function getScopedRootCategoryId(categories = [], routeGroup = "") {
-  const targetName = ROUTE_GROUP_LABELS[routeGroup];
+  const targetName = ROUTE_GROUP_CATEGORY_NAMES[routeGroup];
 
   if (!targetName) return "";
 

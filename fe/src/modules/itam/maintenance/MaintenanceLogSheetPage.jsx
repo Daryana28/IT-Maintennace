@@ -14,7 +14,7 @@ export default function MaintenanceLogSheetPage({ overrideCategory }) {
 
   const titleMap = {
     hardware: "Hardware Logsheet Abnormal",
-    "software-hardware": "Software Hardware Logsheet Abnormal",
+    "software-hardware": "Software Logsheet Abnormal",
     application: "Application Logsheet Abnormal",
     network: "Network Logsheet Abnormal",
     networking: "Networking Logsheet Abnormal",

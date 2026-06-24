@@ -132,6 +132,15 @@ async function bulkImport(rows) {
   return res.data;
 }
 
+async function bulkDeleteByCategories(categoryIds = []) {
+  const res = await apiClient.post(
+    `${BASE_URL}/bulk-delete`,
+    { category_ids: categoryIds }
+  );
+
+  return res.data;
+}
+
 async function getHistory(id) {
   const res = await apiClient.get(
     `${BASE_URL}/${toId(id)}/history`
@@ -198,6 +207,7 @@ export default {
   update,
   remove,
   bulkImport,
+  bulkDeleteByCategories,
 
   // ACTIONS
   transferOwner,

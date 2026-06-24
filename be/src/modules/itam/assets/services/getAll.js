@@ -6,6 +6,7 @@ const {
  Asset,
  AssetCategory,
  AssetLocation,
+ sequelize,
 } = db;
 
 const include = [
@@ -69,7 +70,8 @@ export default async function (
  }
 
  const likeFields = [
-  "asset_code",
+ "asset_code",
+  "serial_number",
   "asset_name",
   "division",
   "department",
@@ -101,11 +103,25 @@ export default async function (
  }
 
  if (query.status) {
-  andConditions.push({
-   status: query.status.toString().includes(",")
-    ? { [Op.in]: query.status.toString().split(",").map((s) => s.trim()) }
-    : query.status,
-  });
+  const normalizedStatus = query.status.toString().trim().toUpperCase();
+
+  if (normalizedStatus === "NON ACTIVE") {
+   andConditions.push({
+    status: {
+     [Op.ne]: "ACTIVE",
+    },
+   });
+  } else if (normalizedStatus === "ACTIVE") {
+   andConditions.push({
+    status: "ACTIVE",
+   });
+  } else {
+   andConditions.push({
+    status: query.status.toString().includes(",")
+     ? { [Op.in]: query.status.toString().split(",").map((s) => s.trim()) }
+     : query.status,
+   });
+  }
  } else if (query.exclude_status) {
   andConditions.push({
    status: {
@@ -128,38 +144,57 @@ export default async function (
  }
 
  if (query.category_id) {
-  andConditions.push({
-   category_id: query.category_id.toString().includes(",")
-    ? { [Op.in]: query.category_id.toString().split(",") }
-    : query.category_id,
-  });
+  const rawCategoryId =
+   query.category_id.toString();
+
+  if (rawCategoryId === "__empty__") {
+   andConditions.push({
+    category_id: {
+     [Op.eq]: null,
+    },
+   });
+  } else {
+   andConditions.push({
+    category_id: rawCategoryId.includes(",")
+     ? { [Op.in]: rawCategoryId.split(",") }
+     : rawCategoryId,
+   });
+  }
  }
 
  const whereClause = andConditions.length > 0
   ? { [Op.and]: andConditions }
   : {};
 
- const sortBy =
-  query.sort_by === "depreciation_date"
-   ? "depreciation_date"
-   : "asset_id";
+ const sortBy = ["purchase_date", "depreciation_date", "asset_id"].includes(query.sort_by)
+  ? query.sort_by
+  : "asset_id";
 
  const sortOrder =
   String(query.sort_order || "DESC").toUpperCase() === "ASC"
    ? "ASC"
    : "DESC";
 
+ const order =
+  sortBy === "purchase_date"
+   ? [
+      [sequelize.literal("CASE WHEN purchase_date IS NULL THEN 1 ELSE 0 END"), "ASC"],
+      ["purchase_date", sortOrder],
+      ["asset_id", "ASC"],
+     ]
+   : [
+      [
+       sortBy,
+       sortOrder,
+      ],
+     ];
+
  const result =
   await Asset.findAndCountAll(
    {
     where: whereClause,
     include,
-    order: [
-     [
-      sortBy,
-      sortOrder,
-     ],
-    ],
+    order,
     limit:
      pageSize,
     offset,

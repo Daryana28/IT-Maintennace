@@ -7,9 +7,14 @@ import {
   Row,
 } from "antd";
 
+import { getWorkbookTabFieldLabels } from "../../utils/assetWorkbookTabs";
+
 export default function NetworkSection({
   typeProfile,
+  workbookTabKey = "",
 }) {
+  const isWorkbookMode = Boolean(workbookTabKey);
+  const workbookLabels = getWorkbookTabFieldLabels(workbookTabKey);
   return (
     <>
       <Divider orientation="left">
@@ -20,7 +25,7 @@ export default function NetworkSection({
         <Col xs={24} md={12}>
           <Form.Item
             name="ip_main"
-            label={typeProfile.ipMainLabel}
+            label={isWorkbookMode ? workbookLabels.ipMain : typeProfile.ipMainLabel}
           >
             <Input />
           </Form.Item>
@@ -29,7 +34,7 @@ export default function NetworkSection({
         <Col xs={24} md={12}>
           <Form.Item
             name="ip_backup"
-            label={typeProfile.ipBackupLabel}
+            label={isWorkbookMode ? workbookLabels.ipBackup : typeProfile.ipBackupLabel}
           >
             <Input />
           </Form.Item>

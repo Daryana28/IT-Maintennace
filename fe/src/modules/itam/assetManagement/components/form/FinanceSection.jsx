@@ -7,10 +7,15 @@ import {
  Row,
 } from "antd";
 
+import { getWorkbookTabFieldLabels } from "../../utils/assetWorkbookTabs";
+
 export default function FinanceSection({
  onPurchaseChange,
  typeProfile,
+ workbookTabKey = "",
 }) {
+ const isWorkbookMode = Boolean(workbookTabKey);
+ const workbookLabels = getWorkbookTabFieldLabels(workbookTabKey);
  return (
   <>
    <Divider orientation="left">
@@ -21,7 +26,7 @@ export default function FinanceSection({
     <Col xs={24} md={12}>
      <Form.Item
       name="purchase_date"
-      label={typeProfile.purchaseDateLabel}
+      label={isWorkbookMode ? workbookLabels.purchaseDate : typeProfile.purchaseDateLabel}
      >
       <DatePicker
        style={{
@@ -38,7 +43,7 @@ export default function FinanceSection({
     <Col xs={24} md={12}>
      <Form.Item
       name="depreciation_date"
-      label={typeProfile.depreciationDateLabel}
+      label={isWorkbookMode ? workbookLabels.depreciationDate : typeProfile.depreciationDateLabel}
      >
       <DatePicker
        style={{

@@ -7,9 +7,14 @@ import {
   Row,
 } from "antd";
 
+import { getWorkbookTabFieldLabels } from "../../utils/assetWorkbookTabs";
+
 export default function UserSection({
   typeProfile,
+  workbookTabKey = "",
 }) {
+  const isWorkbookMode = Boolean(workbookTabKey);
+  const workbookLabels = getWorkbookTabFieldLabels(workbookTabKey);
   return (
     <>
       <Divider orientation="left">
@@ -20,7 +25,7 @@ export default function UserSection({
         <Col xs={24} md={12}>
           <Form.Item
             name="division"
-            label="Division"
+            label={isWorkbookMode ? workbookLabels.division : "Division"}
           >
             <Input />
           </Form.Item>
@@ -29,7 +34,7 @@ export default function UserSection({
         <Col xs={24} md={12}>
           <Form.Item
             name="department"
-            label="Department"
+            label={isWorkbookMode ? workbookLabels.department : "Department"}
           >
             <Input />
           </Form.Item>
@@ -38,7 +43,7 @@ export default function UserSection({
         <Col xs={24} md={12}>
           <Form.Item
             name="owner_name"
-            label={typeProfile.ownerNameLabel}
+            label={isWorkbookMode ? workbookLabels.ownerName : typeProfile.ownerNameLabel}
           >
             <Input />
           </Form.Item>
@@ -47,7 +52,7 @@ export default function UserSection({
         <Col xs={24} md={12}>
           <Form.Item
             name="nik"
-            label="NIK"
+            label={isWorkbookMode ? workbookLabels.nik : "NIK"}
           >
             <Input />
           </Form.Item>

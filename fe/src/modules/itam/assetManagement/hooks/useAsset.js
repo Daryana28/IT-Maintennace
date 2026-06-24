@@ -157,24 +157,18 @@ export default function useAsset() {
   const saveAsset =
     useCallback(
       async (payload) => {
-        try {
-          if (payload?.asset_id) {
-            await assetService.update(
-              payload.asset_id,
-              payload
-            );
-          } else {
-            await assetService.create(
-              payload
-            );
-          }
-
-          await reload();
-        } catch {
-          message.error(
-            "Failed to save asset"
+        if (payload?.asset_id) {
+          await assetService.update(
+            payload.asset_id,
+            payload
+          );
+        } else {
+          await assetService.create(
+            payload
           );
         }
+
+        await reload();
       },
       [reload]
     );
@@ -182,14 +176,8 @@ export default function useAsset() {
   const removeAsset =
     useCallback(
       async (id) => {
-        try {
-          await assetService.remove(id);
-          await reload();
-        } catch {
-          message.error(
-            "Failed to delete asset"
-          );
-        }
+        await assetService.remove(id);
+        await reload();
       },
       [reload]
     );
@@ -203,6 +191,7 @@ export default function useAsset() {
     total,
     filters,
     reload,
+    loadCategories,
     saveAsset,
     removeAsset,
   };
