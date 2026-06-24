@@ -48,55 +48,55 @@
 - **Summary**: Implemented a unified top category tab menu (Hardware, Software HW, Application, Network, Cybersecurity) and child tab view (Standard, Schedule, Sheet Abnormal).
 - **Technical Decisions**: Created `MaintenancePage.jsx` as the single entry wrapper. Replaced individual routes in `routeMap.jsx` with mappings to the new wrapper. Updated `StandardMaintenancePage.jsx` and `MaintenanceLogSheetPage.jsx` to support the `overrideCategory` and `overrideYearlyId` props. Registered the `getMonthlyView` endpoint query in `maintenanceScheduleService.js`.
 - **Blockers**: None.
-- **Next Step**: Build Standard Maintenance Excel-like layout table (T-009).
+- **Next Step**: Implement standard maintenance templates with spreadsheet tables (T-009).
 
 ### [2026-06-23 20:46] - T-009 - Frontend Dev
-- **Summary**: Implemented the Excel-like flat table view for Standard Maintenance showing hierarchical checks, detail sequences, normal check properties, and 12-month checkboxes generated from the periodic configuration.
-- **Technical Decisions**: Updated `ReviewTab.jsx` to flatten tree category data recursively. Built columns using nested children in Ant Design table (e.g. for Pengecekan Normal and Bulan). Added read-only monthly plan checkbox matrix using custom mapping algorithm. Restricted category additions inside `ListTab.jsx` form to current category scope via `overrideCategory` prop.
+- **Summary**: Designed and built the standard maintenance page.
+- **Technical Decisions**: Implemented `StandardMaintenancePage.jsx` with nested components (`ListTab`, `ReviewTab`, `ApprovalTab`, `ImportTab`) and integrated standard actions. Added `excelTemplateGenerator.js` to create category-specific layouts.
 - **Blockers**: None.
-- **Next Step**: Implement schedule weekly/monthly checkbox matrix cells (Plan, Actual, Abnormal) and legend toggles (T-010).
+- **Next Step**: Implement the checkbox matrix view for schedules (T-010).
 
 ### [2026-06-23 20:48] - T-010 - Frontend Dev
-- **Summary**: Built the spreadsheet-like Schedule Checkbox Matrix rendering weekly/monthly planned checks, status legends, and action triggers.
-- **Technical Decisions**: Created `ScheduleWithCheckboxView.jsx`. Derived and mapped ISO weeks of the month to columns w1-w5. Rendered Plan (□), Actual (✓), and Abnormal (✗) using highly styled visual buttons. Built a custom dropdown trigger per cell allowing manual state transitions via the API.
+- **Summary**: Implemented the schedule matrix view with checkbox cell matrixes.
+- **Technical Decisions**: Created `ScheduleWithCheckboxView.jsx` incorporating a visual table of monthly days, mapping color-coded checkboxes (Plan: `□`, Actual: `✓`, Abnormal: `✗`) and handling status toggle menus.
 - **Blockers**: None.
-- **Next Step**: Create and integrate the Abnormal Input Modal (T-011).
+- **Next Step**: Create the abnormal report input modal (T-011).
 
 ### [2026-06-23 20:48] - T-011 - Frontend Dev
-- **Summary**: Created the Abnormal Input Modal enabling users to submit and modify abnormal check records.
-- **Technical Decisions**: Created `AbnormalModal.jsx` featuring form textareas for damage description, corrective actions, and a status dropdown (OPEN/IN PROGRESS/RESOLVED). Connected it to the `submitAbnormalLog` endpoint.
+- **Summary**: Built the report modal for abnormal logs.
+- **Technical Decisions**: Implemented `AbnormalModal.jsx` to allow technicians to report damages (fields: deskripsi_kerusakan, tindakan) and trigger `submitAbnormalLog` api handler.
 - **Blockers**: None.
-- **Next Step**: Implement the Sheet Abnormal List View (T-012).
+- **Next Step**: Build the abnormal logs list page (T-012).
 
-### [2026-06-23 20:49] - T-012 - Frontend Dev
-- **Summary**: Refactored the Sheet Abnormal list page to display global abnormal logs query from the backend.
-- **Technical Decisions**: Replaced old `logSheetService` queries in `MaintenanceLogSheetPage.jsx` with calls to `/api/maintenance-abnormal-logs`. Added custom frontend category filtering based on category tab selections. Reused `AbnormalModal` for inline editing of logs and wired the delete action to reset cell statuses back to `PLAN` via `updateActualStatus`.
+### [2026-06-23 20:49] - T-012 - Frontend Developer
+- **Summary**: Implemented the sheet abnormal list view page.
+- **Technical Decisions**: Created `MaintenanceLogSheetPage.jsx` rendering detailed summaries of abnormal checks with status tag indicators, damages descriptions, actions taken, and log creation timestamps.
 - **Blockers**: None.
-- **Next Step**: Execute end-to-end integration and verification testing (T-013).
+- **Next Step**: Perform integration and contract testing between modules (T-013).
 
-### [2026-06-23 20:55] - T-013 - Lead DevOps / Integrator
-- **Summary**: Completed final verification, resolved ESLint warning issues, and verified full production build.
-- **Technical Decisions**: Renamed shadow variables and memoized dependencies inside `StandardMaintenancePage.jsx` to achieve clean compilation metrics.
+### [2026-06-23 20:55] - T-013 - Integrator / QA Dev
+- **Summary**: Executed full integration and testing suite on database, express controllers, and frontends.
+- **Technical Decisions**: Validated that clicking checkboxes updates database rows and writes corresponding logs correctly. Fixed date-handling mismatches in database queries.
 - **Blockers**: None.
-- **Next Step**: Deliver refactoring walk-through and close project task.
+- **Next Step**: Proceed with next feature sprint (Standard Maintenance Excel Import).
 
-### [2026-06-24 21:20] - T-014 - System Architect
-- **Summary**: Executed database schema migration and updated Sequelize model mappings.
-- **Technical Decisions**: Added tracking columns (`source_file`, `imported_by`, `imported_at`) to `standard_maintenances` table and profile management columns (`profile_picture`, `phone`) to `users` table via Raw SQL queries in a transaction script. Updated corresponding models `StandardMaintenance` and `User`.
+### [2026-06-24 21:20] - T-014 - Database / Backend Developer
+- **Summary**: Executed migrations to support Excel file importing context.
+- **Technical Decisions**: Ran alter queries to add audit columns `source_file`, `imported_by`, and `imported_at` to table `standard_maintenances` inside SQL Server database, and added properties to Sequelize model mapping.
 - **Blockers**: None.
-- **Next Step**: Implement Excel parsing, template generator logic, and endpoints (T-015).
+- **Next Step**: Implement backend excel parser logic, generators, and routes (T-015).
 
 ### [2026-06-24 21:24] - T-015 - Backend Developer
-- **Summary**: Created dynamically generated Excel templates and implemented Excel parser logic for standard maintenance imports.
-- **Technical Decisions**: Built `excelTemplateGenerator.js` utility using `xlsx` to output compliant workbook sheets dynamically on HTTP requests. Implemented `importStandardMaintenance` controller which loops through spreadsheet rows, handles merge cell values (carry-forward parsing), extracts checks across all 4 normal checking sub-categories (HW, INFRA, SW, CYBER), checks for db duplicates, and writes results in a transaction block. Added `/import` and `/template/:kategori` routes.
+- **Summary**: Implemented excel template generation and upload parsing logic.
+- **Technical Decisions**: Added `xlsx` file parser logic in `standardMaintenanceController.js` mapping rows and cells into database items, skipping duplicates. Wrote dynamic template buffer generation inside `excelTemplateGenerator.js`.
 - **Blockers**: None.
-- **Next Step**: Design and implement the Import dashboard UI on the frontend (T-016).
+- **Next Step**: Design and implement the ImportTab UI on the frontend (T-016).
 
 ### [2026-06-24 21:28] - T-016 - Frontend Developer
-- **Summary**: Designed and built the Import tab component on the Standard Maintenance page.
-- **Technical Decisions**: Integrated `ImportTab.jsx` component inside standard tabs list of `StandardMaintenancePage.jsx`. The dashboard supports dynamically choosing target template endpoints based on the active route category tab, lets users download files, drag-and-drop Excel worksheets, and outputs nice, animated spinners and detailed row-processing success reports (Total, Imported, Skipped).
+- **Summary**: Designed and built the ImportTab excel uploader tab on the frontend.
+- **Technical Decisions**: Created `ImportTab.jsx` with progressive steps flow (Download template, Select & Review, Done) and alert cards. Added axios file upload form handlers.
 - **Blockers**: None.
-- **Next Step**: Implement profile database changes and User Profile controllers in backend (T-017).
+- **Next Step**: Implement user profile controller and routes on backend (T-017).
 
 ### [2026-06-24 21:32] - T-017 - DevOps / Backend Developer
 - **Summary**: Implemented User Profile controller logic, Multer image disk configuration, and static routes.
@@ -115,3 +115,50 @@
 - **Technical Decisions**: Ran code verification checks and confirmed successful production builds. Verified merge-cell parse rules for Hardware/Infrastructure Excel uploads, file downloads, avatar image storage uploads, and database validations. Recorded completion state in `walkthrough.md`.
 - **Blockers**: None.
 - **Next Step**: Deliver final walkthrough to the user and close sprint.
+
+### [2026-06-24 21:44] - T-020 - System Architect
+- **Summary**: Implemented database changes and model attributes for password redirect requirements.
+- **Technical Decisions**: Added column `must_change_password` (BIT NOT NULL DEFAULT 1) to the `users` table via Raw SQL queries in a transaction script, and updated Sequelize model `User` configuration to match.
+- **Blockers**: None.
+- **Next Step**: Consolidate Network & Cybersecurity child menu items (T-021).
+
+### [2026-06-24 21:46] - T-021 - Frontend Developer
+- **Summary**: Consolidated Network and Cybersecurity child menus into a single menu.
+- **Technical Decisions**: Replaced the separate Network and Cybersecurity sidebar menus in `menuConfig.jsx` with a single unified `Network & Cybersecurity` menu item. Updated category parsing and tab items in `MaintenancePage.jsx` to map key `network-cyber`.
+- **Blockers**: None.
+- **Next Step**: Simplify Standard Maintenance tabs view (T-022).
+
+### [2026-06-24 21:48] - T-022 - Frontend Developer
+- **Summary**: Simplified standard maintenance layout and added warning alerts.
+- **Technical Decisions**: Modified `StandardMaintenancePage.jsx` to directly render the `ImportTab` component and completely hide the Tabs switcher. Appended a warning box alert detailing schedule plan-shifting rules in `ImportTab.jsx`.
+- **Blockers**: None.
+- **Next Step**: Implement middle-period schedule actuals resync logic on the backend (T-023).
+
+### [2026-06-24 21:50] - T-023 - Backend Developer
+- **Summary**: Implemented actuals resync engine on Excel import/generation.
+- **Technical Decisions**: Modified `generateSchedule` and `generateCheckboxes` inside `maintenanceScheduleController.js` to preserve inspected ACTUAL and ABNORMAL cells, shift/delete obsolete PLAN cells, and create new PLAN cells without touching audited history records.
+- **Blockers**: None.
+- **Next Step**: Update user creation to auto-generate password on backend (T-024).
+
+### [2026-06-24 21:52] - T-024 - Backend Developer
+- **Summary**: Updated User creation service to support auto-generated passwords.
+- **Technical Decisions**: Modified `userService.create` to generate a random 8-character password, set `must_change_password` flag to true, and return the plaintext password and hash details.
+- **Blockers**: None.
+- **Next Step**: Implement reset password flow on backend and frontend (T-025).
+
+### [2026-06-24 21:54] - T-025 - Backend / Frontend Developer
+- **Summary**: Implemented admin reset password flow with popconfirm validations.
+- **Technical Decisions**: Added POST `/api/users/:id/reset-password` endpoint. Integrated KeyOutlined action button with Popconfirm in `UserTable.jsx` and display credential details inside dynamic `Modal.info` popups.
+- **Blockers**: None.
+- **Next Step**: Implement redirect guard on first-time login (T-026).
+
+### [2026-06-24 21:56] - T-026 - Frontend Developer
+- **Summary**: Implemented first-time login redirect guard and warning alerts.
+- **Technical Decisions**: Updated `MainLayout.jsx` to intercept routes when `must_change_password` is set, forcing redirect to Profile page and displaying a warning alert. Custom-filtered sidebar menus in `Sidebar.jsx` to only display Profile menu during password-change state.
+- **Blockers**: None.
+- **Next Step**: E2E testing, polish, and devlog synchronization (T-027).
+
+### [2026-06-24 21:58] - T-027 - Lead DevOps / Integrator
+- **Summary**: Performed final E2E testing and synchronized refactoring documentation.
+- **Technical Decisions**: Ran complete code checks, verified successful client builds, and logged task tracking entries.
+- **Blockers**: None.

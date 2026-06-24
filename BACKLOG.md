@@ -10,6 +10,14 @@
 *None*
 
 ## 🟢 Done
+- `T-027` E2E testing, verification, polish, and devlog synchronization
+- `T-026` Implement first-time login redirect guard in frontend
+- `T-025` Implement admin reset password flow with popconfirm validation & display popups
+- `T-024` Update User creation service (auto-generate password, return plaintext password & hash)
+- `T-023` Implement middle-period schedule actuals resync (preserve normal/abnormal check records)
+- `T-022` Simplify Standard Maintenance tabs view (only Import Excel) & add warnings alert box
+- `T-021` Consolidate Network & Cybersecurity child menu (sidebar, tabs, routing)
+- `T-020` Database updates & model update (`must_change_password`)
 - `T-019` End-to-End System verification, styling polish, and devlog recording
 - `T-018` Frontend Profile View components & profileService
 - `T-017` Backend User Profile controller, upload handler & routes

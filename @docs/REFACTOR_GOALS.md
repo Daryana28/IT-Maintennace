@@ -1,404 +1,328 @@
-# Refactor Goals: ITAM Maintenance Module
+# Refactor Goals: IT-Maintenance
 
-> Dokumen ini mendefinisikan **goals dan target refactoring** untuk modul maintenance di ITAM.
-> Referensi: `@docs/sample/HW-STANDAR MAINTENANCE DAN JADWAL 2026.xlsx`
-> Source: `schema.txt` (DB terkini)
-
----
-
-## 1. Arsitektur Navigasi Baru
-
-### 1.1 Tab Layout (Top Level)
-
-```
-┌─────────────────────────────────────────────────────────────────┐
-│  [Hardware]  [Software HW]  [Application]  [Network]  [Cybersecurity]  │
-├─────────────────────────────────────────────────────────────────┤
-│                                                                  │
-│   Child Links per Tab:                                           │
-│   ┌──────────────┬──────────┬─────────────────┐                 │
-│   │  Standard     │ Schedule │  Sheet Abnormal │                 │
-│   │  Maintenance  │          │                 │                 │
-│   └──────────────┴──────────┴─────────────────┘                 │
-└─────────────────────────────────────────────────────────────────┘
-```
-
-### 1.2 Child Pages per Kategori
-
-| Child Page | Fungsi |
-|------------|--------|
-| **Standard Maintenance** | Define standar pengecekan & periodik |
-| **Schedule** | Tabel jadwal dengan checkbox per tanggal |
-| **Sheet Abnormal** | Daftar log abnormal yang pernah terjadi |
+> Dokumen ini mendefinisikan **goals dan target refactoring** untuk IT-Maintenance.
+> Update: 2026-06-24 — Instruksi baru dari Mike
 
 ---
 
-## 2. UI Structure & Columns
+## GOAL 1: Standard Maintenance Import via Excel
 
-### 2.1 Standard Maintenance View
+### 1.1 Context
 
-Tabel utama seperti Excel dengan kolom:
+**Kondisi Saat Ini:**
+- Schedule dan Logsheet Abnormal sudah APPROVED dan berfungsi
+- Yang perlu di-develop sekarang adalah **Standard Maintenance** sebagai sumber data untuk child menu Schedule
+- Network dan Cybersecurity saat ini terpisah → **DIGABUNG** jadi satu kategori
 
-| # | Kolom | DB Source (dari schema.txt) | Tipe |
-|---|-------|-----------------------------|------|
-| 1 | **No** | Auto-increment | Number |
-| 2 | **Kategori** | `standard_maintenances.kategori` | Text |
-| 3 | **Nama Perangkat** | `standard_maintenances.namaPerangkat` | Text |
-| 4 | **Sub Perangkat** | `standard_maintenances.subPerangkat` | Text |
-| 5 | **No Detail** | Sequence per kategori | Number |
-| 6 | **Fungsi** | `standard_maintenance_details.fungsi` | Text |
-| 7 | **Desc** | `standard_maintenance_details.deskripsi` | Textarea |
-| 8 | **Pengecekan** | `standard_maintenance_checks.pengecekan` | Text |
-| 9 | **Pengecekan Normal** | - | Group |
-| 9a | — Standar | `standard_maintenance_checks.standard` | Text |
-| 9b | — Metode | `standard_maintenance_checks.metode` | Text |
-| 9c | — Alat | `standard_maintenance_checks.alat` | Text |
-| 10 | **Periodic** | `maintenance_schedules.periodik` | Select |
-| 11 | **Bulan (JANUARI-DESEMBER)** | Generate dari periodik | Checkbox |
+**Metode:**
+- Import Excel (bukan input manual)
+- Setiap kategori punya template Excel sendiri
 
-### 2.2 Schedule View (Table + Checkbox per Tanggal)
+### 1.2 Excel Mapping
 
-```
-┌────┬──────┬──────────┬────────┬────┬──────┬──────┬──────┬──────────────────────────────┐
-│ No │ Ktg  │ Perangkat│ Sub Pk │ No │ Fung │ Desc │ Std  │        JANUARI 2026          │
-│    │      │          │        │    │ si   │       │ + P  │ ┌────┬────┬────┬────┬────┐  │
-│    │      │          │        │    │      │       │ er   │ │w1  │w2  │w3  │w4  │w5  │  │
-├────┼──────┼──────────┼────────┼────┼──────┼──────┼──────┼────┼────┼────┼────┼────┤  │
-│ 1  │ CCTV │ Camera   │ NVR    │ 1  │ Reco │ Check│ ✓    │ [✓]│ [ ]│ [✓]│ [ ]│ [✓]│  │
-│    │      │          │        │    │ rding│ fungs│      │    │    │    │    │    │  │
-│    │      │          │        │ 2  │ HDD  │ Check│ ✓    │ [✗]│ [✗]│ [✓]│ [✓]│ [✓]│  │
-├────┼──────┼──────────┼────────┼────┼──────┼──────┼──────┼────┼────┼────┼────┼────┤  │
-│ 2  │ CCTV │ Camera   │ DOME  │ 1  │ Lens │ Bersih│ ✓   │ [ ]│ [ ]│ [ ]│ [ ]│ [✗]│  │
-│    │      │          │        │    │      │ kan  │      │    │    │    │    │    │  │
-└────┴──────┴──────────┴────────┴────┴──────┴──────┴──────┴────┴────┴────┴────┴────┘
+| Kategori | File Excel | Sheet |
+|----------|-----------|-------|
+| **Hardware** | `HW-STANDAR MAINTENANCE DAN JADWAL 2026.xlsx` | Jadwal Hardware |
+| **Software HW** | `SW-INFRA-STANDAR MAINTENANCE DAN JADWAL 2026.xlsx` | Jadwal Hardware |
+| **Application** | `APLIKASI-STANDAR MAINTENANCE DAN JADWAL 2026.xlsx` | Jadwal Maintenance Aplikasi |
+| **Network & Cybersecurity** *(digabung)* | `Cyber Network-STANDAR MAINTENANCE DAN JADWAL 2026.xlsx` | Jadwal Cyber & Network |
 
-Legend Checkbox:
-  ✓  = Actual (hijau) — sudah dilakukan normal
-  ✗  = Abnormal (merah) — ada masalah, klik buka modal
-  □  = Plan (abu-abu) — belum dilakukan
-```
+### 1.3 Excel Column Structure (Header Row)
 
-### 2.3 Legend Behavior
-
-| Legend | Visual | Action |
-|--------|--------|--------|
-| **Actual** ✓ | Checkbox hijau | Toggle ke Plan □ |
-| **Plan** □ | Checkbox abu | Toggle ke Actual ✓ |
-| **Abnormal** ✗ | Checkbox merah | **Buka modal input deskripsi & tindakan** |
-
-### 2.4 Abnormal Modal
+Berdasarkan analisis file sample:
 
 ```
-┌─────────────────────────────────────────────────────┐
-│  ⚠ Log Abnormal                                      │
-├─────────────────────────────────────────────────────┤
-│  Perangkat: CCTV Camera NVR                          │
-│  Tanggal: 15 Januari 2026                            │
-│  Pengecekan: Recording                               │
-├─────────────────────────────────────────────────────┤
-│  Deskripsi Kerusakan *                                │
-│  ┌─────────────────────────────────────────────┐    │
-│  │ Hard disk tidak merekam, suara klik-klik... │    │
-│  └─────────────────────────────────────────────┘    │
-│                                                      │
-│  Tindakan *                                          │
-│  ┌─────────────────────────────────────────────┐    │
-│  │ Ganti HDD baru, backup konfigurasi NVR...  │    │
-│  └─────────────────────────────────────────────┘    │
-│                                                      │
-│  Status Temuan: [ OPEN ▼ ]                          │
-│                                                      │
-│           [Batal]         [Submit Abnormal]          │
-└─────────────────────────────────────────────────────┘
+Row 5 (Header Utama):
+| No | Kategori | Nama Perangkat | Sub Perangkat | No | Fungsi | DESC | Pengecekan | Pengecekan Normal | ... | Periodik | JANUARI | ... | DESEMBER |
+
+Row 7 (Sub-Header Pengecekan Normal):
+| Standar | Bagian | Methode | Alat | Standar | Bagian | Methode | Alat | Standar | Bagian | Methode | Alat | Standar | Bagian | Methode | Alat |
+
+Row 8 (Bulan - ada perulangan kolom untuk 4 sub-kategori):
+| 1 | 2 | 3 | ... | 31 | 1 | 2 | 3 | ... | 31 | (dst untuk 12 bulan)
 ```
 
----
+### 1.4 Kolom yang Di-import ke Database
 
-## 3. Database Changes (Based on schema.txt)
+Mapping Excel → Database:
 
-### 3.1 Tabel Existing yang Terkait
+| Kolom Excel | Kolom DB | Keterangan |
+|-------------|----------|------------|
+| Kategori | `standard_maintenances.kategori` | Nama kategori设备 |
+| Nama Perangkat | `standard_maintenances.namaPerangkat` | Nama设备 |
+| Sub Perangkat | `standard_maintenances.subPerangkat` | Sub jenis设备 |
+| Fungsi | `standard_maintenance_details.fungsi` | Fungsi pengecekan |
+| DESC | `standard_maintenance_details.deskripsi` | Deskripsi |
+| Pengecekan | `standard_maintenance_checks.pengecekan` | Item yang dicek |
+| Standar | `standard_maintenance_checks.standard` | Standar normal |
+| Bagian | `standard_maintenance_checks.bagian` | Bagian yang dicek |
+| Methode | `standard_maintenance_checks.metode` | Metode pengecekan |
+| Alat | `standard_maintenance_checks.alat` | Alat yang digunakan |
+| Periodik | `standard_maintenance_checks.periodik` | Frekuensi (1X/W, 1X/M, dll) |
 
-Dari `schema.txt`:
-- `standard_maintenances` — store kategori, namaPerangkat, tipePerangkat, subPerangkat
-- `standard_maintenance_details` — store fungsi, deskripsi
-- `standard_maintenance_checks` — store pengecekan, standard, metode, alat
-- `maintenance_schedules` — store asset, periodik, status, next_maintenance_date
-- `maintenance_log_sheets` — store temuan, tindakan, status_temuan
+### 1.5 Database Changes
 
-### 3.2 New Table: `maintenance_actual`
+**Table: `standard_maintenances`**
 
 ```sql
-CREATE TABLE ITAM.dbo.maintenance_actual (
-    id BIGINT IDENTITY(1,1) NOT NULL,
-    schedule_id BIGINT NOT NULL,
-    check_id BIGINT NOT NULL,
-    tanggal DATE NOT NULL,
-    status NVARCHAR(20) DEFAULT 'PLAN',
-    legend NVARCHAR(10) DEFAULT '□',
-    created_by BIGINT NULL,
-    created_at DATETIMEOFFSET DEFAULT GETDATE(),
-    updated_at DATETIMEOFFSET DEFAULT GETDATE(),
-    CONSTRAINT PK_maintenance_actual PRIMARY KEY (id),
-    CONSTRAINT UQ_maintenance_actual UNIQUE (schedule_id, check_id, tanggal),
-    CONSTRAINT FK_mnt_actual_schedule FOREIGN KEY (schedule_id) 
-        REFERENCES ITAM.dbo.maintenance_schedules(id) ON DELETE CASCADE,
-    CONSTRAINT FK_mnt_actual_check FOREIGN KEY (check_id) 
-        REFERENCES ITAM.dbo.standard_maintenance_checks(id),
-    CONSTRAINT FK_mnt_actual_user FOREIGN KEY (created_by)
-        REFERENCES ITAM.dbo.users(user_id)
-);
+-- Tambah kolom untuk tracking import
+ALTER TABLE ITAM.dbo.standard_maintenances
+ADD 
+    subKategori NVARCHAR(100) NULL,      -- Sub kategori (NVR, Camera, dll)
+    tipePerangkat NVARCHAR(100) NULL,    -- Tipe设备
+    source_file NVARCHAR(255) NULL,      -- Nama file Excel asal
+    imported_by BIGINT NULL,             -- User yang import
+    imported_at DATETIMEOFFSET NULL;     -- Kapan di-import
 ```
 
-### 3.3 New Table: `maintenance_abnormal_logs`
+**Table: `standard_maintenance_details`**
 
 ```sql
-CREATE TABLE ITAM.dbo.maintenance_abnormal_logs (
-    id BIGINT IDENTITY(1,1) NOT NULL,
-    actual_id BIGINT NOT NULL,
-    deskripsi_kerusakan NVARCHAR(MAX) NOT NULL,
-    tindakan NVARCHAR(MAX) NOT NULL,
-    status_temuan NVARCHAR(50) DEFAULT 'OPEN',
-    resolved_at DATETIMEOFFSET NULL,
-    resolved_by BIGINT NULL,
-    created_at DATETIMEOFFSET DEFAULT GETDATE(),
-    updated_at DATETIMEOFFSET DEFAULT GETDATE(),
-    CONSTRAINT PK_maintenance_abnormal_logs PRIMARY KEY (id),
-    CONSTRAINT FK_mnt_abnormal_actual FOREIGN KEY (actual_id) 
-        REFERENCES ITAM.dbo.maintenance_actual(id) ON DELETE CASCADE
-);
+-- Sudah ada, tidak perlu ubah
+-- Kolom: fungsi, deskripsi
 ```
 
-### 3.4 Modify: `maintenance_schedules`
+**Table: `standard_maintenance_checks`**
 
 ```sql
-ALTER TABLE ITAM.dbo.maintenance_schedules
-ADD periodik_type NVARCHAR(50) NULL,
-    periodik_freq INT DEFAULT 1 NULL,
-    periodik_unit NVARCHAR(10) DEFAULT 'w';
+-- Tambah kolom bagian
+ALTER TABLE ITAM.dbo.standard_maintenance_checks
+ADD 
+    bagian NVARCHAR(255) NULL;           -- Bagian设备 yang dicek
 ```
 
-### 3.5 Modify: `maintenance_log_sheets`
+### 1.6 API Endpoints
 
-```sql
-ALTER TABLE ITAM.dbo.maintenance_log_sheets
-ADD actual_id BIGINT NULL,
-    CONSTRAINT FK_mnt_log_actual FOREIGN KEY (actual_id)
-        REFERENCES ITAM.dbo.maintenance_actual(id);
+| Method | Endpoint | Description |
+|--------|----------|-------------|
+| POST | `/api/standard-maintenance/import` | Import dari Excel |
+| GET | `/api/standard-maintenance/template/:kategori` | Download template Excel |
+| GET | `/api/standard-maintenance` | List all (dengan filter kategori) |
+
+**Request Import:**
+```json
+{
+  "file": "(multipart/form-data)",
+  "kategori": "HARDWARE" | "SOFTWARE_HW" | "APPLICATION" | "NETWORK_CYBER"
+}
 ```
 
----
-
-## 4. API Changes
-
-### 4.1 New Endpoints
-
-| Method | Endpoint | Fungsi |
-|--------|----------|--------|
-| POST | `/maintenance-schedule/generate-checkboxes` | Generate checkbox matrix setahun |
-| GET | `/maintenance-schedule/:id/checkboxes` | Get status checkbox per tanggal |
-| PUT | `/maintenance-actual/:id/status` | Update status checkbox |
-| POST | `/maintenance-actual/:id/abnormal` | Submit abnormal ke modal |
-| GET | `/maintenance-abnormal-logs` | Get semua abnormal log |
-| GET | `/maintenance-abnormal-logs/:scheduleId` | Get abnormal log by schedule |
-| GET | `/maintenance-schedule/monthly-view` | Get data untuk view schedule + checkbox bulanan |
-
-### 4.2 Modified Endpoints
-
-| Existing | Tambahan |
-|----------|----------|
-| `POST /maintenance-schedule/generate` | ✅ Auto-generate checkbox matrix |
-| `GET /maintenance-schedule` | ✅ Include periodik detail & checkbox count |
-| `POST /standard-maintenance` | ✅ Validasi kategori harus match parent tab |
-
-### 4.3 Response Format (Checkbox View)
-
+**Response Import:**
 ```json
 {
   "success": true,
+  "message": "Import berhasil",
   "data": {
-    "year": 2026,
-    "month": 1,
-    "periodik": "1x/w",
-    "checkboxes": [
-      {
-        "date": "2026-01-05",
-        "week": 1,
-        "status": "ACTUAL",
-        "legend": "✓",
-        "actual_id": 1,
-        "abnormal": null
-      },
-      {
-        "date": "2026-01-12",
-        "week": 2,
-        "status": "ABNORMAL",
-        "legend": "✗",
-        "actual_id": 2,
-        "abnormal": {
-          "deskripsi_kerusakan": "Hard disk error",
-          "tindakan": "Ganti HDD baru",
-          "status": "OPEN"
-        }
-      },
-      {
-        "date": "2026-01-19",
-        "week": 3,
-        "status": "PLAN",
-        "legend": "□",
-        "actual_id": null,
-        "abnormal": null
-      }
-    ]
+    "total_rows": 443,
+    "imported": 440,
+    "skipped": 3,
+    "errors": []
   }
 }
 ```
 
----
+### 1.7 Template Import Excel
 
-## 5. Logic Flow
+Template harus dibuat dengan format:
+1. **Header row** yang sama dengan format asli
+2. **Contoh data** (1-2 baris sample)
+3. **Guide penggunaan** di sheet terpisah atau sebagai comment
 
-### 5.1 Generate Checkbox Logic
+**File location:** `@docs/templates/`
+- `template_hardware.xlsx`
+- `template_software_hw.xlsx`
+- `template_application.xlsx`
+- `template_network_cyber.xlsx`
 
-```
-Input: tahun (2026), periodik (1x/w)
-
-Logic:
-  1. Cek periodik_type & periodik_freq
-  2. Jika "1x/w" → 1 checkbox per minggu (52 checkbox/tahun)
-  3. Jika "2x/w" → 2 checkbox per minggu (104 checkbox/tahun)
-  4. Jika "1x/month" → 1 checkbox per bulan (12 checkbox/tahun)
-  5. Jika "1x/3month" → 1 checkbox per 3 bulan (4 checkbox/tahun)
-  6. Exclude hari libur (weekend & holiday dari table holidays)
-```
-
-### 5.2 Checkbox Transition Logic
+### 1.8 Import Logic
 
 ```
-□ (Plan) → Click → ✓ (Actual)
-✓ (Actual) → Click → □ (Plan)
-✗ (Abnormal) → Click → Buka Modal Abnormal
-  → Submit → ✗ (Abnormal) tetap, data tersimpan
-  → Cancel → Kembali ke □ (Plan)
-```
-
-### 5.3 Data Flow
-
-```
-┌──────────────────┐    ┌─────────────────────┐
-│ Standard          │───▶│ Schedule            │
-│ Maintenance       │    │ (maintenance_sched) │
-│ (standard_        │    │                     │
-│  maintenances)    │    │ periodik: "1x/w"    │
-│                   │    │                     │
-│ kategori: CCTV    │    └─────────────────────┘
-│ nama: Camera NVR  │                │
-│ fungsi: Recording │                ▼
-│ standar: OK       │    ┌─────────────────────┐
-│ metode: Visual    │    │ Actual Checkbox      │
-│ alat: Monitor     │    │ (maintenance_actual) │
-└──────────────────┘    │                     │
-                        │ date: 2026-01-05    │
-                        │ status: ACTUAL      │
-                        └──────────┬──────────┘
-                                   │
-                          ┌────────▼────────┐
-                          │ Abnormal Log     │
-                          │ (abnormal_logs)  │
-                          │                  │
-                          │ deskripsi: "..." │
-                          │ tindakan: "..."  │
-                          └──────────────────┘
+1. Baca Excel file
+2. Skip header rows (row 1-8)
+3. Untuk setiap data row:
+   a. Extract: Kategori, NamaPerangkat, SubPerangkat
+   b. Extract: Fungsi, DESC
+   c. Extract: Pengecekan, Standar, Bagian, Methode, Alat, Periodik
+   c. Cek duplikat (kategori + namaPerangkat + pengecekan)
+   d. Insert ke standard_maintenances (jika baru)
+   e. Insert ke standard_maintenance_details
+   f. Insert ke standard_maintenance_checks
+4. Return summary
 ```
 
 ---
 
-## 6. Frontend Component Tree (Target)
+## GOAL 2: User Management — Profile Page
+
+### 2.1 Context
+
+**Kondisi Saat Ini:**
+- User Management sudah ada tapi belum fungsional
+- Child menu: Profile, Security, Activity Log
+
+**Yang Dikembangkan:**
+- **HANYA PROFILE** (Security & Activity Log tidak usah dulu)
+- Page sebelumnya belum fungsional → buat baru
+
+### 2.2 Feature Requirements
+
+| Fitur | Keterangan | Status |
+|-------|-----------|--------|
+| **Profile Picture** | Upload/ganti foto profil | Wajib |
+| **Nama Lengkap** | Edit full name | Wajib |
+| **Email** | Tampil, readonly | Wajib |
+| **Ganti Password** | Form ganti password (old + new) | Wajib |
+| **2FA** | ❌ **HILANGKAN** - Jangan ada | Dihapus |
+
+### 2.3 Database Changes
+
+**Table: `users`**
+
+```sql
+-- Tambah kolom untuk profile
+ALTER TABLE ITAM.dbo.users
+ADD 
+    profile_picture NVARCHAR(500) NULL,  -- Path/filename foto profil
+    phone NVARCHAR(30) NULL;              -- Nomor telepon (opsional)
+
+-- Hapus kolom 2FA jika ada
+-- (Tidak perlu karena kemungkinan belum ada di DB)
+```
+
+### 2.4 API Endpoints
+
+| Method | Endpoint | Description |
+|--------|----------|-------------|
+| GET | `/api/users/profile` | Get profile user login |
+| PUT | `/api/users/profile` | Update profile (nama, telepon) |
+| PUT | `/api/users/profile/picture` | Upload profile picture |
+| PUT | `/api/users/profile/password` | Ganti password |
+
+**Response Profile:**
+```json
+{
+  "success": true,
+  "data": {
+    "user_id": 1,
+    "username": "admin",
+    "full_name": "Admin User",
+    "email": "admin@company.com",
+    "phone": "08123456789",
+    "profile_picture": "/uploads/profile/abc123.jpg",
+    "department": "IT",
+    "roles": ["SUPERADMIN"]
+  }
+}
+```
+
+**Update Profile:**
+```json
+{
+  "full_name": "Nama Baru",
+  "phone": "08123456789"
+}
+```
+
+**Ganti Password:**
+```json
+{
+  "current_password": "password_lama",
+  "new_password": "password_baru",
+  "confirm_password": "password_baru"
+}
+```
+
+### 2.5 Frontend Components
 
 ```
-MaintenancePage
-├── CategoryTabs
-│   ├── [Hardware] → MaintenanceHardware
-│   ├── [Software HW] → MaintenanceSoftwareHW
-│   ├── [Application] → MaintenanceApplication
-│   ├── [Network] → MaintenanceNetwork
-│   └── [Cybersecurity] → MaintenanceCybersec
-│
-├── ChildNav (per tab)
-│   ├── [Standard Maintenance] → StandardMaintenanceView
-│   ├── [Schedule] → ScheduleWithCheckboxView
-│   └── [Sheet Abnormal] → AbnormalLogListView
-│
-├── StandardMaintenanceView
-│   ├── EditableTable (Excel-like)
-│   ├── RowAddModal
-│   └── BulkImportButton
-│
-├── ScheduleWithCheckboxView
-│   ├── MonthSelector (Jan-Dec)
-│   ├── CheckboxTable
-│   │   ├── CheckboxCell (□ / ✓ / ✗)
-│   │   └── WeekColumnHeaders
-│   ├── LegendBar
-│   └── AbnormalModal
-│       ├── DamageDescriptionInput
-│       ├── ActionInput
-│       └── SubmitButton
-│
-└── AbnormalLogListView
-    ├── FilterBar (date range, category)
-    ├── AbnormalTable
-    └── ExportButton
+fe/src/modules/itam/userManagement/
+├── pages/
+│   └── ProfilePage.jsx           # Main profile page
+├── components/
+│   ├── ProfilePicture.jsx        # Upload/ganti foto
+│   ├── ProfileForm.jsx           # Form edit nama & telepon
+│   ├── EmailDisplay.jsx          # Email readonly
+│   ├── PasswordChange.jsx        # Form ganti password
+│   └── ProfileHeader.jsx         # Header dengan foto & nama
+└── services/
+    └── profileService.js         # API calls
+```
+
+### 2.6 Profile Page Layout
+
+```
+┌─────────────────────────────────────────────────────────────┐
+│  [← Back]                    Profile                        │
+├─────────────────────────────────────────────────────────────┤
+│                                                              │
+│         ┌─────────────────────┐                              │
+│         │                     │                              │
+│         │    [Foto Profil]    │  ← Klik untuk ganti          │
+│         │                     │                              │
+│         └─────────────────────┘                              │
+│              Admin User                                      │
+│              admin@company.com                               │
+│                                                              │
+├─────────────────────────────────────────────────────────────┤
+│  Informasi Profil                                            │
+│  ┌─────────────────────────────────────────────────────┐    │
+│  │ Nama Lengkap  │ [Admin User                    ]    │    │
+│  │ Email         │ [admin@company.com        ] (RO)   │    │
+│  │ No. Telepon   │ [08123456789               ]       │    │
+│  │                                   [Simpan]          │    │
+│  └─────────────────────────────────────────────────────┘    │
+│                                                              │
+├─────────────────────────────────────────────────────────────┤
+│  Ganti Password                                              │
+│  ┌─────────────────────────────────────────────────────┐    │
+│  │ Password Lama  │ [••••••••                    ]    │    │
+│  │ Password Baru  │ [••••••••                    ]    │    │
+│  │ Konfirmasi     │ [••••••••                    ]    │    │
+│  │                                    [Ganti Password]  │    │
+│  └─────────────────────────────────────────────────────┘    │
+│                                                              │
+└─────────────────────────────────────────────────────────────┘
 ```
 
 ---
 
-## 7. Target Deliverables
+## Implementation Priority
 
-### Phase 1: Database & Backend
+### Phase 1: Standard Maintenance Import
+1. [ ] Buat template Excel untuk 4 kategori
+2. [ ] Modif database (tambah kolom)
+3. [ ] Buat backend API import
+4. [ ] Buat frontend import page
+5. [ ] Testing import flow
 
-| # | Task |
-|---|------|
-| 1 | Buat tabel `maintenance_actual` |
-| 2 | Buat tabel `maintenance_abnormal_logs` |
-| 3 | Modif `maintenance_schedules` add periodik detail |
-| 4 | Buat endpoint generate checkboxes |
-| 5 | Buat endpoint CRUD checkbox status |
-| 6 | Buat endpoint abnormal log |
-| 7 | Buat endpoint monthly view |
-
-### Phase 2: Frontend
-
-| # | Task |
-|---|------|
-| 1 | Buat CategoryTabs component |
-| 2 | Buat ChildNav navigation |
-| 3 | Refactor Standard Maintenance table (Excel-like) |
-| 4 | Buat CheckboxTable component |
-| 5 | Buat AbnormalModal component |
-| 6 | Buat WeekColumnHeaders component |
-| 7 | Buat AbnormalLogListView component |
-| 8 | Implement legend toggle (□ → ✓ → ✗) |
-| 9 | Integrasi API |
-| 10 | Export PDF/Excel |
-
-### Phase 3: Integration & Testing
-
-| # | Task |
-|---|------|
-| 1 | Testing checkbox flow (Plan → Actual → Abnormal) |
-| 2 | Testing abnormal modal CRUD |
-| 3 | Testing periodik checkbox generation |
-| 4 | UI polish & mobile responsif |
+### Phase 2: Profile Page
+1. [ ] Modif database (tambah kolom profile_picture)
+2. [ ] Buat backend API profile
+3. [ ] Buat frontend profile page
+4. [ ] Upload profile picture
+5. [ ] Ganti password flow
+6. [ ] Testing profile flow
 
 ---
 
-## 8. Pertanyaan yang Dijawab
+## Catatan Penting
 
-| Pertanyaan | Jawaban |
-|------------|---------|
-| **Kenapa kategori dipisah jadi tab?** | Biar user fokus manage per kategori tanpa campur aduk data |
-| **Gimana cara checkbox muncul?** | Berdasarkan setting **periodik** di schedule. `1x/w` = 1 checkbox per minggu |
-| **Apa bedanya Actual dan Abnormal?** | Actual = normal sesuai standar. Abnormal = ada masalah perlu ditindaklanjuti |
-| **Data abnormal disimpan di mana?** | Tabel baru `maintenance_abnormal_logs` → terhubung ke `maintenance_actual` → `maintenance_schedules` |
-| **Apa yang terjadi setelah submit abnormal?** | Data tersimpan di DB, status checkbox tetap ✗. Bisa dilihat di tab Sheet Abnormal |
-| **Boleh modif tabel existing?** | ✅ Boleh, tapi **hanya tabel terkait fitur ini**: `maintenance_schedules`, `maintenance_log_sheets` |
+1. **Network & Cybersecurity DIGABUNG** — Tidak ada lagi pemisahan
+2. **2FA TIDAK ADA** — Jangan implementasi fitur 2FA
+3. **Excel Import = Input Data** — Standard Maintenance diisi via Excel, bukan manual input
+4. **Schedule & Abnormal = DONE** — Tidak perlu diubah
+5. **Template wajib ada** — Untuk setiap kategori, buatkan template + guide
+
+---
+
+## File Reference
+
+- **Sample Excel:** `@docs/sample/` (4 file)
+- **Template Output:** `@docs/templates/` (akan dibuat)
+- **Database Schema:** Lihat `ERD.md`
+- **API Existing:** Lihat `API_REFERENCE.md`
+
+---
+
+Last Updated: 2026-06-24
+Author: Karsa (Agent) based on Mike's instructions

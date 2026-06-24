@@ -49,3 +49,23 @@
   *Status*: 🟢 Done | *Started*: 2026-06-24 21:34 | *Done*: 2026-06-24 21:36 | *Commit*: [682e323](https://github.com/Daryana28/IT-Maintennace/commit/682e323)
 - [x] **T-019**: End-to-End System verification, styling polish, and devlog recording  
   *Status*: 🟢 Done | *Started*: 2026-06-24 21:38 | *Done*: 2026-06-24 21:40 | *Commit*: [c1d0cbf](https://github.com/Daryana28/IT-Maintennace/commit/c1d0cbf)
+
+### 📁 Fase 5 — Consolidations & Resync Logic
+- [x] **T-020**: Database updates & model update (`must_change_password`)  
+  *Status*: 🟢 Done | *Started*: 2026-06-24 21:43 | *Done*: 2026-06-24 21:44 | *Commit*: [720b1c0](https://github.com/Daryana28/IT-Maintennace/commit/720b1c0)
+- [x] **T-021**: Consolidate Network & Cybersecurity child menu (sidebar, tabs, routing)  
+  *Status*: 🟢 Done | *Started*: 2026-06-24 21:44 | *Done*: 2026-06-24 21:46 | *Commit*: [2121e4e](https://github.com/Daryana28/IT-Maintennace/commit/2121e4e)
+- [x] **T-022**: Simplify Standard Maintenance tabs view (only Import Excel) & add warnings alert box  
+  *Status*: 🟢 Done | *Started*: 2026-06-24 21:46 | *Done*: 2026-06-24 21:48 | *Commit*: [3f439ee](https://github.com/Daryana28/IT-Maintennace/commit/3f439ee)
+- [x] **T-023**: Implement middle-period schedule actuals resync (preserve normal/abnormal check records)  
+  *Status*: 🟢 Done | *Started*: 2026-06-24 21:48 | *Done*: 2026-06-24 21:50 | *Commit*: [f2a7c16](https://github.com/Daryana28/IT-Maintennace/commit/f2a7c16)
+
+### 📁 Fase 6 — User Management Enhancements
+- [x] **T-024**: Update User creation service (auto-generate password, return plaintext password & hash)  
+  *Status*: 🟢 Done | *Started*: 2026-06-24 21:50 | *Done*: 2026-06-24 21:52 | *Commit*: [c6526f1](https://github.com/Daryana28/IT-Maintennace/commit/c6526f1)
+- [x] **T-025**: Implement admin reset password flow with popconfirm validation & display popups  
+  *Status*: 🟢 Done | *Started*: 2026-06-24 21:52 | *Done*: 2026-06-24 21:54 | *Commit*: [adebf1a](https://github.com/Daryana28/IT-Maintennace/commit/adebf1a)
+- [x] **T-026**: Implement first-time login redirect guard in frontend  
+  *Status*: 🟢 Done | *Started*: 2026-06-24 21:54 | *Done*: 2026-06-24 21:56 | *Commit*: [6968617](https://github.com/Daryana28/IT-Maintennace/commit/6968617)
+- [x] **T-027**: E2E testing, verification, polish, and devlog synchronization  
+  *Status*: 🟢 Done | *Started*: 2026-06-24 21:56 | *Done*: 2026-06-24 21:58 | *Commit*: [TBD](https://github.com/Daryana28/IT-Maintennace)
