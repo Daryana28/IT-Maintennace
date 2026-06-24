@@ -1,7 +1,7 @@
 import React, { useState, useEffect } from 'react';
-import { Card, Row, Col, Typography, Input, Button, Form, Upload, Tag, Space, message } from 'antd';
+import { Card, Row, Col, Typography, Input, Button, Form, Upload, Tag, Space, Alert, message } from 'antd';
 import { UserOutlined, PhoneOutlined, MailOutlined, KeyOutlined, UploadOutlined, SafetyCertificateOutlined } from '@ant-design/icons';
-import profileService from '../userManagement/services/profileService';
+import profileService from '../services/profileService';
 
 const { Title, Text } = Typography;
 
@@ -156,7 +156,7 @@ export default function ProfilePage() {
               <Title level={4} style={{ margin: 0 }}>{profile?.full_name}</Title>
               <Text type="secondary" style={{ marginBottom: 16 }}>@{profile?.username}</Text>
 
-              <div style={{ width: '100%', borderTop: '1px solid #f1f5f9', marginTop: 16, paddingTop: 16 }}>
+              <div style={{ width: '100%', borderTop: '1px solid #f1f5f slate', marginTop: 16, paddingTop: 16 }}>
                 <Space direction="vertical" style={{ width: '100%', textAlign: 'left' }} size="small">
                   <div>
                     <Text type="secondary">Departemen:</Text>
