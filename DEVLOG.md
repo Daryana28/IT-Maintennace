@@ -91,3 +91,9 @@
 - **Technical Decisions**: Built `excelTemplateGenerator.js` utility using `xlsx` to output compliant workbook sheets dynamically on HTTP requests. Implemented `importStandardMaintenance` controller which loops through spreadsheet rows, handles merge cell values (carry-forward parsing), extracts checks across all 4 normal checking sub-categories (HW, INFRA, SW, CYBER), checks for db duplicates, and writes results in a transaction block. Added `/import` and `/template/:kategori` routes.
 - **Blockers**: None.
 - **Next Step**: Design and implement the Import dashboard UI on the frontend (T-016).
+
+### [2026-06-24 21:28] - T-016 - Frontend Developer
+- **Summary**: Designed and built the Import tab component on the Standard Maintenance page.
+- **Technical Decisions**: Integrated `ImportTab.jsx` component inside standard tabs list of `StandardMaintenancePage.jsx`. The dashboard supports dynamically choosing target template endpoints based on the active route category tab, lets users download files, drag-and-drop Excel worksheets, and outputs nice, animated spinners and detailed row-processing success reports (Total, Imported, Skipped).
+- **Blockers**: None.
+- **Next Step**: Implement profile database changes and User Profile controllers in backend (T-017).
