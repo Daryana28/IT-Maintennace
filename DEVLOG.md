@@ -159,6 +159,9 @@
 - **Next Step**: E2E testing, polish, and devlog synchronization (T-027).
 
 ### [2026-06-24 21:58] - T-027 - Lead DevOps / Integrator
-- **Summary**: Performed final E2E testing and synchronized refactoring documentation.
-- **Technical Decisions**: Ran complete code checks, verified successful client builds, and logged task tracking entries.
+- **Summary**: Performed final E2E testing, fixed redirect loop on password changes, case-insensitive role match errors, and Excel template download 404 routes.
+- **Technical Decisions**:
+  1. Updated `changePassword` in backend `userController.js` to sign and set new access and refresh token cookies with `must_change_password: 0` and return them on success. Integrated client-side `ProfilePage.jsx` to update the global auth store state using the new tokens to prevent redirect loop.
+  2. Modified backend `roleMiddleware.js` to convert roles to uppercase before comparison, enabling case-insensitive matching for `SUPERADMIN`/`ADMIN` role checks (fixing 403 Forbidden errors when adding users).
+  3. Prepended `VITE_API_URL` to the download url in `ImportTab.jsx` to target the backend API server directly instead of the Vite dev server.
 - **Blockers**: None.
