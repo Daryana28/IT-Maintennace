@@ -182,12 +182,16 @@ export default function PreviewGrid({ initialChecks, year, categoryName, onSave,
   const handleToggleCell = useCallback((rowIdx, dateStr) => {
     setChecks(prev => {
       const updated = [...prev];
-      const planned = updated[rowIdx].planned_dates || [];
-      if (planned.includes(dateStr)) {
-        updated[rowIdx].planned_dates = planned.filter(d => d !== dateStr);
-      } else {
-        updated[rowIdx].planned_dates = [...planned, dateStr];
-      }
+      const targetRow = updated[rowIdx];
+      const planned = targetRow.planned_dates || [];
+      const updatedPlanned = planned.includes(dateStr)
+        ? planned.filter(d => d !== dateStr)
+        : [...planned, dateStr];
+      
+      updated[rowIdx] = {
+        ...targetRow,
+        planned_dates: updatedPlanned
+      };
       return updated;
     });
   }, []);
@@ -196,7 +200,10 @@ export default function PreviewGrid({ initialChecks, year, categoryName, onSave,
   const handlePeriodikChange = useCallback((rowIdx, val) => {
     setChecks(prev => {
       const updated = [...prev];
-      updated[rowIdx].periodik = val;
+      updated[rowIdx] = {
+        ...updated[rowIdx],
+        periodik: val
+      };
       return updated;
     });
   }, []);
