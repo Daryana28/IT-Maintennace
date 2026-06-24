@@ -85,3 +85,9 @@
 - **Technical Decisions**: Added tracking columns (`source_file`, `imported_by`, `imported_at`) to `standard_maintenances` table and profile management columns (`profile_picture`, `phone`) to `users` table via Raw SQL queries in a transaction script. Updated corresponding models `StandardMaintenance` and `User`.
 - **Blockers**: None.
 - **Next Step**: Implement Excel parsing, template generator logic, and endpoints (T-015).
+
+### [2026-06-24 21:24] - T-015 - Backend Developer
+- **Summary**: Created dynamically generated Excel templates and implemented Excel parser logic for standard maintenance imports.
+- **Technical Decisions**: Built `excelTemplateGenerator.js` utility using `xlsx` to output compliant workbook sheets dynamically on HTTP requests. Implemented `importStandardMaintenance` controller which loops through spreadsheet rows, handles merge cell values (carry-forward parsing), extracts checks across all 4 normal checking sub-categories (HW, INFRA, SW, CYBER), checks for db duplicates, and writes results in a transaction block. Added `/import` and `/template/:kategori` routes.
+- **Blockers**: None.
+- **Next Step**: Design and implement the Import dashboard UI on the frontend (T-016).

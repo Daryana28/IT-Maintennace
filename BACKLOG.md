@@ -1,7 +1,6 @@
 # Backlog Board: ITAM Maintenance Refactoring
 
 ## 🔴 To Do
-- `T-015` Backend Excel Parser logic, template generator & routes
 - `T-016` Frontend Import tab component & design
 - `T-017` Backend User Profile controller, upload handler & routes
 - `T-018` Frontend Profile View components & profileService
@@ -14,6 +13,7 @@
 *None*
 
 ## 🟢 Done
+- `T-015` Backend Excel Parser logic, template generator & routes
 - `T-014` Database Schema Migration & Sequelize updates
 - `T-013` Integration & Contract Testing
 - `T-001` Repository & Git Setup

@@ -37,8 +37,8 @@
 ### 📁 Fase 3 — Standard Maintenance Excel Import
 - [x] **T-014**: Database Schema Migration & Sequelize updates  
   *Status*: 🟢 Done | *Started*: 2026-06-24 21:19 | *Done*: 2026-06-24 21:20 | *Commit*: [e570f84](https://github.com/Daryana28/IT-Maintennace/commit/e570f84)
-- [ ] **T-015**: Backend Excel Parser logic, template generator & routes  
-  *Status*: 🔴 Not Started
+- [x] **T-015**: Backend Excel Parser logic, template generator & routes  
+  *Status*: 🟢 Done | *Started*: 2026-06-24 21:22 | *Done*: 2026-06-24 21:24 | *Commit*: [a39694c](https://github.com/Daryana28/IT-Maintennace/commit/a39694c)
 - [ ] **T-016**: Frontend Import tab component & design  
   *Status*: 🔴 Not Started
 
