@@ -46,6 +46,14 @@ export default (sequelize) =>
         type: DataTypes.BOOLEAN,
         allowNull: false,
       },
+      profile_picture: {
+        type: DataTypes.STRING(500),
+        allowNull: true,
+      },
+      phone: {
+        type: DataTypes.STRING(30),
+        allowNull: true,
+      },
       created_at: {
         type: DataTypes.DATE,
         allowNull: false,

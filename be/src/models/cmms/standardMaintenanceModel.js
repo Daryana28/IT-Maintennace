@@ -33,6 +33,18 @@ export default (sequelize) =>
         type: DataTypes.BIGINT,
         allowNull: false,
       },
+      source_file: {
+        type: DataTypes.STRING(255),
+        allowNull: true,
+      },
+      imported_by: {
+        type: DataTypes.BIGINT,
+        allowNull: true,
+      },
+      imported_at: {
+        type: DataTypes.DATE,
+        allowNull: true,
+      },
       created_at: {
         type: DataTypes.DATE,
         allowNull: false,
