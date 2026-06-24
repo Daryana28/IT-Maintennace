@@ -103,3 +103,9 @@
 - **Technical Decisions**: Injected `getUserProfile`, `updateUserProfile`, `updateUserProfilePicture`, and `changePassword` endpoints into `userController.js` and registered them securely in `userRoute.js` before wildcard params mapping. Configured Multer with disk storage saving profiles under `./uploads/profile` and cleaning old files on updates. Mounted `/uploads` directory as a static Express path in `app.js`.
 - **Blockers**: None.
 - **Next Step**: Design and implement the User Profile view page on the frontend (T-018).
+
+### [2026-06-24 21:36] - T-018 - Frontend Developer
+- **Summary**: Implemented frontend profile services and premium User Profile views.
+- **Technical Decisions**: Created `profileService.js` mapping API requests. Wrote the highly designed `ProfilePage.jsx` supporting edit information forms, password change logic with validations, real-time image file updates with size indicators, and role/department summaries. Synchronized paths to replace the old stub profile page under the active router configuration map.
+- **Blockers**: None.
+- **Next Step**: Perform end-to-end integration and verification testing (T-019).
