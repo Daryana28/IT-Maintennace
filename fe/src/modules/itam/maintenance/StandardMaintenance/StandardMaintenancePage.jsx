@@ -185,34 +185,13 @@ export default function StandardMaintenancePage({ overrideCategory, overrideYear
             </Button>
           </Col>
         </Row>
-
-        {/* TABS */}
-        <div style={{ marginTop: 24 }}>
-          <Tabs activeKey={activeTab} onChange={setActiveTab} items={tabItems} />
-        </div>
       </div>
 
-      {activeTab === "list" && (
-        <ListTab
-          categories={categories}
-          sortedData={sortedData}
-          onSave={loadData}
-          yearlyStandardId={yearlyStandardId}
-          overrideCategory={overrideCategory}
-        />
-      )}
-
-      {activeTab === "review" && <ReviewTab sortedData={sortedData} headerTitle={headerData ? `${headerData.judul} ${headerData.tahun}` : 'Standard Maintenance Detail'} />}
-
-      {activeTab === "import" && (
-        <ImportTab
-          overrideCategory={overrideCategory}
-          yearlyStandardId={yearlyStandardId}
-          onImportSuccess={loadData}
-        />
-      )}
-
-      {activeTab === "approval" && <ApprovalTab />}
+      <ImportTab
+        overrideCategory={overrideCategory}
+        yearlyStandardId={yearlyStandardId}
+        onImportSuccess={loadData}
+      />
     </div>
   );
 }

@@ -122,6 +122,21 @@ export default function ImportTab({ overrideCategory, yearlyStandardId, onImport
             }
             type="info"
             showIcon
+            style={{ marginBottom: 16 }}
+          />
+          <Alert
+            message="PENTING: Aturan Penyesuaian Jadwal (Plan Resync)"
+            description={
+              <div style={{ textAlign: 'left', marginTop: 8 }}>
+                Jika Anda mengimpor data standard maintenance baru di tengah periode berjalan, sistem akan menyinkronkan ulang jadwal:
+                <ul>
+                  <li>Hanya jadwal yang masih berstatus <strong>Plan (□)</strong> yang akan diperbarui/digeser tanggalnya berdasarkan parameter Excel baru.</li>
+                  <li>Catatan pengecekan yang sudah berstatus <strong>Normal (✓)</strong> atau <strong>Abnormal (✗)</strong> tidak akan diubah atau dihapus untuk menjaga keutuhan riwayat audit.</li>
+                </ul>
+              </div>
+            }
+            type="warning"
+            showIcon
             style={{ marginBottom: 24 }}
           />
           <Button
