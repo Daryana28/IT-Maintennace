@@ -1,7 +1,7 @@
 # Backlog Board: ITAM Maintenance Refactoring
 
 ## 🔴 To Do
-- `T-019` End-to-End System verification, styling polish, and devlog recording
+*None*
 
 ## 🟡 In Progress
 *None*
@@ -10,6 +10,7 @@
 *None*
 
 ## 🟢 Done
+- `T-019` End-to-End System verification, styling polish, and devlog recording
 - `T-018` Frontend Profile View components & profileService
 - `T-017` Backend User Profile controller, upload handler & routes
 - `T-016` Frontend Import tab component & design
