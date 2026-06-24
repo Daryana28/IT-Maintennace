@@ -148,12 +148,36 @@ export const generateSchedule = async (req, res) => {
             where: { schedule_id: targetSchedule.id },
             raw: true
           });
+
+          // Group existing actuals
+          const completedActuals = existingActuals.filter(act => act.status !== "PLAN" || act.legend !== "□");
+          const planActuals = existingActuals.filter(act => act.status === "PLAN" && act.legend === "□");
+
+          const completedKeys = new Set(
+            completedActuals.map(act => `${act.schedule_id}-${act.check_id}-${act.tanggal}`)
+          );
           const existingKeys = new Set(
             existingActuals.map(act => `${act.schedule_id}-${act.check_id}-${act.tanggal}`)
           );
+          const targetKeys = new Set(
+            actualRecords.map(rec => `${rec.schedule_id}-${rec.check_id}-${rec.tanggal}`)
+          );
 
+          // 1. Delete planActuals that are no longer in targetKeys
+          const planToDelete = planActuals.filter(
+            act => !targetKeys.has(`${act.schedule_id}-${act.check_id}-${act.tanggal}`)
+          );
+          if (planToDelete.length > 0) {
+            const deleteIds = planToDelete.map(act => act.id);
+            await MaintenanceActual.destroy({
+              where: { id: deleteIds }
+            });
+          }
+
+          // 2. Create actualRecords that are not in completed and not in existing
           const newActualRecords = actualRecords.filter(
-            rec => !existingKeys.has(`${rec.schedule_id}-${rec.check_id}-${rec.tanggal}`)
+            rec => !completedKeys.has(`${rec.schedule_id}-${rec.check_id}-${rec.tanggal}`) &&
+                   !existingKeys.has(`${rec.schedule_id}-${rec.check_id}-${rec.tanggal}`)
           );
 
           if (newActualRecords.length > 0) {
@@ -404,11 +428,51 @@ export const generateCheckboxes = async (req, res) => {
       }
 
       if (actualRecords.length > 0) {
-        await MaintenanceActual.bulkCreate(actualRecords, {
-          transaction,
-          ignoreDuplicates: true
+        const existingActuals = await MaintenanceActual.findAll({
+          where: { schedule_id: schedule.id },
+          raw: true,
+          transaction
         });
-        createdCount += actualRecords.length;
+
+        // Group existing actuals
+        const completedActuals = existingActuals.filter(act => act.status !== "PLAN" || act.legend !== "□");
+        const planActuals = existingActuals.filter(act => act.status === "PLAN" && act.legend === "□");
+
+        const completedKeys = new Set(
+          completedActuals.map(act => `${act.schedule_id}-${act.check_id}-${act.tanggal}`)
+        );
+        const existingKeys = new Set(
+          existingActuals.map(act => `${act.schedule_id}-${act.check_id}-${act.tanggal}`)
+        );
+        const targetKeys = new Set(
+          actualRecords.map(rec => `${rec.schedule_id}-${rec.check_id}-${rec.tanggal}`)
+        );
+
+        // 1. Delete planActuals that are no longer in targetKeys
+        const planToDelete = planActuals.filter(
+          act => !targetKeys.has(`${act.schedule_id}-${act.check_id}-${act.tanggal}`)
+        );
+        if (planToDelete.length > 0) {
+          const deleteIds = planToDelete.map(act => act.id);
+          await MaintenanceActual.destroy({
+            where: { id: deleteIds },
+            transaction
+          });
+        }
+
+        // 2. Create actualRecords that are not in completed and not in existing
+        const newActualRecords = actualRecords.filter(
+          rec => !completedKeys.has(`${rec.schedule_id}-${rec.check_id}-${rec.tanggal}`) &&
+                 !existingKeys.has(`${rec.schedule_id}-${rec.check_id}-${rec.tanggal}`)
+        );
+
+        if (newActualRecords.length > 0) {
+          await MaintenanceActual.bulkCreate(newActualRecords, {
+            transaction,
+            ignoreDuplicates: true
+          });
+          createdCount += newActualRecords.length;
+        }
       }
     }
 
