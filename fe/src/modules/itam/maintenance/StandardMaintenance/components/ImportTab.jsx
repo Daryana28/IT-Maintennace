@@ -67,6 +67,8 @@ export default function ImportTab({ overrideCategory, yearlyStandardId, onImport
   useEffect(() => {
     if (yearlyStandardId) {
       checkMaintenanceExistence();
+    } else {
+      setCheckingExistence(false);
     }
   }, [yearlyStandardId, apiCategory]);
 
