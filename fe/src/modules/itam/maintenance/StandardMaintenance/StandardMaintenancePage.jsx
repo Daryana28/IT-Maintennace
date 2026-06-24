@@ -7,6 +7,7 @@ import assetService from "../../assetManagement/services/assetService";
 import ListTab from "./components/ListTab";
 import ReviewTab from "./components/ReviewTab";
 import ApprovalTab from "./components/ApprovalTab";
+import ImportTab from "./components/ImportTab";
 
 const { Title } = Typography;
 
@@ -149,6 +150,7 @@ export default function StandardMaintenancePage({ overrideCategory, overrideYear
   const tabItems = [
     { key: "list", label: "List" },
     { key: "review", label: "Review" },
+    { key: "import", label: "Import Excel" },
     { key: "approval", label: "Approval" },
   ];
 
@@ -201,6 +203,14 @@ export default function StandardMaintenancePage({ overrideCategory, overrideYear
       )}
 
       {activeTab === "review" && <ReviewTab sortedData={sortedData} headerTitle={headerData ? `${headerData.judul} ${headerData.tahun}` : 'Standard Maintenance Detail'} />}
+
+      {activeTab === "import" && (
+        <ImportTab
+          overrideCategory={overrideCategory}
+          yearlyStandardId={yearlyStandardId}
+          onImportSuccess={loadData}
+        />
+      )}
 
       {activeTab === "approval" && <ApprovalTab />}
     </div>
