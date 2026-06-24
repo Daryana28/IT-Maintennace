@@ -97,3 +97,9 @@
 - **Technical Decisions**: Integrated `ImportTab.jsx` component inside standard tabs list of `StandardMaintenancePage.jsx`. The dashboard supports dynamically choosing target template endpoints based on the active route category tab, lets users download files, drag-and-drop Excel worksheets, and outputs nice, animated spinners and detailed row-processing success reports (Total, Imported, Skipped).
 - **Blockers**: None.
 - **Next Step**: Implement profile database changes and User Profile controllers in backend (T-017).
+
+### [2026-06-24 21:32] - T-017 - DevOps / Backend Developer
+- **Summary**: Implemented User Profile controller logic, Multer image disk configuration, and static routes.
+- **Technical Decisions**: Injected `getUserProfile`, `updateUserProfile`, `updateUserProfilePicture`, and `changePassword` endpoints into `userController.js` and registered them securely in `userRoute.js` before wildcard params mapping. Configured Multer with disk storage saving profiles under `./uploads/profile` and cleaning old files on updates. Mounted `/uploads` directory as a static Express path in `app.js`.
+- **Blockers**: None.
+- **Next Step**: Design and implement the User Profile view page on the frontend (T-018).

@@ -43,8 +43,8 @@
   *Status*: 🟢 Done | *Started*: 2026-06-24 21:26 | *Done*: 2026-06-24 21:28 | *Commit*: [997407a](https://github.com/Daryana28/IT-Maintennace/commit/997407a)
 
 ### 📁 Fase 4 — Profile Page Integration
-- [ ] **T-017**: Backend User Profile controller, upload handler & routes  
-  *Status*: 🔴 Not Started
+- [x] **T-017**: Backend User Profile controller, upload handler & routes  
+  *Status*: 🟢 Done | *Started*: 2026-06-24 21:30 | *Done*: 2026-06-24 21:32 | *Commit*: [0b3620e](https://github.com/Daryana28/IT-Maintennace/commit/0b3620e)
 - [ ] **T-018**: Frontend Profile View components & profileService  
   *Status*: 🔴 Not Started
 - [ ] **T-019**: End-to-End System verification, styling polish, and devlog recording  

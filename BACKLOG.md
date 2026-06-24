@@ -1,7 +1,6 @@
 # Backlog Board: ITAM Maintenance Refactoring
 
 ## 🔴 To Do
-- `T-017` Backend User Profile controller, upload handler & routes
 - `T-018` Frontend Profile View components & profileService
 - `T-019` End-to-End System verification, styling polish, and devlog recording
 
@@ -12,6 +11,7 @@
 *None*
 
 ## 🟢 Done
+- `T-017` Backend User Profile controller, upload handler & routes
 - `T-016` Frontend Import tab component & design
 - `T-015` Backend Excel Parser logic, template generator & routes
 - `T-014` Database Schema Migration & Sequelize updates
