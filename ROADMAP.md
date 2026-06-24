@@ -33,3 +33,19 @@
 ### 📁 Fase 2 — Integration
 - [x] **T-013**: Integration & Contract Testing  
   *Status*: 🟢 Done | *Started*: 2026-06-23 20:49 | *Done*: 2026-06-23 20:55 | *Commit*: [a2d3881](https://github.com/Daryana28/IT-Maintennace/commit/a2d3881)
+
+### 📁 Fase 3 — Standard Maintenance Excel Import
+- [x] **T-014**: Database Schema Migration & Sequelize updates  
+  *Status*: 🟢 Done | *Started*: 2026-06-24 21:19 | *Done*: 2026-06-24 21:20 | *Commit*: [e570f84](https://github.com/Daryana28/IT-Maintennace/commit/e570f84)
+- [ ] **T-015**: Backend Excel Parser logic, template generator & routes  
+  *Status*: 🔴 Not Started
+- [ ] **T-016**: Frontend Import tab component & design  
+  *Status*: 🔴 Not Started
+
+### 📁 Fase 4 — Profile Page Integration
+- [ ] **T-017**: Backend User Profile controller, upload handler & routes  
+  *Status*: 🔴 Not Started
+- [ ] **T-018**: Frontend Profile View components & profileService  
+  *Status*: 🔴 Not Started
+- [ ] **T-019**: End-to-End System verification, styling polish, and devlog recording  
+  *Status*: 🔴 Not Started

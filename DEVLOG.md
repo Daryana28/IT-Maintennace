@@ -79,3 +79,9 @@
 - **Technical Decisions**: Renamed shadow variables and memoized dependencies inside `StandardMaintenancePage.jsx` to achieve clean compilation metrics.
 - **Blockers**: None.
 - **Next Step**: Deliver refactoring walk-through and close project task.
+
+### [2026-06-24 21:20] - T-014 - System Architect
+- **Summary**: Executed database schema migration and updated Sequelize model mappings.
+- **Technical Decisions**: Added tracking columns (`source_file`, `imported_by`, `imported_at`) to `standard_maintenances` table and profile management columns (`profile_picture`, `phone`) to `users` table via Raw SQL queries in a transaction script. Updated corresponding models `StandardMaintenance` and `User`.
+- **Blockers**: None.
+- **Next Step**: Implement Excel parsing, template generator logic, and endpoints (T-015).
