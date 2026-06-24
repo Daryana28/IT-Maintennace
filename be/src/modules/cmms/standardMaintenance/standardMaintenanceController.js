@@ -491,6 +491,10 @@ export const importStandardMaintenance = async (req, res) => {
       throw new Error(`Sheet tidak ditemukan di dalam file Excel.`);
     }
 
+    if (!worksheet['!ref']) {
+      throw new Error(`File Excel kosong atau format tidak valid.`);
+    }
+
     const range = xlsx.utils.decode_range(worksheet['!ref']);
     
     let lastSubKategori = '';
@@ -818,18 +822,48 @@ export const saveAndGenerateSchedule = async (req, res) => {
     let schedulesSynced = 0;
 
     for (const sm of updatedSms) {
-      const leafName = sm.subKategori && sm.subKategori.trim() !== "-" ? sm.subKategori : sm.kategori;
-      if (!leafName) continue;
+      const getAssetCategoryNames = (kategori, subKategori) => {
+        if (subKategori && subKategori.trim() !== "-") {
+          return [subKategori];
+        }
+        const cat = (kategori || '').toUpperCase().trim();
+        if (cat === 'HARDWARE') return ['Hardware'];
+        if (cat === 'SOFTWARE_HW') return ['Software'];
+        if (cat === 'APPLICATION') return ['Software'];
+        if (cat === 'NETWORK_CYBER') return ['Networking', 'Cyber'];
+        return [kategori];
+      };
 
-      const category = await AssetCategory.findOne({ 
-        where: { category_name: leafName },
+      const targetCatNames = getAssetCategoryNames(sm.kategori, sm.subKategori);
+      const matchedCategories = await AssetCategory.findAll({
+        where: {
+          category_name: {
+            [Op.in]: targetCatNames
+          }
+        },
         transaction
       });
 
-      if (!category) continue;
+      if (matchedCategories.length === 0) continue;
+
+      const categoryIds = matchedCategories.map(c => c.category_id);
+      const childCategories = await AssetCategory.findAll({
+        where: {
+          parent_id: {
+            [Op.in]: categoryIds
+          }
+        },
+        transaction
+      });
+
+      const allCategoryIds = [...categoryIds, ...childCategories.map(c => c.category_id)];
 
       const assets = await Asset.findAll({
-        where: { category_id: category.category_id },
+        where: {
+          category_id: {
+            [Op.in]: allCategoryIds
+          }
+        },
         transaction
       });
 

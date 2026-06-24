@@ -85,5 +85,9 @@
   *Status*: 🟢 Done | *Started*: 2026-06-24 22:40 | *Done*: 2026-06-24 22:41
 - [x] **T-034**: User Management Password Hash Display Fix
   *Status*: 🟢 Done | *Started*: 2026-06-24 22:41 | *Done*: 2026-06-24 22:43
-- [x] **T-035**: Verification & Documentation updates
+- [x] **T-035**: Verification & Documentation updates  
   *Status*: 🟢 Done | *Started*: 2026-06-24 22:43 | *Done*: 2026-06-24 22:50
+
+### 📁 Fase 8 — Category Mismatches & Password Display Bugfixes
+- [x] **T-036**: Fix standard maintenance category mappings and user password display alert  
+  *Status*: 🟢 Done | *Started*: 2026-06-25 05:48 | *Done*: 2026-06-25 05:52

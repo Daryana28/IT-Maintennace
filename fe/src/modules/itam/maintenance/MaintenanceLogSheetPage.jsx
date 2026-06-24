@@ -52,11 +52,10 @@ export default function MaintenanceLogSheetPage({ overrideCategory }) {
     if (!category) return logSheets;
     
     const catMap = {
-      hardware: ["hardware"],
-      "software-hardware": ["hardware"],
-      application: ["software", "application"],
-      network: ["networking", "network"],
-      "cyber-security": ["cyber", "cyber-security", "cyber security"]
+      "hardware": ["hardware"],
+      "software-hardware": ["software_hw", "software-hardware", "software_hardware"],
+      "application": ["application", "software"],
+      "network-cyber": ["network_cyber", "network-cyber", "networking", "cyber"]
     };
     
     const mapped = catMap[category.toLowerCase()] || [category.toLowerCase()];

@@ -17,15 +17,10 @@ import { message, Button } from "antd";
 import { useSearchParams } from "react-router-dom";
 
 const CATEGORY_MAP = {
-  hardware: ["hardware"],
-  "software-hardware": ["hardware"],
-  application: ["software"],
-  software: ["software"],
-  network: ["networking"],
-  networking: ["networking"],
-  cyber: ["cyber"],
-  "cyber-security": ["cyber"],
-  "network-cyber": ["networking", "cyber"],
+  "hardware": ["hardware"],
+  "software-hardware": ["software_hw", "software-hardware"],
+  "application": ["application", "software"],
+  "network-cyber": ["network_cyber", "network-cyber", "networking", "cyber"]
 };
 
 export default function StandardMaintenancePage({ overrideCategory, overrideYearlyId }) {

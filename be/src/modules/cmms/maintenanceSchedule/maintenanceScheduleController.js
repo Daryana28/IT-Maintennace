@@ -42,19 +42,48 @@ export const generateSchedule = async (req, res) => {
     let createdCount = 0;
 
     for (const sm of standards) {
-      // Gunakan subKategori sebagai acuan utama untuk mencari Asset Category
-      const leafName = sm.subKategori && sm.subKategori.trim() !== "-" ? sm.subKategori : sm.kategori;
-      if (!leafName) continue;
+      const getAssetCategoryNames = (kategori, subKategori) => {
+        if (subKategori && subKategori.trim() !== "-") {
+          return [subKategori];
+        }
+        const cat = (kategori || '').toUpperCase().trim();
+        if (cat === 'HARDWARE') return ['Hardware'];
+        if (cat === 'SOFTWARE_HW') return ['Software'];
+        if (cat === 'APPLICATION') return ['Software'];
+        if (cat === 'NETWORK_CYBER') return ['Networking', 'Cyber'];
+        return [kategori];
+      };
 
-      const category = await AssetCategory.findOne({ 
-        where: { category_name: leafName },
+      const targetCatNames = getAssetCategoryNames(sm.kategori, sm.subKategori);
+      const matchedCategories = await AssetCategory.findAll({
+        where: {
+          category_name: {
+            [Op.in]: targetCatNames
+          }
+        },
         raw: true
       });
 
-      if (!category) continue;
+      if (matchedCategories.length === 0) continue;
+
+      const categoryIds = matchedCategories.map(c => c.category_id);
+      const childCategories = await AssetCategory.findAll({
+        where: {
+          parent_id: {
+            [Op.in]: categoryIds
+          }
+        },
+        raw: true
+      });
+
+      const allCategoryIds = [...categoryIds, ...childCategories.map(c => c.category_id)];
 
       const assets = await Asset.findAll({
-        where: { category_id: category.category_id },
+        where: {
+          category_id: {
+            [Op.in]: allCategoryIds
+          }
+        },
         raw: true
       });
 
@@ -584,19 +613,16 @@ export const getMonthlyScheduleMatrix = async (req, res) => {
     }
 
     const scheduleWhere = { yearly_standard_id: yearlyStandard.id };
-    
     const standardWhere = {};
     if (category) {
       const catMap = {
-        "hardware": ["hardware"],
-        "software-hardware": ["hardware"],
-        "application": ["software"],
-        "software": ["software"],
-        "network": ["networking"],
-        "networking": ["networking"],
-        "cyber": ["cyber"],
-        "cyber-security": ["cyber"],
-        "network-cyber": ["networking", "cyber"]
+        "hardware": ["HARDWARE", "Hardware"],
+        "software-hardware": ["SOFTWARE_HW", "Software"],
+        "application": ["APPLICATION", "Software"],
+        "software": ["SOFTWARE_HW", "APPLICATION", "Software"],
+        "network-cyber": ["NETWORK_CYBER", "Networking", "Cyber"],
+        "networking": ["NETWORK_CYBER", "Networking"],
+        "cyber": ["NETWORK_CYBER", "Cyber"]
       };
       
       const mappedCats = catMap[category.toLowerCase()] || [category];

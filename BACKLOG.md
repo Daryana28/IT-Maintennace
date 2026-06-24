@@ -10,6 +10,7 @@
 *None*
 
 ## 🟢 Done
+- `T-036` Fix standard maintenance child menus import mapping and user password alert display
 - `T-035` Verification & Documentation updates
 - `T-034` User Management Password Hash Display Fix
 - `T-033` Frontend Edit Current vs Reset Mode Integration

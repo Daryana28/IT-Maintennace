@@ -176,3 +176,13 @@
   5. **Import flow**: Integrated `ImportTab.jsx` with Edit Current and Reset choices, file upload parsing, and E2E confirmations.
   6. **User Management**: Fixed axios unwrapping bug in `UserManagementPage.jsx` when reading the auto-generated user details from `res.data`.
 - **Blockers**: None.
+
+### [2026-06-25 05:52] - T-036 - Lead DevOps / System Architect
+- **Summary**: Resolved standard maintenance category mismatches, refined category-to-asset matching logic, and verified password alert labels.
+- **Technical Decisions**:
+  1. Updated the category mapper `catMap` inside `getMonthlyScheduleMatrix` (backend) to correctly map child menus ("software-hardware", "application", "network-cyber") to their respective database uppercase category names and legacy seeded categories.
+  2. Enhanced category-to-asset resolution inside backend `generateSchedule` and standard maintenance `/save-and-generate` endpoints to query assets under matching categories and recursively search through all child subcategory nodes (CCTV, Laptop, Server under Hardware, Switch Router, Access Point under Networking, Firewall/Endpoint under Cyber, and ERP/Database under Software). This prevents assets from not matching and schedule grids from failing.
+  3. Safe-guarded Excel parser file parsing by validating worksheet range reference `!ref` parameter before decode_range call to avoid system crashes on invalid/empty excel imports.
+  4. Synced frontend `CATEGORY_MAP` inside `StandardMaintenancePage.jsx` and `MaintenanceLogSheetPage.jsx` to correctly map route categories to database category names.
+  5. Audited user management success alerts and confirmed they only display username and password (plaintext), with no password hash visible, and standard "Password" labelling.
+- **Blockers**: None.
