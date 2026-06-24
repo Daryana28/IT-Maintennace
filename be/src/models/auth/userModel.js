@@ -54,6 +54,11 @@ export default (sequelize) =>
         type: DataTypes.STRING(30),
         allowNull: true,
       },
+      must_change_password: {
+        type: DataTypes.BOOLEAN,
+        allowNull: false,
+        defaultValue: true,
+      },
       created_at: {
         type: DataTypes.DATE,
         allowNull: false,

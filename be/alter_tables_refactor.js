@@ -33,6 +33,11 @@ const run = async () => {
       ALTER TABLE users ADD phone NVARCHAR(30) NULL;
     `, { transaction });
 
+    await sequelize.query(`
+      IF NOT EXISTS (SELECT * FROM INFORMATION_SCHEMA.COLUMNS WHERE TABLE_NAME = 'users' AND COLUMN_NAME = 'must_change_password')
+      ALTER TABLE users ADD must_change_password BIT NOT NULL DEFAULT 1;
+    `, { transaction });
+
     await transaction.commit();
     console.log("✓ DB Alterations completed successfully.");
     process.exit(0);
