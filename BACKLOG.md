@@ -10,6 +10,7 @@
 *None*
 
 ## 🟢 Done
+- `T-037` Standard Maintenance grid render performance optimization (memoization & O(1) set lookup)
 - `T-036` Fix standard maintenance child menus import mapping and user password alert display
 - `T-035` Verification & Documentation updates
 - `T-034` User Management Password Hash Display Fix

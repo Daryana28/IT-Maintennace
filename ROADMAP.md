@@ -91,3 +91,5 @@
 ### 📁 Fase 8 — Category Mismatches & Password Display Bugfixes
 - [x] **T-036**: Fix standard maintenance category mappings and user password display alert  
   *Status*: 🟢 Done | *Started*: 2026-06-25 05:48 | *Done*: 2026-06-25 05:52
+- [x] **T-037**: Standard Maintenance grid render performance optimization (memoization & O(1) Set lookup)  
+  *Status*: 🟢 Done | *Started*: 2026-06-25 05:58 | *Done*: 2026-06-25 06:01

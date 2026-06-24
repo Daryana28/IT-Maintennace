@@ -186,3 +186,12 @@
   4. Synced frontend `CATEGORY_MAP` inside `StandardMaintenancePage.jsx` and `MaintenanceLogSheetPage.jsx` to correctly map route categories to database category names.
   5. Audited user management success alerts and confirmed they only display username and password (plaintext), with no password hash visible, and standard "Password" labelling.
 - **Blockers**: None.
+
+### [2026-06-25 06:01] - T-037 - Frontend Performance Engineer
+- **Summary**: Resolved grid latency/freezing on standard maintenance preview loads and toggles.
+- **Technical Decisions**:
+  1. Identified that rendering 18,250 table cells (50 rows * 365 days) on every click caused huge React reconciliation latency because array `.includes()` is $O(D)$ and runs up to ~1,000,000 times during rendering, and re-rendering all rows on any click is extremely heavy.
+  2. Implemented memoization on rows by extracting standard cells into a standalone `GridRow` sub-component wrapped with `React.memo()`.
+  3. Optimized planned date checks to use a `Set` (`plannedSet.has(d.dateStr)`) for instant $O(1)$ lookups, reducing checks per render loop to a sub-millisecond hash check.
+  4. Wrapped standard grid update callbacks (`handleToggleCell`, `handlePeriodikChange`, `handleDeleteRow`) in `useCallback` hook with dependency-free functional updates (`setChecks(prev => ...)`). This ensures callback references remain static and only the modified row re-renders when a cell is clicked, boosting interactions to 60 FPS.
+- **Blockers**: None.

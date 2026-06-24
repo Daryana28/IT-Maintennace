@@ -1,4 +1,4 @@
-import React, { useState, useMemo, useEffect } from "react";
+import React, { useState, useMemo, useEffect, useCallback } from "react";
 import { Card, Typography, Select, Button, Space, Modal, Alert, Input, Form, message } from "antd";
 import { 
   PlusOutlined, 
@@ -21,6 +21,68 @@ const PERIODIK_OPTIONS = [
   { value: "6 Bulan", label: "6 Bulan (Half Yearly)" },
   { value: "1 Tahun", label: "1 Tahun (Yearly)" },
 ];
+
+const GridRow = React.memo(function GridRow({
+  row,
+  rowIdx,
+  calendarDates,
+  onToggleCell,
+  onPeriodikChange,
+  onDeleteRow
+}) {
+  const plannedSet = useMemo(() => new Set(row.planned_dates || []), [row.planned_dates]);
+
+  return (
+    <tr className="excel-tr">
+      {/* Perangkat details (Sticky) */}
+      <td className="excel-td sticky-col" style={{ left: 0 }}>
+        <div style={{ fontWeight: "bold" }}>{row.namaPerangkat}</div>
+        <div style={{ fontSize: "11px", color: "gray" }}>{row.subPerangkat !== "-" ? row.subPerangkat : ""}</div>
+        <div style={{ fontSize: "10px", color: "#389e0d" }}>{row.subKategori}</div>
+      </td>
+      {/* Pengecekan details (Sticky) */}
+      <td className="excel-td sticky-col" style={{ left: 140 }}>
+        <div style={{ fontWeight: 500 }}>{row.pengecekan}</div>
+        <div style={{ fontSize: "11px", color: "gray", fontStyle: "italic" }}>{row.standard}</div>
+      </td>
+      {/* Periodik selection dropdown (Sticky) */}
+      <td className="excel-td sticky-col" style={{ left: 340 }}>
+        <Select
+          size="small"
+          value={row.periodik}
+          onChange={(val) => onPeriodikChange(rowIdx, val)}
+          options={PERIODIK_OPTIONS}
+          style={{ width: "100%" }}
+        />
+      </td>
+      {/* Calendar cells for each day */}
+      {calendarDates.map((d, colIdx) => {
+        const isWeekend = d.dayOfWeek === 0 || d.dayOfWeek === 6;
+        const isPlanned = plannedSet.has(d.dateStr);
+        return (
+          <td
+            key={colIdx}
+            className={`excel-td calendar-cell ${isWeekend ? "weekend-cell" : ""} ${isPlanned ? "planned-cell" : ""}`}
+            onClick={() => onToggleCell(rowIdx, d.dateStr)}
+            title={`${row.pengecekan} - ${d.dateStr}`}
+          >
+            {isPlanned ? "□" : ""}
+          </td>
+        );
+      })}
+      {/* Action cell */}
+      <td className="excel-td" style={{ textAlign: "center" }}>
+        <Button
+          size="small"
+          danger
+          type="text"
+          icon={<DeleteOutlined />}
+          onClick={() => onDeleteRow(rowIdx)}
+        />
+      </td>
+    </tr>
+  );
+});
 
 export default function PreviewGrid({ initialChecks, year, categoryName, onSave, onCancel }) {
   const targetYear = parseInt(year) || new Date().getFullYear();
@@ -112,26 +174,30 @@ export default function PreviewGrid({ initialChecks, year, categoryName, onSave,
   }, [targetYear]);
 
   // Handle cell click (toggle planned mapping)
-  const handleToggleCell = (rowIdx, dateStr) => {
-    const updated = [...checks];
-    const planned = updated[rowIdx].planned_dates || [];
-    if (planned.includes(dateStr)) {
-      updated[rowIdx].planned_dates = planned.filter(d => d !== dateStr);
-    } else {
-      updated[rowIdx].planned_dates = [...planned, dateStr];
-    }
-    setChecks(updated);
-  };
+  const handleToggleCell = useCallback((rowIdx, dateStr) => {
+    setChecks(prev => {
+      const updated = [...prev];
+      const planned = updated[rowIdx].planned_dates || [];
+      if (planned.includes(dateStr)) {
+        updated[rowIdx].planned_dates = planned.filter(d => d !== dateStr);
+      } else {
+        updated[rowIdx].planned_dates = [...planned, dateStr];
+      }
+      return updated;
+    });
+  }, []);
 
   // Change periodik dropdown
-  const handlePeriodikChange = (rowIdx, val) => {
-    const updated = [...checks];
-    updated[rowIdx].periodik = val;
-    setChecks(updated);
-  };
+  const handlePeriodikChange = useCallback((rowIdx, val) => {
+    setChecks(prev => {
+      const updated = [...prev];
+      updated[rowIdx].periodik = val;
+      return updated;
+    });
+  }, []);
 
   // Delete row
-  const handleDeleteRow = (rowIdx) => {
+  const handleDeleteRow = useCallback((rowIdx) => {
     Modal.confirm({
       title: "Hapus Pengecekan",
       content: "Apakah Anda yakin ingin menghapus baris pengecekan ini dari draf?",
@@ -139,12 +205,11 @@ export default function PreviewGrid({ initialChecks, year, categoryName, onSave,
       okType: "danger",
       cancelText: "Batal",
       onOk: () => {
-        const updated = checks.filter((_, idx) => idx !== rowIdx);
-        setChecks(updated);
+        setChecks(prev => prev.filter((_, idx) => idx !== rowIdx));
         message.success("Baris pengecekan dihapus");
       }
     });
-  };
+  }, []);
 
   // Add new row from modal form
   const handleAddRowSubmit = (values) => {
@@ -379,54 +444,15 @@ export default function PreviewGrid({ initialChecks, year, categoryName, onSave,
             </thead>
             <tbody>
               {checks.map((row, rowIdx) => (
-                <tr key={rowIdx} className="excel-tr">
-                  {/* Perangkat details (Sticky) */}
-                  <td className="excel-td sticky-col" style={{ left: 0 }}>
-                    <div style={{ fontWeight: "bold" }}>{row.namaPerangkat}</div>
-                    <div style={{ fontSize: "11px", color: "gray" }}>{row.subPerangkat !== "-" ? row.subPerangkat : ""}</div>
-                    <div style={{ fontSize: "10px", color: "#389e0d" }}>{row.subKategori}</div>
-                  </td>
-                  {/* Pengecekan details (Sticky) */}
-                  <td className="excel-td sticky-col" style={{ left: 140 }}>
-                    <div style={{ fontWeight: 500 }}>{row.pengecekan}</div>
-                    <div style={{ fontSize: "11px", color: "gray", fontStyle: "italic" }}>{row.standard}</div>
-                  </td>
-                  {/* Periodik selection dropdown (Sticky) */}
-                  <td className="excel-td sticky-col" style={{ left: 340 }}>
-                    <Select
-                      size="small"
-                      value={row.periodik}
-                      onChange={(val) => handlePeriodikChange(rowIdx, val)}
-                      options={PERIODIK_OPTIONS}
-                      style={{ width: "100%" }}
-                    />
-                  </td>
-                  {/* Calendar cells for each day */}
-                  {calendarDates.map((d, colIdx) => {
-                    const isWeekend = d.dayOfWeek === 0 || d.dayOfWeek === 6;
-                    const isPlanned = row.planned_dates?.includes(d.dateStr);
-                    return (
-                      <td
-                        key={colIdx}
-                        className={`excel-td calendar-cell ${isWeekend ? "weekend-cell" : ""} ${isPlanned ? "planned-cell" : ""}`}
-                        onClick={() => handleToggleCell(rowIdx, d.dateStr)}
-                        title={`${row.pengecekan} - ${d.dateStr}`}
-                      >
-                        {isPlanned ? "□" : ""}
-                      </td>
-                    );
-                  })}
-                  {/* Action cell */}
-                  <td className="excel-td" style={{ textAlign: "center" }}>
-                    <Button
-                      size="small"
-                      danger
-                      type="text"
-                      icon={<DeleteOutlined />}
-                      onClick={() => handleDeleteRow(rowIdx)}
-                    />
-                  </td>
-                </tr>
+                <GridRow
+                  key={rowIdx}
+                  row={row}
+                  rowIdx={rowIdx}
+                  calendarDates={calendarDates}
+                  onToggleCell={handleToggleCell}
+                  onPeriodikChange={handlePeriodikChange}
+                  onDeleteRow={handleDeleteRow}
+                />
               ))}
               {checks.length === 0 && (
                 <tr>
