@@ -183,23 +183,13 @@ export const MENU = [
         ],
       },
       {
-        key: "maintenanceNetwork",
-        label: "Network",
+        key: "maintenanceNetworkCyber",
+        label: "Network & Cybersecurity",
         roles: ALL_MAINT_STAFF,
         children: [
-          { key: "mNetworkStandard", label: "Standard Maintenance", path: "/itam/maintenance/network/yearly-standard", roles: ALL_MAINT_STAFF },
-          { key: "mNetworkSchedule", label: "Schedule", path: "/itam/maintenance/network/schedule", roles: ALL_MAINT_STAFF },
-          { key: "mNetworkLogSheet", label: "Logsheet Abnormal", path: "/itam/maintenance/network/logsheet", roles: ALL_MAINT_STAFF },
-        ],
-      },
-      {
-        key: "maintenanceCyberSecurity",
-        label: "Cyber Security",
-        roles: ALL_MAINT_STAFF,
-        children: [
-          { key: "mCyberSecurityStandard", label: "Standard Maintenance", path: "/itam/maintenance/cyber-security/yearly-standard", roles: ALL_MAINT_STAFF },
-          { key: "mCyberSecuritySchedule", label: "Schedule", path: "/itam/maintenance/cyber-security/schedule", roles: ALL_MAINT_STAFF },
-          { key: "mCyberSecurityLogSheet", label: "Logsheet Abnormal", path: "/itam/maintenance/cyber-security/logsheet", roles: ALL_MAINT_STAFF },
+          { key: "mNetworkCyberStandard", label: "Standard Maintenance", path: "/itam/maintenance/network-cyber/yearly-standard", roles: ALL_MAINT_STAFF },
+          { key: "mNetworkCyberSchedule", label: "Schedule", path: "/itam/maintenance/network-cyber/schedule", roles: ALL_MAINT_STAFF },
+          { key: "mNetworkCyberLogSheet", label: "Logsheet Abnormal", path: "/itam/maintenance/network-cyber/logsheet", roles: ALL_MAINT_STAFF },
         ],
       },
     ],

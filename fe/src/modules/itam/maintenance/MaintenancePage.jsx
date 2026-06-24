@@ -18,8 +18,7 @@ export default function MaintenancePage() {
   if (path.includes("/hardware")) defaultCategory = "hardware";
   else if (path.includes("/software-hardware")) defaultCategory = "software-hardware";
   else if (path.includes("/application")) defaultCategory = "application";
-  else if (path.includes("/network")) defaultCategory = "network";
-  else if (path.includes("/cyber-security")) defaultCategory = "cyber-security";
+  else if (path.includes("/network-cyber") || path.includes("/network") || path.includes("/cyber-security")) defaultCategory = "network-cyber";
 
   // Determine tab from path or query
   let defaultTab = "standard";
@@ -43,8 +42,7 @@ export default function MaintenancePage() {
     { key: "hardware", label: "Hardware" },
     { key: "software-hardware", label: "Software HW" },
     { key: "application", label: "Application" },
-    { key: "network", label: "Network" },
-    { key: "cyber-security", label: "Cybersecurity" }
+    { key: "network-cyber", label: "Network & Cybersecurity" }
   ];
 
   const tabItems = [
