@@ -8,6 +8,7 @@ import update from "./update.js";
 import remove from "./remove.js";
 import bulkImport from "./bulkImport.js";
 import bulkDelete from "./bulkDelete.js";
+import replace from "./replace.js";
 import transferOwner from "./transferOwner.js";
 import changeAssignedUser from "./changeAssignedUser.js";
 import transferDepartment from "./transferDepartment.js";
@@ -23,6 +24,7 @@ export default {
  remove,
  bulkImport,
  bulkDelete,
+ replace,
  transferOwner,
  changeAssignedUser,
  transferDepartment,

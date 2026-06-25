@@ -1,6 +1,7 @@
 // be\src\modules\itam\assets\services\bulkImport.js
 import db from "../../../../models/index.js";
 import writeAudit from "../../../../core/utils/writeAudit.js";
+import { ensureCurrentCycleTimeline } from "./timeline.js";
 
 const {
  Asset,
@@ -400,15 +401,16 @@ export default async function (
    }
 
    if (exist) {
-    await exist.update(
+   await exist.update(
      payload,
      {
       transaction:
        trx,
      }
     );
+    await ensureCurrentCycleTimeline(exist, req, trx);
    } else {
-    await Asset.create(
+    const created = await Asset.create(
      {
       ...payload,
       created_at: new Date(),
@@ -418,6 +420,7 @@ export default async function (
        trx,
      }
     );
+    await ensureCurrentCycleTimeline(created, req, trx);
    }
   }
 

@@ -2,6 +2,7 @@
 import db from "../../../../models/index.js";
 import writeAudit from "../../../../core/utils/writeAudit.js";
 import assetLifecycleRepository from "../../assetLifecycle/assetLifecycleRepository.js";
+import { ensureCurrentCycleTimeline } from "./timeline.js";
 
 const { Asset } = db;
 
@@ -16,8 +17,13 @@ export default async function (id, payload, req) {
  const oldLocationId = data.location_id;
  const oldStatus = data.status;
 
- const updated = await data.update({
-  ...payload,
+ const updated = await db.sequelize.transaction(async (transaction) => {
+  const saved = await data.update({
+   ...payload,
+  }, { transaction });
+
+  await ensureCurrentCycleTimeline(saved, req, transaction);
+  return saved;
  });
 
  if (

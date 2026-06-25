@@ -8,11 +8,186 @@ import {
   AssetCategory, 
   MaintenanceActual, 
   MaintenanceLogSheet, 
+  MaintenanceAbnormalLog,
   sequelize 
 } from "../../../models/index.js";
 import { Op } from "sequelize";
 import xlsx from "xlsx";
 import { generateTemplate } from "./excelTemplateGenerator.js";
+import dayjs from "dayjs";
+
+const normalizeCategoryName = (value) => String(value || "").trim().toLowerCase();
+
+const expandStandardCategoryAliases = (kategori) => {
+  const raw = String(kategori || "").trim();
+  const upper = raw.toUpperCase();
+
+  if (upper === "HARDWARE") {
+    return ["HARDWARE", "Hardware"];
+  }
+
+  if (upper === "SOFTWARE_HW") {
+    return ["SOFTWARE_HW", "Software", "Software Hardware"];
+  }
+
+  if (upper === "APPLICATION") {
+    return ["APPLICATION", "Application", "Software"];
+  }
+
+  if (upper === "NETWORK_CYBER") {
+    return [
+      "NETWORK_CYBER",
+      "Network",
+      "Networking",
+      "Cyber",
+      "Cyber Security",
+      "Cybersecurity",
+      "Network & Cyber",
+      "Network & Cybersecurity",
+    ];
+  }
+
+  return [raw];
+};
+
+const buildAssetCategoryCandidates = (kategori, subKategori, namaPerangkat, tipePerangkat, subPerangkat) => {
+  const candidates = [];
+  const pushCandidate = (value) => {
+    const normalized = String(value || "").trim();
+    if (!normalized || normalized === "-") return;
+    if (!candidates.some((item) => item.toLowerCase() === normalized.toLowerCase())) {
+      candidates.push(normalized);
+    }
+  };
+
+  pushCandidate(subKategori);
+  pushCandidate(subPerangkat);
+  pushCandidate(tipePerangkat);
+  pushCandidate(namaPerangkat);
+
+  const cat = (kategori || "").toUpperCase().trim();
+  if (cat === "HARDWARE") {
+    pushCandidate("Hardware");
+  } else if (cat === "SOFTWARE_HW") {
+    pushCandidate("Software Hardware");
+    pushCandidate("Software");
+  } else if (cat === "APPLICATION") {
+    pushCandidate("Application");
+    pushCandidate("Software");
+  } else if (cat === "NETWORK_CYBER") {
+    pushCandidate("Network & Cybersecurity");
+    pushCandidate("Network & Cyber");
+    pushCandidate("Network");
+    pushCandidate("Networking");
+    pushCandidate("Cyber");
+    pushCandidate("Cybersecurity");
+    pushCandidate("Cyber Security");
+  } else {
+    pushCandidate(kategori);
+  }
+
+  return candidates;
+};
+
+const collectDescendantCategoryIds = (rootIds, categories) => {
+  const childrenByParent = new Map();
+  categories.forEach((category) => {
+    const parentId = category.parent_id ?? null;
+    if (!childrenByParent.has(parentId)) {
+      childrenByParent.set(parentId, []);
+    }
+    childrenByParent.get(parentId).push(category);
+  });
+
+  const visited = new Set();
+  const stack = [...rootIds];
+
+  while (stack.length > 0) {
+    const currentId = stack.pop();
+    if (visited.has(currentId)) continue;
+    visited.add(currentId);
+
+    const children = childrenByParent.get(currentId) || [];
+    children.forEach((child) => {
+      if (!visited.has(child.category_id)) {
+        stack.push(child.category_id);
+      }
+    });
+  }
+
+  return [...visited];
+};
+
+const resolveAssetCategoryIds = async ({ kategori, subKategori, namaPerangkat, tipePerangkat, subPerangkat, transaction }) => {
+  const categories = await AssetCategory.findAll({
+    raw: true,
+    ...(transaction ? { transaction } : {}),
+  });
+
+  if (!categories.length) {
+    return [];
+  }
+
+  const candidates = buildAssetCategoryCandidates(
+    kategori,
+    subKategori,
+    namaPerangkat,
+    tipePerangkat,
+    subPerangkat
+  ).map(normalizeCategoryName);
+
+  let matchedRootIds = categories
+    .filter((category) => candidates.includes(normalizeCategoryName(category.category_name)))
+    .map((category) => category.category_id);
+
+  if (matchedRootIds.length === 0) {
+    const fallbackRoots = [];
+    const pushFallback = (value) => {
+      const normalized = normalizeCategoryName(value);
+      if (normalized && !fallbackRoots.includes(normalized)) {
+        fallbackRoots.push(normalized);
+      }
+    };
+
+    const cat = (kategori || "").toUpperCase().trim();
+    if (cat === "HARDWARE") {
+      pushFallback("Hardware");
+    } else if (cat === "SOFTWARE_HW") {
+      pushFallback("Software Hardware");
+      pushFallback("Software");
+    } else if (cat === "APPLICATION") {
+      pushFallback("Application");
+      pushFallback("Software");
+    } else if (cat === "NETWORK_CYBER") {
+      pushFallback("Network & Cybersecurity");
+      pushFallback("Network & Cyber");
+      pushFallback("Network");
+      pushFallback("Cybersecurity");
+      pushFallback("Cyber Security");
+      pushFallback("Cyber");
+      pushFallback("Networking");
+    }
+
+    matchedRootIds = categories
+      .filter((category) => fallbackRoots.includes(normalizeCategoryName(category.category_name)))
+      .map((category) => category.category_id);
+  }
+
+  if (matchedRootIds.length === 0) {
+    return [];
+  }
+
+  return collectDescendantCategoryIds(matchedRootIds, categories);
+};
+
+const normalizeDateKey = (value) => {
+  if (!value) return "";
+  const parsed = dayjs(value);
+  if (parsed.isValid()) {
+    return parsed.format("YYYY-MM-DD");
+  }
+  return String(value).slice(0, 10);
+};
 
 export const createStandardMaintenance = async (req, res) => {
   const transaction = await sequelize.transaction();
@@ -79,7 +254,9 @@ export const getAllStandardMaintenance = async (req, res) => {
       whereClause.yearly_standard_id = yearly_standard_id;
     }
     if (kategori) {
-      whereClause.kategori = kategori;
+      whereClause.kategori = {
+        [Op.in]: expandStandardCategoryAliases(kategori)
+      };
     }
 
     const data = await StandardMaintenance.findAll({
@@ -617,8 +794,10 @@ export const importStandardMaintenance = async (req, res) => {
 
 export const saveAndGenerateSchedule = async (req, res) => {
   const transaction = await sequelize.transaction();
+  let currentStage = "initializing";
   try {
     const { yearly_standard_id, kategori, checks } = req.body;
+    currentStage = "validating request";
 
     if (!yearly_standard_id || !kategori || !Array.isArray(checks)) {
       await transaction.rollback();
@@ -634,8 +813,10 @@ export const saveAndGenerateSchedule = async (req, res) => {
     const savedCheckIds = [];
     const savedDetailIds = [];
     const savedSmIds = [];
+    const checkPlanMap = new Map();
 
-    for (const checkItem of checks) {
+    for (const [index, checkItem] of checks.entries()) {
+      currentStage = `saving check row ${index + 1}`;
       const dbKategori = kategori.toUpperCase();
       const dbSubKategori = checkItem.subKategori || '-';
       const dbNamaPerangkat = checkItem.namaPerangkat || '-';
@@ -662,8 +843,7 @@ export const saveAndGenerateSchedule = async (req, res) => {
           subKategori: dbSubKategori,
           namaPerangkat: dbNamaPerangkat,
           tipePerangkat: dbTipePerangkat,
-          subPerangkat: dbSubPerangkat,
-          imported_at: new Date()
+          subPerangkat: dbSubPerangkat
         }, { transaction });
       }
       if (!savedSmIds.includes(sm.id)) {
@@ -720,8 +900,7 @@ export const saveAndGenerateSchedule = async (req, res) => {
           periodik: checkItem.periodik || '1 Bulan',
           bagian: checkItem.bagian || '',
           metode: checkItem.metode || '',
-          alat: checkItem.alat || '',
-          planned_dates: checkItem.planned_dates || []
+          alat: checkItem.alat || ''
         }, { transaction });
       } else {
         await smCheck.update({
@@ -730,14 +909,15 @@ export const saveAndGenerateSchedule = async (req, res) => {
           periodik: checkItem.periodik || '1 Bulan',
           bagian: checkItem.bagian || '',
           metode: checkItem.metode || '',
-          alat: checkItem.alat || '',
-          planned_dates: checkItem.planned_dates || []
+          alat: checkItem.alat || ''
         }, { transaction });
       }
       savedCheckIds.push(smCheck.id);
+      checkPlanMap.set(smCheck.id, Array.isArray(checkItem.planned_dates) ? checkItem.planned_dates : []);
     }
 
     // 4. Cleanup orphaned records that are not in configuration
+    currentStage = "cleaning orphan records";
     const allSmForCat = await StandardMaintenance.findAll({
       where: { yearly_standard_id, kategori: kategori.toUpperCase() },
       transaction
@@ -807,6 +987,7 @@ export const saveAndGenerateSchedule = async (req, res) => {
     }
 
     // 5. Generate and sync schedules
+    currentStage = "loading updated standard maintenance";
     const updatedSms = await StandardMaintenance.findAll({
       where: { yearly_standard_id, kategori: kategori.toUpperCase() },
       include: [
@@ -819,52 +1000,28 @@ export const saveAndGenerateSchedule = async (req, res) => {
       transaction
     });
 
+    await transaction.commit();
+
     let schedulesSynced = 0;
 
     for (const sm of updatedSms) {
-      const getAssetCategoryNames = (kategori, subKategori) => {
-        if (subKategori && subKategori.trim() !== "-") {
-          return [subKategori];
-        }
-        const cat = (kategori || '').toUpperCase().trim();
-        if (cat === 'HARDWARE') return ['Hardware'];
-        if (cat === 'SOFTWARE_HW') return ['Software'];
-        if (cat === 'APPLICATION') return ['Software'];
-        if (cat === 'NETWORK_CYBER') return ['Networking', 'Cyber'];
-        return [kategori];
-      };
-
-      const targetCatNames = getAssetCategoryNames(sm.kategori, sm.subKategori);
-      const matchedCategories = await AssetCategory.findAll({
-        where: {
-          category_name: {
-            [Op.in]: targetCatNames
-          }
-        },
-        transaction
+      currentStage = `syncing schedules for ${sm.namaPerangkat || sm.subKategori || sm.kategori}`;
+      const allCategoryIds = await resolveAssetCategoryIds({
+        kategori: sm.kategori,
+        subKategori: sm.subKategori,
+        namaPerangkat: sm.namaPerangkat,
+        tipePerangkat: sm.tipePerangkat,
+        subPerangkat: sm.subPerangkat,
       });
 
-      if (matchedCategories.length === 0) continue;
-
-      const categoryIds = matchedCategories.map(c => c.category_id);
-      const childCategories = await AssetCategory.findAll({
-        where: {
-          parent_id: {
-            [Op.in]: categoryIds
-          }
-        },
-        transaction
-      });
-
-      const allCategoryIds = [...categoryIds, ...childCategories.map(c => c.category_id)];
+      if (allCategoryIds.length === 0) continue;
 
       const assets = await Asset.findAll({
         where: {
           category_id: {
             [Op.in]: allCategoryIds
           }
-        },
-        transaction
+        }
       });
 
       let derivedPeriodik = "1 Bulan";
@@ -873,6 +1030,7 @@ export const saveAndGenerateSchedule = async (req, res) => {
       }
 
       for (const asset of assets) {
+        currentStage = `syncing asset ${asset.asset_id} for ${sm.namaPerangkat || sm.subKategori || sm.kategori}`;
         let [schedule] = await MaintenanceSchedule.findOrCreate({
           where: {
             asset_id: asset.asset_id,
@@ -882,41 +1040,45 @@ export const saveAndGenerateSchedule = async (req, res) => {
           defaults: {
             periodik: derivedPeriodik,
             status: "ACTIVE"
-          },
-          transaction
+          }
         });
 
-        await schedule.update({ status: "ACTIVE", periodik: derivedPeriodik }, { transaction });
+        await schedule.update({ status: "ACTIVE", periodik: derivedPeriodik });
         schedulesSynced++;
 
         if (sm.details) {
           for (const detail of sm.details) {
             if (detail.pengecekanList) {
               for (const check of detail.pengecekanList) {
-                const targetDates = check.planned_dates || [];
+                currentStage = `syncing actuals for check ${check.id} on asset ${asset.asset_id}`;
+                const targetDates = checkPlanMap.get(check.id) || [];
 
                 const existingActuals = await MaintenanceActual.findAll({
-                  where: { schedule_id: schedule.id, check_id: check.id },
-                  transaction
+                  where: { schedule_id: schedule.id, check_id: check.id }
                 });
 
                 const completedActuals = existingActuals.filter(a => a.status !== "PLAN" || a.legend !== "□");
                 const planActuals = existingActuals.filter(a => a.status === "PLAN" && a.legend === "□");
 
-                const targetDatesSet = new Set(targetDates);
+                const targetDatesSet = new Set(targetDates.map(normalizeDateKey));
 
                 // Delete planned actuals that are not in target dates list
-                const toDelete = planActuals.filter(a => !targetDatesSet.has(a.tanggal));
+                const toDelete = planActuals.filter(
+                  (a) => !targetDatesSet.has(normalizeDateKey(a.tanggal))
+                );
                 if (toDelete.length > 0) {
                   await MaintenanceActual.destroy({
-                    where: { id: toDelete.map(a => a.id) },
-                    transaction
+                    where: { id: toDelete.map(a => a.id) }
                   });
                 }
 
                 // Insert new planned actuals
-                const existingDates = new Set(existingActuals.map(a => a.tanggal));
-                const toInsert = targetDates.filter(d => !existingDates.has(d));
+                const existingDates = new Set(
+                  existingActuals.map((a) => normalizeDateKey(a.tanggal))
+                );
+                const toInsert = targetDates.filter(
+                  (d) => !existingDates.has(normalizeDateKey(d))
+                );
 
                 if (toInsert.length > 0) {
                   const bulkData = toInsert.map(d => ({
@@ -928,7 +1090,7 @@ export const saveAndGenerateSchedule = async (req, res) => {
                     created_at: new Date(),
                     updated_at: new Date()
                   }));
-                  await MaintenanceActual.bulkCreate(bulkData, { transaction });
+                  await MaintenanceActual.bulkCreate(bulkData);
                 }
               }
             }
@@ -937,7 +1099,6 @@ export const saveAndGenerateSchedule = async (req, res) => {
       }
     }
 
-    await transaction.commit();
     return res.status(200).json({
       success: true,
       message: `Berhasil men-generate schedule untuk ${schedulesSynced} perangkat.`,
@@ -945,9 +1106,41 @@ export const saveAndGenerateSchedule = async (req, res) => {
     });
 
   } catch (error) {
-    await transaction.rollback();
-    console.error("Save and Generate Schedule Error:", error);
-    return res.status(500).json({ success: false, message: error.message });
+    let rollbackErrorMessage = "";
+    try {
+      if (transaction && !transaction.finished) {
+        await transaction.rollback();
+      }
+    } catch (rollbackError) {
+      rollbackErrorMessage = rollbackError?.message || String(rollbackError);
+      console.error("Rollback Save and Generate Schedule Error:", rollbackError);
+    }
+
+    console.error(`Save and Generate Schedule Error [${currentStage}]:`, error);
+    const nestedMessages = [
+      ...(Array.isArray(error?.errors) ? error.errors.map((item) => item?.message) : []),
+      ...(Array.isArray(error?.parent?.errors) ? error.parent.errors.map((item) => item?.message) : []),
+      ...(Array.isArray(error?.original?.errors) ? error.original.errors.map((item) => item?.message) : []),
+    ].filter(Boolean);
+
+    const detailedMessage =
+      error?.message ||
+      error?.parent?.message ||
+      error?.original?.message ||
+      (nestedMessages.length > 0 ? nestedMessages.join("; ") : "") ||
+      "Terjadi kesalahan saat menyimpan dan generate schedule";
+
+    const stackSnippet = String(error?.stack || "")
+      .split("\n")
+      .slice(0, 6)
+      .join("\n");
+
+    return res.status(500).json({
+      success: false,
+      message: `[${currentStage}] ${detailedMessage}`,
+      rollback_error: rollbackErrorMessage || undefined,
+      stack: stackSnippet || undefined,
+    });
   }
 };
 
@@ -961,59 +1154,122 @@ export const resetStandardMaintenance = async (req, res) => {
     }
 
     const sms = await StandardMaintenance.findAll({
-      where: { yearly_standard_id, kategori: kategori.toUpperCase() },
-      transaction
+      where: {
+        yearly_standard_id,
+        kategori: {
+          [Op.in]: expandStandardCategoryAliases(kategori)
+        }
+      },
+      attributes: ["id"],
+      transaction,
     });
 
-    for (const sm of sms) {
-      const details = await StandardMaintenanceDetail.findAll({
-        where: { standard_maintenance_id: sm.id },
-        transaction
+    const smIds = sms.map((item) => item.id);
+    if (smIds.length === 0) {
+      await transaction.commit();
+      return res.status(200).json({ success: true, message: "Tidak ada data standard maintenance untuk di-reset" });
+    }
+
+    const schedules = await MaintenanceSchedule.findAll({
+      where: {
+        yearly_standard_id,
+        standard_maintenance_id: { [Op.in]: smIds },
+      },
+      attributes: ["id"],
+      transaction,
+    });
+    const scheduleIds = schedules.map((item) => item.id);
+
+    const details = await StandardMaintenanceDetail.findAll({
+      where: { standard_maintenance_id: { [Op.in]: smIds } },
+      attributes: ["id"],
+      transaction,
+    });
+    const detailIds = details.map((item) => item.id);
+
+    const checks = detailIds.length > 0
+      ? await StandardMaintenanceCheck.findAll({
+          where: { standard_maintenance_detail_id: { [Op.in]: detailIds } },
+          attributes: ["id"],
+          transaction,
+        })
+      : [];
+    const checkIds = checks.map((item) => item.id);
+
+    const actuals = checkIds.length > 0
+      ? await MaintenanceActual.findAll({
+          where: { check_id: { [Op.in]: checkIds } },
+          attributes: ["id"],
+          transaction,
+        })
+      : [];
+    const actualIds = actuals.map((item) => item.id);
+
+    if (actualIds.length > 0) {
+      await MaintenanceAbnormalLog.destroy({
+        where: { actual_id: { [Op.in]: actualIds } },
+        transaction,
       });
+    }
 
-      for (const detail of details) {
-        const checks = await StandardMaintenanceCheck.findAll({
-          where: { standard_maintenance_detail_id: detail.id },
-          transaction
-        });
-
-        for (const check of checks) {
-          const actuals = await MaintenanceActual.findAll({
-            where: { check_id: check.id },
-            transaction
-          });
-          const actualIds = actuals.map(a => a.id);
-          if (actualIds.length > 0) {
-            await MaintenanceSchedule.sequelize.models.MaintenanceAbnormalLog.destroy({
-              where: { actual_id: actualIds },
-              transaction
-            });
-            await MaintenanceLogSheet.destroy({
-              where: { actual_id: actualIds },
-              transaction
-            });
-            await MaintenanceActual.destroy({
-              where: { id: actualIds },
-              transaction
-            });
-          }
-          await check.destroy({ transaction });
-        }
-        await detail.destroy({ transaction });
+    if (actualIds.length > 0 || scheduleIds.length > 0) {
+      const logSheetWhere = {};
+      if (actualIds.length > 0 && scheduleIds.length > 0) {
+        logSheetWhere[Op.or] = [
+          { actual_id: { [Op.in]: actualIds } },
+          { schedule_id: { [Op.in]: scheduleIds } },
+        ];
+      } else if (actualIds.length > 0) {
+        logSheetWhere.actual_id = { [Op.in]: actualIds };
+      } else if (scheduleIds.length > 0) {
+        logSheetWhere.schedule_id = { [Op.in]: scheduleIds };
       }
 
-      await MaintenanceSchedule.destroy({
-        where: { standard_maintenance_id: sm.id, yearly_standard_id },
-        transaction
+      await MaintenanceLogSheet.destroy({
+        where: logSheetWhere,
+        transaction,
       });
-
-      await sm.destroy({ transaction });
     }
+
+    if (actualIds.length > 0) {
+      await MaintenanceActual.destroy({
+        where: { id: { [Op.in]: actualIds } },
+        transaction,
+      });
+    }
+
+    if (checkIds.length > 0) {
+      await StandardMaintenanceCheck.destroy({
+        where: { id: { [Op.in]: checkIds } },
+        transaction,
+      });
+    }
+
+    if (detailIds.length > 0) {
+      await StandardMaintenanceDetail.destroy({
+        where: { id: { [Op.in]: detailIds } },
+        transaction,
+      });
+    }
+
+    if (scheduleIds.length > 0) {
+      await MaintenanceSchedule.destroy({
+        where: { id: { [Op.in]: scheduleIds } },
+        transaction,
+      });
+    }
+
+    await StandardMaintenance.destroy({
+      where: { id: { [Op.in]: smIds } },
+      transaction,
+    });
 
     await transaction.commit();
     return res.status(200).json({ success: true, message: "Reset standard maintenance dan schedule berhasil dilakukan" });
   } catch (error) {
-    await transaction.rollback();
+    if (!transaction.finished) {
+      await transaction.rollback();
+    }
     console.error("Reset Standard Maintenance Error:", error);
     return res.status(500).json({ success: false, message: error.message });
   }

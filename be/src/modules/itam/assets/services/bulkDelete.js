@@ -11,23 +11,33 @@ export default async function (
  payload = {},
  req
 ) {
+ const assetIds = Array.isArray(payload.asset_ids)
+  ? payload.asset_ids.map((id) => String(id).trim()).filter(Boolean)
+  : [];
+
  const categoryIds = Array.isArray(payload.category_ids)
   ? payload.category_ids.map((id) => String(id).trim()).filter(Boolean)
   : [];
 
- if (!categoryIds.length) {
-  throw new Error("Category ids required");
+ if (!categoryIds.length && !assetIds.length) {
+  throw new Error("Category ids or asset ids required");
  }
 
  const trx = await sequelize.transaction();
 
  try {
   const deletedCount = await Asset.destroy({
-   where: {
-    category_id: {
-     [Op.in]: categoryIds,
-    },
-   },
+   where: assetIds.length
+    ? {
+       asset_id: {
+        [Op.in]: assetIds,
+       },
+      }
+    : {
+       category_id: {
+        [Op.in]: categoryIds,
+       },
+      },
    transaction: trx,
   });
 
@@ -39,7 +49,9 @@ export default async function (
    entityName: "ASSET",
    entityId: 0,
    actionName: "BULK_DELETE",
-   description: `Delete assets by categories: ${categoryIds.join(", ")} (${deletedCount} rows)`,
+   description: assetIds.length
+    ? `Delete assets by ids: ${assetIds.join(", ")} (${deletedCount} rows)`
+    : `Delete assets by categories: ${categoryIds.join(", ")} (${deletedCount} rows)`,
   });
 
   return deletedCount;

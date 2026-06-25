@@ -1,22 +1,25 @@
 // be\src\modules\auth\authRepository.js
 import { User, Role, Permission } from "../../models/index.js";
+import { getExistingUserColumns } from "../user/userColumnHelper.js";
 
 const findByEmail = async (email) => {
+  const attributes = await getExistingUserColumns([
+    "user_id",
+    "company_id",
+    "department_id",
+    "username",
+    "full_name",
+    "email",
+    "password_hash",
+    "must_change_password",
+  ]);
+
   return User.findOne({
     where: {
       email,
       is_active: true,
     },
-    attributes: [
-      "user_id",
-      "company_id",
-      "department_id",
-      "username",
-      "full_name",
-      "email",
-      "password_hash",
-      "must_change_password",
-    ],
+    attributes,
     include: [
       {
         model: Role,

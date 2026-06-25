@@ -5,6 +5,21 @@ import bcrypt from "bcrypt";
 import path from "path";
 import fs from "fs";
 import jwt from "jsonwebtoken";
+import {
+  getExistingUserColumns,
+  hasUserColumn,
+  pickExistingUserPayload,
+} from "./userColumnHelper.js";
+
+const PROFILE_USER_ATTRIBUTES = [
+  "user_id",
+  "username",
+  "full_name",
+  "email",
+  "phone",
+  "profile_picture",
+  "department_id",
+];
 
 const getAll = async (req, res) => {
     try {
@@ -123,7 +138,9 @@ const getUserProfile = async (req, res) => {
       return res.status(401).json({ success: false, message: "Unauthorized" });
     }
 
+    const userAttributes = await getExistingUserColumns(PROFILE_USER_ATTRIBUTES);
     const user = await User.findByPk(req.user.id, {
+      attributes: userAttributes,
       include: [
         {
           model: Role,
@@ -178,10 +195,10 @@ const updateUserProfile = async (req, res) => {
       return res.status(404).json({ success: false, message: "User tidak ditemukan" });
     }
 
-    await user.update({
+    await user.update(await pickExistingUserPayload({
       full_name,
       phone: phone || null
-    });
+    }));
 
     return res.status(200).json({
       success: true,
@@ -213,6 +230,12 @@ const updateUserProfilePicture = async (req, res) => {
     }
 
     // Delete old profile picture if exists
+    const supportsProfilePicture = await hasUserColumn("profile_picture");
+
+    if (!supportsProfilePicture) {
+      return res.status(400).json({ success: false, message: "Kolom profile_picture belum tersedia di database" });
+    }
+
     if (user.profile_picture) {
       const oldPath = path.resolve(".", user.profile_picture.replace(/^\//, ""));
       if (fs.existsSync(oldPath)) {
@@ -221,9 +244,9 @@ const updateUserProfilePicture = async (req, res) => {
     }
 
     const picturePath = `/uploads/profile/${req.file.filename}`;
-    await user.update({
+    await user.update(await pickExistingUserPayload({
       profile_picture: picturePath
-    });
+    }));
 
     return res.status(200).json({
       success: true,
@@ -253,7 +276,9 @@ const changePassword = async (req, res) => {
       return res.status(400).json({ success: false, message: "Konfirmasi password baru tidak cocok" });
     }
 
+    const userAttributes = await getExistingUserColumns(["user_id", "username", "full_name", "email", "password_hash"]);
     const user = await User.findByPk(req.user.id, {
+      attributes: userAttributes,
       include: [{ model: Role, as: "roles", attributes: ["role_name"] }]
     });
 
@@ -270,8 +295,7 @@ const changePassword = async (req, res) => {
     const newHash = await bcrypt.hash(new_password, salt);
 
     await user.update({
-      password_hash: newHash,
-      must_change_password: false
+      password_hash: newHash
     });
 
     const roles = user.roles?.map((r) => r.role_name) || [];

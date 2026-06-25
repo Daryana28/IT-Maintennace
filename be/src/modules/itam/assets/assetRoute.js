@@ -53,6 +53,12 @@ router.post(
 );
 
 router.post(
+ "/:id/replace",
+ authMiddleware,
+ write.replace
+);
+
+router.post(
  "/",
  authMiddleware,
  write.create

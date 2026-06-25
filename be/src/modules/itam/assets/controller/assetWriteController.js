@@ -105,6 +105,27 @@ const bulkDelete = async (req, res) => {
  }
 };
 
+const replace = async (req, res) => {
+ try {
+  const result = await assetService.replace(
+   req.params.id,
+   req.body,
+   req
+  );
+
+  return res.status(200).json({
+   success: true,
+   message: "Replacement success",
+   data: result,
+  });
+ } catch (error) {
+  return res.status(400).json({
+   success: false,
+   message: error.message,
+  });
+ }
+};
+
 const transferOwner = async (
  req,
  res
@@ -246,6 +267,7 @@ export default {
  remove,
  bulkImport,
  bulkDelete,
+ replace,
  transferOwner,
  changeAssignedUser,
  transferDepartment,

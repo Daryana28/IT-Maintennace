@@ -3,6 +3,13 @@ import bcrypt from "bcrypt";
 import jwt from "jsonwebtoken";
 import authRepository from "./authRepository.js";
 import writeAudit from "../../core/utils/writeAudit.js";
+import { hasUserColumn } from "../user/userColumnHelper.js";
+
+const resolveMustChangePassword = async (user) => {
+ const supportsColumn = await hasUserColumn("must_change_password");
+ if (!supportsColumn) return 0;
+ return user.must_change_password ? 1 : 0;
+};
 
 const login = async (
  email,
@@ -76,6 +83,11 @@ const login = async (
     x.role_name
   ) || [];
 
+ const mustChangePassword =
+  await resolveMustChangePassword(
+   user
+  );
+
  const payload = {
   id: user.user_id,
   username:
@@ -83,7 +95,7 @@ const login = async (
   email:
    user.email,
   roles,
-  must_change_password: user.must_change_password ? 1 : 0,
+  must_change_password: mustChangePassword,
  };
 
  const token =
@@ -133,7 +145,7 @@ const login = async (
    email:
     user.email,
    roles,
-   must_change_password: user.must_change_password ? 1 : 0,
+   must_change_password: mustChangePassword,
   },
  };
 };
@@ -171,6 +183,11 @@ const refresh = async (refreshToken) => {
     x.role_name
   ) || [];
 
+ const mustChangePassword =
+  await resolveMustChangePassword(
+   user
+  );
+
  const payload = {
   id: user.user_id,
   username:
@@ -178,7 +195,7 @@ const refresh = async (refreshToken) => {
   email:
    user.email,
   roles,
-  must_change_password: user.must_change_password ? 1 : 0,
+  must_change_password: mustChangePassword,
  };
 
  const token =
@@ -214,7 +231,7 @@ const refresh = async (refreshToken) => {
    email:
     user.email,
    roles,
-   must_change_password: user.must_change_password ? 1 : 0,
+   must_change_password: mustChangePassword,
   },
  };
 };

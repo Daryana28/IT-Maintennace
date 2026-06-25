@@ -2,8 +2,26 @@
 import bcrypt from "bcrypt";
 import { Op } from "sequelize";
 import { User, Role, UserRole } from "../../models/index.js";
+import {
+    getExistingUserColumns,
+    pickExistingUserPayload,
+} from "./userColumnHelper.js";
 
 const SALT_ROUNDS = 10;
+const BASE_USER_ATTRIBUTES = [
+    "user_id",
+    "company_id",
+    "department_id",
+    "job_level_id",
+    "supervisor_id",
+    "username",
+    "full_name",
+    "email",
+    "is_active",
+    "profile_picture",
+    "phone",
+    "created_at",
+];
 
 const generateRandomPassword = () => {
     const chars = "abcdefghijklmnopqrstuvwxyzABCDEFGHIJKLMNOPQRSTUVWXYZ0123456789";
@@ -39,6 +57,9 @@ const getAll = async (query = {}) => {
     const offset = (page - 1) * pageSize;
     const limit = parseInt(pageSize, 10);
 
+    const userAttributes = await getExistingUserColumns(BASE_USER_ATTRIBUTES);
+    const orderColumn = userAttributes.includes("created_at") ? "created_at" : "user_id";
+
     const { count: total, rows } = await User.findAndCountAll({
         where,
         include: [
@@ -49,10 +70,10 @@ const getAll = async (query = {}) => {
                 through: { attributes: [] },
             },
         ],
-        attributes: { exclude: ["password_hash"] },
+        attributes: userAttributes,
         offset,
         limit,
-        order: [["created_at", "DESC"]],
+        order: [[orderColumn, "DESC"]],
     });
 
     return {
@@ -65,6 +86,8 @@ const getAll = async (query = {}) => {
 };
 
 const getById = async (id) => {
+    const userAttributes = await getExistingUserColumns(BASE_USER_ATTRIBUTES);
+
     return await User.findByPk(id, {
         include: [
             {
@@ -74,7 +97,7 @@ const getById = async (id) => {
                 through: { attributes: [] },
             },
         ],
-        attributes: { exclude: ["password_hash"] },
+        attributes: userAttributes,
     });
 };
 
@@ -94,16 +117,17 @@ const create = async (data) => {
     const plaintextPassword = generateRandomPassword();
     const password_hash = await bcrypt.hash(plaintextPassword, SALT_ROUNDS);
 
-    const user = await User.create({
+    const createPayload = await pickExistingUserPayload({
         company_id: 1,
         username,
         full_name,
         email,
         password_hash,
-        must_change_password: true,
         is_active,
         created_at: new Date(),
     });
+
+    const user = await User.create(createPayload);
 
     if (role_ids.length > 0) {
         const roleRecords = await Role.findAll({
@@ -147,7 +171,7 @@ const update = async (id, data) => {
         updateData.password_hash = await bcrypt.hash(password, SALT_ROUNDS);
     }
 
-    await User.update(updateData, { where: { user_id: id } });
+    await User.update(await pickExistingUserPayload(updateData), { where: { user_id: id } });
 
     if (role_ids !== undefined) {
         const roleRecords = await Role.findAll({
@@ -172,8 +196,7 @@ const resetPassword = async (id) => {
     const password_hash = await bcrypt.hash(plaintextPassword, SALT_ROUNDS);
 
     await user.update({
-        password_hash,
-        must_change_password: true
+        password_hash
     });
 
     return {

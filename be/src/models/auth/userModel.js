@@ -55,9 +55,13 @@ export default (sequelize) =>
         allowNull: true,
       },
       must_change_password: {
-        type: DataTypes.BOOLEAN,
-        allowNull: false,
-        defaultValue: true,
+        type: DataTypes.VIRTUAL,
+        get() {
+          return this.getDataValue("must_change_password") ?? false;
+        },
+        set(val) {
+          this.setDataValue("must_change_password", Boolean(val));
+        },
       },
       created_at: {
         type: DataTypes.DATE,

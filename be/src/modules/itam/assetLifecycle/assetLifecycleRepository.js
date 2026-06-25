@@ -10,8 +10,7 @@ const getByAssetId =
  async (assetId) => {
   return await AssetLifecycle.findAll({
    where: {
-    asset_id:
-     Number(assetId),
+    asset_id: assetId,
    },
    include: [
     {
@@ -31,9 +30,10 @@ const getByAssetId =
  };
 
 const create =
- async (payload) => {
+ async (payload, options = {}) => {
   return await AssetLifecycle.create(
-   payload
+   payload,
+   options
   );
  };
 

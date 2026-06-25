@@ -3,6 +3,138 @@ import { generateCheckboxDates } from "./checkboxGenerator.js";
 import dayjs from "dayjs";
 import { Op } from "sequelize";
 
+const normalizeCategoryName = (value) => String(value || "").trim().toLowerCase();
+
+const buildAssetCategoryCandidates = (kategori, subKategori, namaPerangkat, tipePerangkat, subPerangkat) => {
+  const candidates = [];
+  const pushCandidate = (value) => {
+    const normalized = String(value || "").trim();
+    if (!normalized || normalized === "-") return;
+    if (!candidates.some((item) => item.toLowerCase() === normalized.toLowerCase())) {
+      candidates.push(normalized);
+    }
+  };
+
+  pushCandidate(subKategori);
+  pushCandidate(subPerangkat);
+  pushCandidate(tipePerangkat);
+  pushCandidate(namaPerangkat);
+
+  const cat = (kategori || "").toUpperCase().trim();
+  if (cat === "HARDWARE") {
+    pushCandidate("Hardware");
+  } else if (cat === "SOFTWARE_HW") {
+    pushCandidate("Software Hardware");
+    pushCandidate("Software");
+  } else if (cat === "APPLICATION") {
+    pushCandidate("Application");
+    pushCandidate("Software");
+  } else if (cat === "NETWORK_CYBER") {
+    pushCandidate("Network & Cybersecurity");
+    pushCandidate("Network & Cyber");
+    pushCandidate("Network");
+    pushCandidate("Networking");
+    pushCandidate("Cyber");
+    pushCandidate("Cybersecurity");
+    pushCandidate("Cyber Security");
+  } else {
+    pushCandidate(kategori);
+  }
+
+  return candidates;
+};
+
+const collectDescendantCategoryIds = (rootIds, categories) => {
+  const childrenByParent = new Map();
+  categories.forEach((category) => {
+    const parentId = category.parent_id ?? null;
+    if (!childrenByParent.has(parentId)) {
+      childrenByParent.set(parentId, []);
+    }
+    childrenByParent.get(parentId).push(category);
+  });
+
+  const visited = new Set();
+  const stack = [...rootIds];
+
+  while (stack.length > 0) {
+    const currentId = stack.pop();
+    if (visited.has(currentId)) continue;
+    visited.add(currentId);
+
+    const children = childrenByParent.get(currentId) || [];
+    children.forEach((child) => {
+      if (!visited.has(child.category_id)) {
+        stack.push(child.category_id);
+      }
+    });
+  }
+
+  return [...visited];
+};
+
+const resolveAssetCategoryIds = async ({ kategori, subKategori, namaPerangkat, tipePerangkat, subPerangkat, transaction }) => {
+  const categories = await AssetCategory.findAll({
+    raw: true,
+    ...(transaction ? { transaction } : {}),
+  });
+
+  if (!categories.length) {
+    return [];
+  }
+
+  const candidates = buildAssetCategoryCandidates(
+    kategori,
+    subKategori,
+    namaPerangkat,
+    tipePerangkat,
+    subPerangkat
+  ).map(normalizeCategoryName);
+
+  let matchedRootIds = categories
+    .filter((category) => candidates.includes(normalizeCategoryName(category.category_name)))
+    .map((category) => category.category_id);
+
+  if (matchedRootIds.length === 0) {
+    const fallbackRoots = [];
+    const pushFallback = (value) => {
+      const normalized = normalizeCategoryName(value);
+      if (normalized && !fallbackRoots.includes(normalized)) {
+        fallbackRoots.push(normalized);
+      }
+    };
+
+    const cat = (kategori || "").toUpperCase().trim();
+    if (cat === "HARDWARE") {
+      pushFallback("Hardware");
+    } else if (cat === "SOFTWARE_HW") {
+      pushFallback("Software Hardware");
+      pushFallback("Software");
+    } else if (cat === "APPLICATION") {
+      pushFallback("Application");
+      pushFallback("Software");
+    } else if (cat === "NETWORK_CYBER") {
+      pushFallback("Network & Cybersecurity");
+      pushFallback("Network & Cyber");
+      pushFallback("Network");
+      pushFallback("Cybersecurity");
+      pushFallback("Cyber Security");
+      pushFallback("Cyber");
+      pushFallback("Networking");
+    }
+
+    matchedRootIds = categories
+      .filter((category) => fallbackRoots.includes(normalizeCategoryName(category.category_name)))
+      .map((category) => category.category_id);
+  }
+
+  if (matchedRootIds.length === 0) {
+    return [];
+  }
+
+  return collectDescendantCategoryIds(matchedRootIds, categories);
+};
+
 export const generateSchedule = async (req, res) => {
   try {
     const { yearly_standard_id } = req.body;
@@ -42,41 +174,15 @@ export const generateSchedule = async (req, res) => {
     let createdCount = 0;
 
     for (const sm of standards) {
-      const getAssetCategoryNames = (kategori, subKategori) => {
-        if (subKategori && subKategori.trim() !== "-") {
-          return [subKategori];
-        }
-        const cat = (kategori || '').toUpperCase().trim();
-        if (cat === 'HARDWARE') return ['Hardware'];
-        if (cat === 'SOFTWARE_HW') return ['Software'];
-        if (cat === 'APPLICATION') return ['Software'];
-        if (cat === 'NETWORK_CYBER') return ['Networking', 'Cyber'];
-        return [kategori];
-      };
-
-      const targetCatNames = getAssetCategoryNames(sm.kategori, sm.subKategori);
-      const matchedCategories = await AssetCategory.findAll({
-        where: {
-          category_name: {
-            [Op.in]: targetCatNames
-          }
-        },
-        raw: true
+      const allCategoryIds = await resolveAssetCategoryIds({
+        kategori: sm.kategori,
+        subKategori: sm.subKategori,
+        namaPerangkat: sm.namaPerangkat,
+        tipePerangkat: sm.tipePerangkat,
+        subPerangkat: sm.subPerangkat,
       });
 
-      if (matchedCategories.length === 0) continue;
-
-      const categoryIds = matchedCategories.map(c => c.category_id);
-      const childCategories = await AssetCategory.findAll({
-        where: {
-          parent_id: {
-            [Op.in]: categoryIds
-          }
-        },
-        raw: true
-      });
-
-      const allCategoryIds = [...categoryIds, ...childCategories.map(c => c.category_id)];
+      if (allCategoryIds.length === 0) continue;
 
       const assets = await Asset.findAll({
         where: {
@@ -595,7 +701,7 @@ export const getScheduleCheckboxes = async (req, res) => {
 
 export const getMonthlyScheduleMatrix = async (req, res) => {
   try {
-    const { year, month, category } = req.query;
+    const { year, month, category, yearly_standard_id } = req.query;
 
     if (!year || !month) {
       return res.status(400).json({ success: false, message: "Year and Month parameters are required" });
@@ -604,9 +710,17 @@ export const getMonthlyScheduleMatrix = async (req, res) => {
     const yearNum = parseInt(year);
     const monthNum = parseInt(month);
 
-    const yearlyStandard = await YearlyStandardMaintenance.findOne({
-      where: { tahun: yearNum }
-    });
+    let yearlyStandard = null;
+
+    if (yearly_standard_id) {
+      yearlyStandard = await YearlyStandardMaintenance.findByPk(yearly_standard_id);
+    }
+
+    if (!yearlyStandard) {
+      yearlyStandard = await YearlyStandardMaintenance.findOne({
+        where: { tahun: yearNum }
+      });
+    }
 
     if (!yearlyStandard) {
       return res.status(404).json({ success: false, message: `Yearly Standard for ${yearNum} not found` });

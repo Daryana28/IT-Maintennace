@@ -6,6 +6,7 @@ const {
  Asset,
  AssetCategory,
  AssetLocation,
+ AssetLifecycle,
  sequelize,
 } = db;
 
@@ -27,6 +28,14 @@ const include = [
   model: AssetLocation,
   as: "location",
   required: false,
+ },
+ {
+  model: AssetLifecycle,
+  as: "lifecycles",
+  required: false,
+  separate: true,
+  attributes: ["lifecycle_id", "action_name", "notes", "created_at"],
+  order: [["created_at", "ASC"], ["lifecycle_id", "ASC"]],
  },
 ];
 
@@ -96,9 +105,18 @@ export default async function (
 
  if (query.type) {
   andConditions.push(
-   where(col("category.category_name"), {
-    [Op.like]: `%${query.type}%`,
-   })
+   {
+    [Op.or]: [
+     where(col("category.category_name"), {
+      [Op.like]: `%${query.type}%`,
+     }),
+     {
+      asset_name: {
+       [Op.like]: `%${query.type}%`,
+      },
+     },
+    ],
+   }
   );
  }
 
@@ -136,10 +154,49 @@ export default async function (
   query.has_depreciation_date === 1 ||
   query.has_depreciation_date === "1"
  ) {
+ andConditions.push({
+  depreciation_date: {
+   [Op.ne]: null,
+  },
+ });
+}
+
+ if (
+  query.depreciation_due === true ||
+  query.depreciation_due === "true" ||
+  query.depreciation_due === 1 ||
+  query.depreciation_due === "1"
+ ) {
   andConditions.push({
    depreciation_date: {
     [Op.ne]: null,
+    [Op.lte]: new Date().toISOString().slice(0, 10),
    },
+  });
+ }
+
+ if (
+  query.depreciation_history === true ||
+  query.depreciation_history === "true" ||
+  query.depreciation_history === 1 ||
+  query.depreciation_history === "1"
+ ) {
+  const today = new Date().toISOString().slice(0, 10);
+
+  andConditions.push({
+   [Op.or]: [
+    {
+     depreciation_date: {
+      [Op.ne]: null,
+      [Op.lte]: today,
+     },
+    },
+    {
+     status: {
+      [Op.in]: ["DISPOSE", "DISPOSED"],
+     },
+    },
+   ],
   });
  }
 
