@@ -1,3 +1,5 @@
+import { getScopedCategoryIds } from "./routeCategoryScope";
+
 const HARDWARE_WORKBOOK_TABS = [
   {
     key: "pc",
@@ -109,6 +111,7 @@ export function getWorkbookTabFieldLabels(tabKey = "") {
 export function matchAssetToWorkbookTab(row, categories = [], routeGroup = "") {
   const tabs = getAssetWorkbookTabs(routeGroup);
   if (!tabs.length) return "";
+
   const fallbackTab = tabs.find((tab) => tab.key === "lainnya");
 
   const categoryMap = new Map(
@@ -150,6 +153,7 @@ export function matchAssetToWorkbookTab(row, categories = [], routeGroup = "") {
 
 export function groupAssetsByWorkbookTabs(rows = [], categories = [], routeGroup = "") {
   const tabs = getAssetWorkbookTabs(routeGroup);
+
   if (!tabs.length) {
     return [
       {
@@ -200,6 +204,13 @@ export function getWorkbookTabCategoryIds(categories = [], routeGroup = "", tabK
     .map((item) => String(item.category_id));
 
   if (targetTab.key === "lainnya") {
+    const scopedIds = new Set(
+      getScopedCategoryIds(categories, routeGroup)
+        .split(",")
+        .map((id) => String(id).trim())
+        .filter(Boolean)
+    );
+
     const usedIds = new Set(
       tabs
         .filter((tab) => tab.key !== "lainnya")
@@ -207,6 +218,7 @@ export function getWorkbookTabCategoryIds(categories = [], routeGroup = "", tabK
     );
 
     return categories
+      .filter((item) => scopedIds.has(String(item.category_id)))
       .filter((item) => !usedIds.has(String(item.category_id)))
       .map((item) => String(item.category_id));
   }
@@ -224,6 +236,7 @@ export function resolveImportCategory(categories = [], row = {}, routeGroup = ""
     .split(",")
     .map((id) => String(id).trim())
     .filter(Boolean);
+
   const routeScopedIds = new Set(
     scopedCategoryIds.length
       ? scopedCategoryIds
@@ -281,25 +294,33 @@ export function resolveImportCategory(categories = [], row = {}, routeGroup = ""
     },
     {
       when: ["cctv", "camera", "nvr"].some((value) =>
-        normalizedType.includes(value) || normalizedSheet.includes(value) || normalizedTypeCode.includes(value)
+        normalizedType.includes(value) ||
+        normalizedSheet.includes(value) ||
+        normalizedTypeCode.includes(value)
       ),
       keywords: ["nvr", "cctv", "camera"],
     },
     {
       when: ["scanner"].some((value) =>
-        normalizedType.includes(value) || normalizedSheet.includes(value) || normalizedTypeCode.includes(value)
+        normalizedType.includes(value) ||
+        normalizedSheet.includes(value) ||
+        normalizedTypeCode.includes(value)
       ),
       keywords: ["scanner"],
     },
     {
       when: ["accessdoor", "access door", "acces door", "fingerprint", "reader", "suprema", "face attendance"].some((value) =>
-        normalizedType.includes(value) || normalizedSheet.includes(value) || normalizedTypeCode.includes(value)
+        normalizedType.includes(value) ||
+        normalizedSheet.includes(value) ||
+        normalizedTypeCode.includes(value)
       ),
       keywords: ["acces door", "access door", "face attendance", "fingerprint", "reader", "suprema"],
     },
     {
       when: ["gathering", "teleconference", "podcast", "wireless display transmiter", "camera pocket"].some((value) =>
-        normalizedType.includes(value) || normalizedSheet.includes(value) || normalizedTypeCode.includes(value)
+        normalizedType.includes(value) ||
+        normalizedSheet.includes(value) ||
+        normalizedTypeCode.includes(value)
       ),
       keywords: ["teleconference", "podcast", "wireless display transmiter", "camera pocket", "gathering"],
     },
@@ -319,6 +340,7 @@ export function resolveImportCategory(categories = [], row = {}, routeGroup = ""
 
   for (const candidate of candidates) {
     if (!candidate.when) continue;
+
     const matchedCategory = scopedCategories.find((item) =>
       candidate.keywords.some((keyword) =>
         normalizeValue(item.category_name).includes(normalizeValue(keyword))
@@ -338,4 +360,3 @@ export function resolveImportCategory(categories = [], row = {}, routeGroup = ""
     category_name: "",
   };
 }
-import { getScopedCategoryIds } from "./routeCategoryScope";

@@ -67,12 +67,17 @@ function enrichAssetRow(row) {
   return json;
  }
 
+ const softwareType = json.operating_system || json.type || "";
+
  return {
   ...json,
   qty: json.mac_address || "",
-  type: json.operating_system || json.type || json.category?.category_name || "",
+  type: softwareType,
   last_renew: json.os_version || "",
-  next_renewal: json.antivirus_status || json.depreciation_date || "",
+  next_renewal:
+   softwareType === "Permanen"
+    ? "Seumur Hidup"
+    : json.antivirus_status || json.depreciation_date || "",
  };
 }
 

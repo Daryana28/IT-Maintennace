@@ -86,6 +86,10 @@ function formatSoftwareRenewal(value) {
  return normalized;
 }
 
+function getSoftwareType(record = {}) {
+ return record.operating_system || record.type || "";
+}
+
 function buildTimelineMarkers(record, year, month) {
  const purchase = parseAssetDate(record.purchase_date);
  const depreciation = parseAssetDate(record.depreciation_date);
@@ -372,12 +376,17 @@ function AssetTable({
  };
 
  const nextRenewalColumn = {
-  title: renderHeaderInput("Next Renewal (MM/YYYY)", headerFilters.depreciation_date || "", (val) => onHeaderFilterChange?.("depreciation_date", val)),
+  title: renderHeaderInput("NEXT RENEWAL (DD/MM/YYYY)", headerFilters.depreciation_date || "", (val) => onHeaderFilterChange?.("depreciation_date", val)),
  dataIndex: "depreciation_date",
   key: "depreciation_date",
   width: 165,
   render: (value, record) => {
    if (record?.__isEmpty) return "";
+
+   if (isSoftwareRoute && getSoftwareType(record) === "Permanen") {
+    return "Seumur Hidup";
+   }
+
    return formatSoftwareRenewal(record.next_renewal || value);
   },
  };
@@ -409,7 +418,7 @@ function AssetTable({
   render: (_, record) => {
    if (record?.__isEmpty) return "";
    if (isSoftwareRoute) {
-    return record.type || record.TYPE || record.operating_system || record.category?.category_name || "-";
+    return getSoftwareType(record) || "-";
    }
 
    return record.type || record.TYPE || record.asset_name || record.category?.category_name || "-";
