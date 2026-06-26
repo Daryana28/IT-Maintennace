@@ -115,7 +115,7 @@ function mapRowToExcel(item, fallbackType = "", fallbackTypeCode = "") {
     DEPT: item.department || "",
     "NAMA PIC": item.owner_name || "",
     NIK: item.nik || "",
-    PEMBELIAN: item.purchase_date || "",
+    PEMBELIAN: formatSoftwareYearDisplay(item.purchase_date),
     "DEPRESIASI (5+1 Th)": item.depreciation_date || "",
     HOSTNAME: item.hostname || "",
     "IP ADDRESS MAIN": item.ip_main || "",
@@ -154,7 +154,7 @@ function mapRowToSoftwareTemplate(item, fallbackType = "") {
     VENDOR: item.owner_name || "",
     PEMBELIAN: item.purchase_date || "",
     "LAST RENEW": item.last_renew || "",
-    "Next Renewal (MM/YYYY)": item.depreciation_date || "",
+    "Next Renewal (MM/YYYY)": item.next_renewal || item.depreciation_date || "",
     Status: item.status || "ACTIVE",
   };
 }
@@ -535,6 +535,26 @@ function normalizeExcelDate(value, options = {}) {
   return raw;
 }
 
+function normalizeSoftwareDateForStorage(value) {
+  const normalized = normalizeExcelDate(value, { yearOnlyAsFirstDay: true });
+
+  if (!normalized) return "";
+  if (/^\d{4}-\d{2}-\d{2}$/.test(normalized)) return normalized;
+
+  return "";
+}
+
+function formatSoftwareYearDisplay(value) {
+  const normalized = String(value || "").trim();
+  if (!normalized) return "";
+
+  if (/^\d{4}-\d{2}-\d{2}$/.test(normalized)) {
+    return normalized.slice(0, 4);
+  }
+
+  return normalized;
+}
+
 export default function useAssetExcel() {
   const getSheetFallbackType = (sheet = {}) =>
     Object.prototype.hasOwnProperty.call(sheet, "exportType")
@@ -829,9 +849,10 @@ export default function useAssetExcel() {
           nik: row.nik || row.NIK,
           qty: quantity || "",
           serial_number: row.serial_number || licenseNo || assetCode,
-          last_renew: normalizeExcelDate(lastRenew, { yearOnlyAsFirstDay: true }),
-          purchase_date: normalizeExcelDate(purchaseDate, { yearOnlyAsFirstDay: true }),
-          depreciation_date: normalizeExcelDate(depreciationDate),
+          last_renew: normalizeExcelDate(lastRenew),
+          next_renewal: normalizeExcelDate(nextRenewal),
+          purchase_date: normalizeSoftwareDateForStorage(purchaseDate),
+          depreciation_date: normalizeSoftwareDateForStorage(depreciationDate),
           hostname,
           ip_main: row.ip_main || row["IP ADDRESS MAIN"],
           ip_backup: row.ip_backup || row["IP ADDRESS BACKUP"],

@@ -46,8 +46,35 @@ const WORKBOOK_TAB_ALIASES = {
   gathering: ["gathering", "teleconference", "wireless display transmiter", "camera pocket", "podcast"],
   scanner: ["scanner", "scanners", "barcode scanner", "bht"],
   accessdoor: ["accessdoor", "acces door", "access door", "reader", "fingerprint", "face attendance", "suprema"],
- },
+  },
 };
+
+function normalizeValue(value = "") {
+ return String(value || "").trim().toLowerCase();
+}
+
+function isSoftwareAssetRecord(record = {}) {
+ const currentName = normalizeValue(record?.category?.category_name);
+ const parentName = normalizeValue(record?.category?.parent?.category_name);
+
+ return currentName === "software hardware" || parentName === "software hardware";
+}
+
+function enrichAssetRow(row) {
+ const json = typeof row?.toJSON === "function" ? row.toJSON() : row;
+
+ if (!isSoftwareAssetRecord(json)) {
+  return json;
+ }
+
+ return {
+  ...json,
+  qty: json.mac_address || "",
+  type: json.operating_system || json.type || json.category?.category_name || "",
+  last_renew: json.os_version || "",
+  next_renewal: json.antivirus_status || json.depreciation_date || "",
+ };
+}
 
 export default async function (
  query = {}
@@ -88,7 +115,7 @@ export default async function (
   });
  }
 
- const likeFields = [
+const likeFields = [
  "asset_code",
   "serial_number",
   "asset_name",
@@ -101,10 +128,32 @@ export default async function (
   "hostname",
   "ip_main",
   "ip_backup",
+  "mac_address",
+  "operating_system",
+  "os_version",
+  "antivirus_status",
  ];
 
  likeFields.forEach((field) => {
   if (query[field]) {
+   if (field === "depreciation_date") {
+    andConditions.push({
+     [Op.or]: [
+      {
+       depreciation_date: {
+        [Op.like]: `%${query[field]}%`,
+       },
+      },
+      {
+       antivirus_status: {
+        [Op.like]: `%${query[field]}%`,
+       },
+      },
+     ],
+    });
+    return;
+   }
+
    andConditions.push({
     [field]: {
      [Op.like]: `%${query[field]}%`,
@@ -113,7 +162,7 @@ export default async function (
   }
  });
 
-  if (query.workbook_tab) {
+ if (query.workbook_tab) {
   const workbookTab = String(query.workbook_tab).trim().toLowerCase();
   const aliases = WORKBOOK_TAB_ALIASES.hardware[workbookTab] || [];
 
@@ -137,6 +186,11 @@ export default async function (
      }),
      {
       asset_name: {
+       [Op.like]: `%${query.type}%`,
+      },
+     },
+     {
+      operating_system: {
        [Op.like]: `%${query.type}%`,
       },
      },
@@ -286,7 +340,7 @@ export default async function (
 
  return {
   rows:
-   result.rows,
+   result.rows.map(enrichAssetRow),
   total:
    result.count,
   page,

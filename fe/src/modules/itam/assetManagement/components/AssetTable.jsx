@@ -64,6 +64,28 @@ function parseAssetDate(value) {
  };
 }
 
+function formatSoftwareYear(value) {
+ if (!value) return "-";
+
+ const normalized = String(value).trim();
+ if (/^\d{4}-\d{2}-\d{2}$/.test(normalized)) {
+  return normalized.slice(0, 4);
+ }
+
+ return normalized;
+}
+
+function formatSoftwareRenewal(value) {
+ if (!value) return "-";
+
+ const normalized = String(value).trim();
+ if (/^\d{4}-\d{2}-\d{2}$/.test(normalized)) {
+  return normalized;
+ }
+
+ return normalized;
+}
+
 function buildTimelineMarkers(record, year, month) {
  const purchase = parseAssetDate(record.purchase_date);
  const depreciation = parseAssetDate(record.depreciation_date);
@@ -325,9 +347,9 @@ function AssetTable({
   key: "qty",
   width: 90,
   align: "center",
-  render: (_, record) => {
+ render: (_, record) => {
    if (record?.__isEmpty) return "";
-   return record.qty || "-";
+   return record.qty || record.mac_address || "-";
   },
  };
 
@@ -345,15 +367,19 @@ function AssetTable({
   width: 130,
   render: (value, record) => {
    if (record?.__isEmpty) return "";
-   return value || "-";
+   return formatSoftwareYear(value || record.last_renew || record.os_version);
   },
  };
 
  const nextRenewalColumn = {
   title: renderHeaderInput("Next Renewal (MM/YYYY)", headerFilters.depreciation_date || "", (val) => onHeaderFilterChange?.("depreciation_date", val)),
-  dataIndex: "depreciation_date",
+ dataIndex: "depreciation_date",
   key: "depreciation_date",
   width: 165,
+  render: (value, record) => {
+   if (record?.__isEmpty) return "";
+   return formatSoftwareRenewal(record.next_renewal || value);
+  },
  };
 
  const assetCodeColumn = {
@@ -383,7 +409,7 @@ function AssetTable({
   render: (_, record) => {
    if (record?.__isEmpty) return "";
    if (isSoftwareRoute) {
-    return record.type || record.TYPE || record.category?.category_name || "-";
+    return record.type || record.TYPE || record.operating_system || record.category?.category_name || "-";
    }
 
    return record.type || record.TYPE || record.asset_name || record.category?.category_name || "-";
@@ -427,6 +453,11 @@ function AssetTable({
   dataIndex: "purchase_date",
   key: "purchase_date",
   width: 120,
+  render: (value, record) => {
+   if (record?.__isEmpty) return "";
+   if (!isSoftwareRoute) return value || "-";
+   return formatSoftwareYear(value);
+  },
  };
 
  const depreciationColumn = {

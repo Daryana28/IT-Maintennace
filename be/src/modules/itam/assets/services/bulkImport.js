@@ -91,6 +91,26 @@ function resolveGenericTypeCodeName(typeCode = "") {
  }
 }
 
+function isSoftwareCategory(categoryId, categories = []) {
+ const categoryMap = new Map(
+  categories.map((category) => [String(category.category_id), category])
+ );
+
+ let current = categoryMap.get(String(categoryId || ""));
+
+ while (current) {
+  if (normalizeValue(current.category_name) === "software hardware") {
+   return true;
+  }
+
+  current = current.parent_id
+   ? categoryMap.get(String(current.parent_id))
+   : null;
+ }
+
+ return false;
+}
+
 export default async function (
  rows = [],
  req
@@ -358,7 +378,27 @@ export default async function (
     row.type ||
     row.hostname ||
     row.HOSTNAME ||
-    assetCode;
+   assetCode;
+
+   const softwareMode = isSoftwareCategory(categoryId, allCategories);
+   const softwareQty =
+    row.qty ||
+    row.QTY ||
+    null;
+   const softwareType =
+    row.type ||
+    row.TYPE ||
+    null;
+   const softwareLastRenew =
+    row.last_renew ||
+    row["LAST RENEW"] ||
+    null;
+   const softwareNextRenewal =
+    row.next_renewal ||
+    row["Next Renewal (MM/YYYY)"] ||
+    row.depreciation_date ||
+    row["DEPRESIASI (5+1 Th)"] ||
+    null;
 
    const payload = {
     asset_code: assetCode,
@@ -406,6 +446,10 @@ export default async function (
      row.ip_backup ||
      row["IP ADDRESS BACKUP"] ||
      null,
+    mac_address: softwareMode ? (softwareQty || null) : undefined,
+    operating_system: softwareMode ? (softwareType || null) : undefined,
+    os_version: softwareMode ? (softwareLastRenew || null) : undefined,
+    antivirus_status: softwareMode ? (softwareNextRenewal || null) : undefined,
    };
 
    let exist = await Asset.findOne({
