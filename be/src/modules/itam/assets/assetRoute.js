@@ -59,6 +59,12 @@ router.post(
 );
 
 router.post(
+ "/:id/renew",
+ authMiddleware,
+ write.renewSoftware
+);
+
+router.post(
  "/",
  authMiddleware,
  write.create

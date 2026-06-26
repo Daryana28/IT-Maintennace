@@ -13,6 +13,7 @@ import AssetImportModal from "./components/AssetImportModal";
 import AssetQrModal from "./components/AssetQrModal";
 import AssetMultiQrModal from "./components/AssetMultiQrModal";
 import AssetReplacementModal from "./components/AssetReplacementModal";
+import RenewalModal from "./components/RenewalModal";
 
 import useAsset from "./hooks/useAsset";
 import useAssetExcel from "./hooks/useAssetExcel";
@@ -79,16 +80,28 @@ export default function ListAssetPage() {
   const [timelineSaving, setTimelineSaving] = useState(false);
   const [timelineContext, setTimelineContext] = useState(null);
   const [activeWorkbookTab, setActiveWorkbookTab] = useState("");
+  const [renewOpen, setRenewOpen] = useState(false);
+  const [renewAsset, setRenewAsset] = useState(null);
+  const [renewSaving, setRenewSaving] = useState(false);
   const [timelineForm] = Form.useForm();
   const routeGroup = getAssetRouteGroup(location.pathname);
   const isSoftwareRoute = routeGroup === "software-hardware";
   const workbookTabs = getAssetWorkbookTabs(routeGroup);
-  const routeScopedRows = useMemo(
-    () => rows.filter((row) => assetBelongsToRouteGroup(row, categories, routeGroup)),
-    [rows, categories, routeGroup]
+  const safeRows = useMemo(
+    () => (Array.isArray(rows) ? rows.filter(Boolean) : []),
+    [rows]
   );
+
+  const routeScopedRows = useMemo(
+    () =>
+      safeRows.filter((row) =>
+        assetBelongsToRouteGroup(row, categories, routeGroup)
+      ),
+    [safeRows, categories, routeGroup]
+  );
+
   const displayedRows = workbookTabs.length > 0 && activeWorkbookTab
-    ? rows
+    ? safeRows
     : routeScopedRows;
   const activeTabDefaultCategoryId = activeWorkbookTab
     ? (
@@ -104,6 +117,17 @@ export default function ListAssetPage() {
     setReplaceDate(row?.depreciation_date || dayjs().format("YYYY-MM-DD"));
     setReplaceOpen(true);
   }, []);
+
+  const handleRenew = useCallback((row) => {
+    setRenewAsset(row);
+    setRenewOpen(true);
+  }, []);
+
+  const closeRenewModal = useCallback(() => {
+    setRenewOpen(false);
+    setRenewAsset(null);
+  }, []);
+
 
   const closeTimelineModal = useCallback(() => {
     setTimelineModalOpen(false);
@@ -138,6 +162,22 @@ export default function ListAssetPage() {
     },
     [filters, headerFilters, categories, routeGroup, activeWorkbookTab]
   );
+
+  const submitRenewal = useCallback(async (payload) => {
+    if (!renewAsset?.asset_id) return;
+
+    setRenewSaving(true);
+    try {
+      await assetService.renew(renewAsset.asset_id, payload);
+      message.success("Renewal license berhasil disimpan.");
+      closeRenewModal();
+      await reload(1, pageSize, buildFilters());
+    } catch (error) {
+      message.error(error?.response?.data?.message || error?.message || "Gagal menyimpan renewal license.");
+    } finally {
+      setRenewSaving(false);
+    }
+  }, [renewAsset, closeRenewModal, reload, pageSize, buildFilters]);
 
   const openDetail = useCallback(
     (id) => navigate("/" + encodePath(`/itam/assets/${id}`)),
@@ -463,6 +503,7 @@ export default function ListAssetPage() {
             onViewDetail={openDetail}
             onDepreciationClick={handleDepreciationClick}
             onReplace={handleReplace}
+            onRenew={handleRenew}
             headerFilters={headerFilters}
             onHeaderFilterChange={handleHeaderFilterChange}
             contextRouteGroup={routeGroup}
@@ -498,6 +539,14 @@ export default function ListAssetPage() {
         open={multiOpen}
         rows={selectedRows}
         onCancel={closeMultiPrint}
+      />
+
+      <RenewalModal
+        open={renewOpen}
+        asset={renewAsset}
+        loading={renewSaving}
+        onCancel={closeRenewModal}
+        onSubmit={submitRenewal}
       />
 
       <AssetReplacementModal

@@ -387,12 +387,15 @@
   background: #3b82f6;
 }
 
-.budget-monitoring__week-cell--actual,
 .budget-monitoring__week-cell--on-time {
-  background: #14b8a6;
+  background: #22c55e;
 }
 
-.budget-monitoring__week-cell--off-time {
+.budget-monitoring__week-cell--advance {
+  background: #facc15;
+}
+
+.budget-monitoring__week-cell--delay {
   background: #ef4444;
 }
 

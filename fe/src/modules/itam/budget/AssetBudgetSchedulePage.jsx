@@ -1,12 +1,13 @@
 import React, { useEffect, useMemo, useState } from "react";
-import { Typography, Space, Select, Button, Table, Input, Modal, Form, InputNumber, Popconfirm } from "antd";
+import { Typography, Space, Select, Button, Table, Input, Modal, Form, InputNumber, Popconfirm, DatePicker } from "antd";
 import { FilterOutlined, DownloadOutlined, CalendarOutlined, SearchOutlined, PlusOutlined, EditOutlined, DeleteOutlined } from "@ant-design/icons";
+import dayjs from "dayjs";
 import "./AssetBudgetSchedulePage.css";
 
 const { Title, Text } = Typography;
 const { Option } = Select;
 
-const MONTH_START = 3;
+const MONTH_START = 1;
 const MONTH_LABELS = ["Jan", "Feb", "Mar", "Apr", "May", "Jun", "Jul", "Aug", "Sep", "Oct", "Nov", "Dec"];
 const STAGE_OPTIONS = ["All", "Quotation", "PV", "PO", "Delivery", "Implementation", "Completion", "Invoice"];
 const EDIT_STAGE_OPTIONS = STAGE_OPTIONS.filter((stage) => stage !== "All");
@@ -19,6 +20,9 @@ const STAGE_SHORT_LABELS = {
   Completion: "CMP",
   Invoice: "INV",
 };
+
+const ASSET_BUDGET_SCHEDULE_STORAGE_KEY = "itam.assetBudgetSchedule.items.v1";
+const MONTH_PICKER_FORMAT = "MM/YYYY";
 
 const INITIAL_ITEMS = [
   {
@@ -154,6 +158,88 @@ function createWeekKey(year, month, week) {
   return `${year}-${String(month).padStart(2, "0")}-${week}`;
 }
 
+function normalizePoTimeValue(value) {
+  if (!value) return "";
+
+  const raw = String(value).trim();
+  if (/^\d{6}$/.test(raw)) {
+    return `${raw.slice(0, 4)}-${raw.slice(4, 6)}`;
+  }
+  if (/^\d{4}-\d{2}$/.test(raw)) {
+    return raw;
+  }
+  if (/^\d{2}\/\d{4}$/.test(raw)) {
+    const [month, year] = raw.split("/");
+    return `${year}-${month}`;
+  }
+
+  const parsed = dayjs(raw);
+  return parsed.isValid() ? parsed.format("YYYY-MM") : "";
+}
+
+function formatPoTime(value) {
+  const normalized = normalizePoTimeValue(value);
+  if (!normalized) return "";
+  const parsed = dayjs(`${normalized}-01`);
+  return parsed.isValid() ? parsed.format(MONTH_PICKER_FORMAT) : normalized;
+}
+
+function shiftMonthValue(monthValue, offset) {
+  const normalized = normalizePoTimeValue(monthValue);
+  if (!normalized) return "";
+  const parsed = dayjs(`${normalized}-01`);
+  return parsed.isValid() ? parsed.add(offset, "month").format("YYYY-MM") : "";
+}
+
+function buildAutomaticStages(poTime) {
+  const normalizedPoTime = normalizePoTimeValue(poTime);
+  if (!normalizedPoTime) {
+    return Object.fromEntries(
+      EDIT_STAGE_OPTIONS.map((stage) => [
+        stage,
+        { plan: { start: "", end: "" }, actual: { start: "", end: "" } },
+      ])
+    );
+  }
+
+  const quoMonth = shiftMonthValue(normalizedPoTime, -2);
+  const pvMonth = shiftMonthValue(normalizedPoTime, -1);
+  const poMonth = normalizedPoTime;
+  const dlvMonth = shiftMonthValue(normalizedPoTime, 2);
+  const invMonth = shiftMonthValue(normalizedPoTime, 3);
+
+  return {
+    Quotation: {
+      plan: { start: createWeekKeyFromMonthValue(quoMonth, "W1"), end: createWeekKeyFromMonthValue(quoMonth, "W1") },
+      actual: { start: "", end: "" },
+    },
+    PV: {
+      plan: { start: createWeekKeyFromMonthValue(pvMonth, "W1"), end: createWeekKeyFromMonthValue(pvMonth, "W1") },
+      actual: { start: "", end: "" },
+    },
+    PO: {
+      plan: { start: createWeekKeyFromMonthValue(poMonth, "W1"), end: createWeekKeyFromMonthValue(poMonth, "W1") },
+      actual: { start: "", end: "" },
+    },
+    Delivery: {
+      plan: { start: createWeekKeyFromMonthValue(dlvMonth, "W1"), end: createWeekKeyFromMonthValue(dlvMonth, "W1") },
+      actual: { start: "", end: "" },
+    },
+    Implementation: {
+      plan: { start: "", end: "" },
+      actual: { start: "", end: "" },
+    },
+    Completion: {
+      plan: { start: "", end: "" },
+      actual: { start: "", end: "" },
+    },
+    Invoice: {
+      plan: { start: createWeekKeyFromMonthValue(invMonth, "W1"), end: createWeekKeyFromMonthValue(invMonth, "W1") },
+      actual: { start: "", end: "" },
+    },
+  };
+}
+
 function createWeekKeyFromMonthValue(monthValue, week) {
   if (!monthValue || !week) return "";
   const [year, month] = String(monthValue).split("-");
@@ -192,11 +278,25 @@ function formatCurrency(value) {
   }).format(Number(value || 0));
 }
 
+function hasRangeFilled(range) {
+  return Boolean(range?.start && range?.end);
+}
+
+function isItemClosed(item) {
+  return EDIT_STAGE_OPTIONS.every((stage) => {
+    const planRange = item.stages?.[stage]?.plan;
+    const actualRange = item.stages?.[stage]?.actual;
+    if (!hasRangeFilled(planRange)) return true;
+    return hasRangeFilled(actualRange);
+  });
+}
+
 function getAutomaticStatus(item) {
-  if (item.currentStage === "All") return "Overall Progress";
+  if (isItemClosed(item)) return "Close";
+  if (item.currentStage === "All") return "Progress";
   const range = item.stages?.[item.currentStage]?.actual;
   if (range?.start && range?.end) {
-    return item.currentStage === "Invoice" ? "Completed" : `${item.currentStage} Actual`;
+    return `${item.currentStage} Actual`;
   }
   return `${item.currentStage} Plan`;
 }
@@ -205,10 +305,62 @@ function getStageKeysForView(selectedStage) {
   return selectedStage === "All" ? EDIT_STAGE_OPTIONS : [selectedStage];
 }
 
+function createDefaultAssetItems() {
+  return INITIAL_ITEMS.map((item) => ({
+    ...item,
+    stages: Object.fromEntries(
+      Object.entries(item.stages || {}).map(([stage, value]) => [
+        stage,
+        {
+          plan: { ...(value?.plan || {}) },
+          actual: { ...(value?.actual || {}) },
+        },
+      ])
+    ),
+  }));
+}
+
+function loadStoredAssetItems() {
+  if (typeof window === "undefined") {
+    return createDefaultAssetItems();
+  }
+
+  try {
+    const raw = window.localStorage.getItem(ASSET_BUDGET_SCHEDULE_STORAGE_KEY);
+    if (!raw) return createDefaultAssetItems();
+
+    const parsed = JSON.parse(raw);
+    if (!Array.isArray(parsed)) return createDefaultAssetItems();
+
+    return parsed.map((item, index) => ({
+      ...item,
+      no: index + 1,
+      key: String(item.key || index + 1),
+      stages: Object.fromEntries(
+        EDIT_STAGE_OPTIONS.map((stage) => [
+          stage,
+          {
+            plan: {
+              start: item?.stages?.[stage]?.plan?.start || "",
+              end: item?.stages?.[stage]?.plan?.end || "",
+            },
+            actual: {
+              start: item?.stages?.[stage]?.actual?.start || "",
+              end: item?.stages?.[stage]?.actual?.end || "",
+            },
+          },
+        ])
+      ),
+    }));
+  } catch {
+    return createDefaultAssetItems();
+  }
+}
+
 export default function AssetBudgetSchedulePage() {
   const [year, setYear] = useState("2026");
   const [searchText, setSearchText] = useState("");
-  const [items, setItems] = useState(INITIAL_ITEMS);
+  const [items, setItems] = useState(() => loadStoredAssetItems());
   const [isModalOpen, setIsModalOpen] = useState(false);
   const [editingItemKey, setEditingItemKey] = useState("");
   const [editingStage, setEditingStage] = useState("Quotation");
@@ -266,6 +418,19 @@ export default function AssetBudgetSchedulePage() {
   );
 
   useEffect(() => {
+    if (typeof window === "undefined") return;
+
+    try {
+      window.localStorage.setItem(
+        ASSET_BUDGET_SCHEDULE_STORAGE_KEY,
+        JSON.stringify(items)
+      );
+    } catch {
+      // Ignore persistence issues and keep UI functional.
+    }
+  }, [items]);
+
+  useEffect(() => {
     if (!editingItem) return;
     const stageData = editingItem.stages?.[editingStage] || { plan: {}, actual: {} };
     const planStart = parseWeekKey(stageData.plan?.start);
@@ -319,7 +484,7 @@ export default function AssetBudgetSchedulePage() {
         subject: item.subject,
         itemName: item.itemName,
         budgetAmount: item.budgetAmount,
-        poTime: item.poTime,
+        poTime: normalizePoTimeValue(item.poTime) ? dayjs(`${normalizePoTimeValue(item.poTime)}-01`) : null,
         allocation: item.allocation,
         budgetYear: item.budgetYear,
         currentStage: item.currentStage,
@@ -332,7 +497,7 @@ export default function AssetBudgetSchedulePage() {
       subject: "",
       itemName: "",
       budgetAmount: 0,
-      poTime: year,
+      poTime: dayjs(`${year}-01-01`),
       allocation: "Normal",
       budgetYear: year,
       currentStage: "All",
@@ -409,6 +574,8 @@ export default function AssetBudgetSchedulePage() {
 
   const handleItemSave = async () => {
     const values = await itemForm.validateFields();
+    const normalizedPoTime = values.poTime ? dayjs(values.poTime).format("YYYY-MM") : "";
+    const automaticStages = buildAutomaticStages(normalizedPoTime);
 
     if (itemModalMode === "edit" && itemEditing) {
       setItems((current) =>
@@ -420,10 +587,22 @@ export default function AssetBudgetSchedulePage() {
                 subject: values.subject,
                 itemName: values.itemName,
                 budgetAmount: values.budgetAmount,
-                poTime: values.poTime,
+                poTime: normalizedPoTime,
                 allocation: values.allocation,
                 budgetYear: values.budgetYear,
-                currentStage: values.currentStage,
+                currentStage: "All",
+                stages: {
+                  ...automaticStages,
+                  ...Object.fromEntries(
+                    EDIT_STAGE_OPTIONS.map((stage) => [
+                      stage,
+                      {
+                        plan: automaticStages[stage]?.plan || { start: "", end: "" },
+                        actual: item.stages?.[stage]?.actual || { start: "", end: "" },
+                      },
+                    ])
+                  ),
+                },
               }
             : item
         )
@@ -438,16 +617,11 @@ export default function AssetBudgetSchedulePage() {
           subject: values.subject,
           itemName: values.itemName,
           budgetAmount: values.budgetAmount,
-          poTime: values.poTime,
+          poTime: normalizedPoTime,
           allocation: values.allocation,
           budgetYear: values.budgetYear,
-          currentStage: values.currentStage,
-          stages: Object.fromEntries(
-            EDIT_STAGE_OPTIONS.map((stage) => [
-              stage,
-              { plan: { start: "", end: "" }, actual: { start: "", end: "" } },
-            ])
-          ),
+          currentStage: "All",
+          stages: automaticStages,
         },
       ]);
     }
@@ -489,7 +663,14 @@ export default function AssetBudgetSchedulePage() {
           stage,
           startIndex: Math.min(startIndex, endIndex),
           endIndex: Math.max(startIndex, endIndex),
-          timingState: mode === "actual" ? (isOnTime ? "on-time" : "off-time") : "plan",
+          timingState:
+            mode === "actual"
+              ? isOnTime
+                ? "on-time"
+                : startIndex < (yearWeekIndexMap[planRange.start] ?? Number.MAX_SAFE_INTEGER)
+                  ? "advance"
+                  : "delay"
+              : "plan",
         };
       })
       .filter(Boolean);
@@ -612,7 +793,7 @@ export default function AssetBudgetSchedulePage() {
       width: 92,
       fixed: "left",
       align: "center",
-      render: (value, row, index) => mergeTopOnly(value, row, index, "budget-monitoring__cell-text--nowrap"),
+      render: (value, row, index) => mergeTopOnly(formatPoTime(value), row, index, "budget-monitoring__cell-text--nowrap"),
     },
     {
       title: "Stage",
@@ -727,7 +908,13 @@ export default function AssetBudgetSchedulePage() {
             <CalendarOutlined />
           </div>
           <div>
-            <Title level={3} className="schedule-title">Control Progress Aset IT</Title>
+            <Title
+            level={3}
+            className="schedule-title"
+            style={{ fontWeight: 700 }}
+          >
+            Monitoring Progress Budget Aset
+          </Title>
             {/* <Text type="secondary">Timeline hanya 2 baris: plan dan actual. Stage bisa pilih all atau per tahap.</Text> */}
           </div>
         </div>
@@ -803,41 +990,45 @@ export default function AssetBudgetSchedulePage() {
             </Form.Item>
           </div>
 
-          <div className="budget-monitoring__form-section">
-            <h4>Plan</h4>
-            <div className="budget-monitoring__form-grid">
-              <Form.Item name="planStartMonth" label="Start Month" rules={[{ required: true, message: "Wajib isi start month plan" }]}>
-                <Select options={monthGroups.map((group) => ({ label: group.label, value: `${group.year}-${String(group.monthNumber).padStart(2, "0")}` }))} />
-              </Form.Item>
-              <Form.Item name="planStartWeek" label="Start Week" rules={[{ required: true, message: "Wajib isi start week plan" }]}>
-                <Select options={["W1", "W2", "W3", "W4"].map((week) => ({ label: week, value: week }))} />
-              </Form.Item>
-              <Form.Item name="planEndMonth" label="End Month" rules={[{ required: true, message: "Wajib isi end month plan" }]}>
-                <Select options={monthGroups.map((group) => ({ label: group.label, value: `${group.year}-${String(group.monthNumber).padStart(2, "0")}` }))} />
-              </Form.Item>
-              <Form.Item name="planEndWeek" label="End Week" rules={[{ required: true, message: "Wajib isi end week plan" }]}>
-                <Select options={["W1", "W2", "W3", "W4"].map((week) => ({ label: week, value: week }))} />
-              </Form.Item>
+          {editingRowType !== "actual" ? (
+            <div className="budget-monitoring__form-section">
+              <h4>Plan</h4>
+              <div className="budget-monitoring__form-grid">
+                <Form.Item name="planStartMonth" label="Start Month" rules={[{ required: true, message: "Wajib isi start month plan" }]}>
+                  <Select options={monthGroups.map((group) => ({ label: group.label, value: `${group.year}-${String(group.monthNumber).padStart(2, "0")}` }))} />
+                </Form.Item>
+                <Form.Item name="planStartWeek" label="Start Week" rules={[{ required: true, message: "Wajib isi start week plan" }]}>
+                  <Select options={["W1", "W2", "W3", "W4"].map((week) => ({ label: week, value: week }))} />
+                </Form.Item>
+                <Form.Item name="planEndMonth" label="End Month" rules={[{ required: true, message: "Wajib isi end month plan" }]}>
+                  <Select options={monthGroups.map((group) => ({ label: group.label, value: `${group.year}-${String(group.monthNumber).padStart(2, "0")}` }))} />
+                </Form.Item>
+                <Form.Item name="planEndWeek" label="End Week" rules={[{ required: true, message: "Wajib isi end week plan" }]}>
+                  <Select options={["W1", "W2", "W3", "W4"].map((week) => ({ label: week, value: week }))} />
+                </Form.Item>
+              </div>
             </div>
-          </div>
+          ) : null}
 
-          <div className="budget-monitoring__form-section">
-            <h4>Actual</h4>
-            <div className="budget-monitoring__form-grid">
-              <Form.Item name="actualStartMonth" label="Start Month">
-                <Select allowClear options={monthGroups.map((group) => ({ label: group.label, value: `${group.year}-${String(group.monthNumber).padStart(2, "0")}` }))} />
-              </Form.Item>
-              <Form.Item name="actualStartWeek" label="Start Week">
-                <Select allowClear options={["W1", "W2", "W3", "W4"].map((week) => ({ label: week, value: week }))} />
-              </Form.Item>
-              <Form.Item name="actualEndMonth" label="End Month">
-                <Select allowClear options={monthGroups.map((group) => ({ label: group.label, value: `${group.year}-${String(group.monthNumber).padStart(2, "0")}` }))} />
-              </Form.Item>
-              <Form.Item name="actualEndWeek" label="End Week">
-                <Select allowClear options={["W1", "W2", "W3", "W4"].map((week) => ({ label: week, value: week }))} />
-              </Form.Item>
+          {editingRowType !== "plan" ? (
+            <div className="budget-monitoring__form-section">
+              <h4>Actual</h4>
+              <div className="budget-monitoring__form-grid">
+                <Form.Item name="actualStartMonth" label="Start Month">
+                  <Select allowClear options={monthGroups.map((group) => ({ label: group.label, value: `${group.year}-${String(group.monthNumber).padStart(2, "0")}` }))} />
+                </Form.Item>
+                <Form.Item name="actualStartWeek" label="Start Week">
+                  <Select allowClear options={["W1", "W2", "W3", "W4"].map((week) => ({ label: week, value: week }))} />
+                </Form.Item>
+                <Form.Item name="actualEndMonth" label="End Month">
+                  <Select allowClear options={monthGroups.map((group) => ({ label: group.label, value: `${group.year}-${String(group.monthNumber).padStart(2, "0")}` }))} />
+                </Form.Item>
+                <Form.Item name="actualEndWeek" label="End Week">
+                  <Select allowClear options={["W1", "W2", "W3", "W4"].map((week) => ({ label: week, value: week }))} />
+                </Form.Item>
+              </div>
             </div>
-          </div>
+          ) : null}
         </Form>
       </Modal>
 
@@ -869,13 +1060,13 @@ export default function AssetBudgetSchedulePage() {
               <InputNumber style={{ width: "100%" }} min={0} />
             </Form.Item>
             <Form.Item name="poTime" label="PO Time" rules={[{ required: true, message: "Wajib isi PO time" }]}>
-              <Input />
+              <DatePicker picker="month" format={MONTH_PICKER_FORMAT} style={{ width: "100%" }} allowClear={false} />
             </Form.Item>
             <Form.Item name="allocation" label="Alokasi" rules={[{ required: true, message: "Wajib isi alokasi" }]}>
               <Input />
             </Form.Item>
             <Form.Item name="currentStage" label="Stage Default" rules={[{ required: true, message: "Pilih stage" }]}>
-              <Select options={STAGE_OPTIONS.map((stage) => ({ label: stage, value: stage }))} />
+              <Select disabled options={[{ label: "All", value: "All" }]} />
             </Form.Item>
           </div>
         </Form>

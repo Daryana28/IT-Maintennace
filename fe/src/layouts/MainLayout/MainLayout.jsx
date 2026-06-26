@@ -36,6 +36,9 @@ function MainLayout({ children }) {
 
   useEffect(() => {
     window.scrollTo(0, 0);
+    setHeaderBreadcrumb("");
+    setHeaderTitle("");
+    setHeaderSubtitle("");
     const timerId = window.setTimeout(() => {
       setOpen(false);
     }, 0);

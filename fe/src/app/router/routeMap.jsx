@@ -36,6 +36,10 @@ const ScheduleAssetPage = lazy(() => import("@/modules/itam/assetManagement/Sche
 
 const ListDepreciationPage = lazy(() => import("@/modules/itam/assetManagement/ListDepreciationPage"));
 
+const SoftwareRenewalHistoryPage = lazy(() =>
+    import("@/modules/itam/assetManagement/pages/SoftwareRenewalHistoryPage")
+);
+
 const AssetCategoryPage = lazy(() =>
     import("@/modules/itam/assetManagement/pages/AssetCategoryPage")
 );
@@ -232,7 +236,12 @@ const routeMap = [
     },
     {
         path: "/itam/assets/software-hardware/depreciation",
-        component: ListDepreciationPage,
+        component: SoftwareRenewalHistoryPage,
+        roles: ALL_ASSET_STAFF,
+    },
+    {
+        path: "/itam/assets/software-hardware/renewal",
+        component: SoftwareRenewalHistoryPage,
         roles: ALL_ASSET_STAFF,
     },
     {

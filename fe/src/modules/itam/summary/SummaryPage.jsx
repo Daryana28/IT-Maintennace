@@ -34,7 +34,7 @@ export default function SummaryPage() {
         </Col>
         <Col span={6}>
           <Card variant="borderless" style={{ background: '#f8fafc' }}>
-            <Statistic title="Aset Rusak/Disposal" value={18} styles={{ content: { color: '#ff4d4f' } }} />
+            <Statistic title="Aset Rusak/Disposal" value={20} styles={{ content: { color: '#ff4d4f' } }} />
           </Card>
         </Col>
         <Col span={6}>

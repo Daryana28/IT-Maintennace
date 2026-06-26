@@ -15,6 +15,7 @@ import {
 import {
  DeleteOutlined,
  QrcodeOutlined,
+ SyncOutlined,
 } from "@ant-design/icons";
 import { getAssetTypeProfile } from "../utils/assetTypeProfiles";
 
@@ -86,8 +87,15 @@ function formatSoftwareRenewal(value) {
  return normalized;
 }
 
-function getSoftwareType(record = {}) {
- return record.operating_system || record.type || "";
+function getSoftwareType(record) {
+ if (!record) return "";
+
+ return (
+  record.operating_system ||
+  record.type ||
+  record.TYPE ||
+  ""
+ );
 }
 
 function buildTimelineMarkers(record, year, month) {
@@ -192,6 +200,7 @@ function AssetTable({
  onViewDetail,
  onDepreciationClick,
  onReplace,
+ onRenew,
  hidePlanColumns,
  viewOnlyActions,
  headerFilters = {},
@@ -203,13 +212,11 @@ function AssetTable({
  statusOptions,
  showTimelineLegend = false,
  workbookTabKey = "",
+ deleteOnlyActions = false,
 }) {
  const hasRows = Array.isArray(rows) && rows.length > 0;
- const tableData = hasRows ? rows : [];
- const actionButtonCount = viewOnlyActions ? 1 : 2;
- const actionColumnWidth = viewOnlyActions
-  ? 72
-  : Math.max(132, actionButtonCount * 34 + 20);
+ const tableData = hasRows ? rows.filter(Boolean) : [];
+ const actionColumnWidth = viewOnlyActions ? 72 : 170;
 
  const rowSelection = useMemo(
   () => (hasRows
@@ -231,7 +238,7 @@ function AssetTable({
    let min = Infinity;
    let max = -Infinity;
    
-   rows.forEach(r => {
+   (Array.isArray(rows) ? rows.filter(Boolean) : []).forEach(r => {
      [r.purchase_date, r.depreciation_date].forEach((rawDate) => {
       const parsed = parseAssetDate(rawDate);
       if (!parsed) return;
@@ -387,7 +394,7 @@ function AssetTable({
     return "Seumur Hidup";
    }
 
-   return formatSoftwareRenewal(record.next_renewal || value);
+   return formatSoftwareRenewal(record?.next_renewal || value);
   },
  };
 
@@ -465,7 +472,7 @@ function AssetTable({
   render: (value, record) => {
    if (record?.__isEmpty) return "";
    if (!isSoftwareRoute) return value || "-";
-   return formatSoftwareYear(value);
+   return formatSoftwareYear(value || record?.purchase_date);
   },
  };
 
@@ -597,11 +604,21 @@ function AssetTable({
     render: (_, row) => (
      row?.__isEmpty ? null : (
       <Space>
-      {!viewOnlyActions && (
+      {!viewOnlyActions && !deleteOnlyActions && (
        <Button
         size="small"
+        title="QR"
         icon={<QrcodeOutlined />}
         onClick={() => onQr(row)}
+       />
+      )}
+
+      {!viewOnlyActions && !deleteOnlyActions && isSoftwareRoute && getSoftwareType(row) !== "Permanen" && (
+       <Button
+        size="small"
+        title="Renew License"
+        icon={<SyncOutlined />}
+        onClick={() => onRenew?.(row)}
        />
       )}
 
@@ -613,6 +630,7 @@ function AssetTable({
         <Button
          danger
          size="small"
+         title="Delete"
          icon={<DeleteOutlined />}
         />
        </Popconfirm>

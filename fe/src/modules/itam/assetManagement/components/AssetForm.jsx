@@ -475,8 +475,12 @@ export default function AssetForm({
      os_version: isSoftwareMode
       ? values.last_renew || ""
       : values.os_version,
-     antivirus_status: isSoftwareMode && values.type === "Permanen"
-      ? "Seumur Hidup"
+     antivirus_status: isSoftwareMode
+      ? values.type === "Permanen"
+       ? "Seumur Hidup"
+       : values.depreciation_date
+        ? values.depreciation_date.format("YYYY-MM-DD")
+        : null
       : values.antivirus_status,
 
      purchase_date:

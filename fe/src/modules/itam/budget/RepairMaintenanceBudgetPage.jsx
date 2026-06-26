@@ -295,7 +295,7 @@ export default function OperationalBudgetPage() {
     <div className="op-budget-page">
       <div className="op-budget-header">
         <div>
-          <Title className="op-budget-title">Operational Budget Tracking</Title>
+          <Title className="op-budget-title">Operational Budget</Title>
           <Text className="op-budget-subtitle">Alokasi dan perencanaan pengeluaran operasional tahunan</Text>
         </div>
         <Space>

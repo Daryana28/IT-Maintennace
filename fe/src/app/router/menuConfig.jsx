@@ -95,9 +95,9 @@ export const MENU = [
             roles: ASSET_AND_MAINT,
           },
           {
-            key: "assetSoftwareHardwareDepreciation",
-            label: "History Depresiasi",
-            path: "/itam/assets/software-hardware/depreciation",
+            key: "assetSoftwareHardwareRenewal",
+            label: "History Renewal",
+            path: "/itam/assets/software-hardware/renewal",
             roles: ALL_ASSET_STAFF,
           },
         ],

@@ -428,7 +428,7 @@ export default function AssetBudgetPage() {
     <div className="budget-asset-page">
       <div className="page-header">
         <div>
-          <Title level={3} style={{ margin: 0 }}>Budget Asset</Title>
+          <Title level={3} style={{ fontWeight: 700 }}>Asset Budget</Title>
           <Text type="secondary">Kelola dan pantau alokasi budget aset tahunan</Text>
         </div>
         <Space>

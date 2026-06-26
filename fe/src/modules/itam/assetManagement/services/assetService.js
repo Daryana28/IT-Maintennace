@@ -159,6 +159,15 @@ async function replace(id, payload) {
  return res.data;
 }
 
+async function renew(id, payload) {
+ const res = await apiClient.post(
+  `${BASE_URL}/${toId(id)}/renew`,
+  payload
+ );
+
+ return res.data;
+}
+
 async function getHistory(id) {
   const res = await apiClient.get(
     `${BASE_URL}/${toId(id)}/history`
@@ -228,6 +237,7 @@ export default {
   bulkDeleteByCategories,
   bulkDeleteByAssetIds,
   replace,
+  renew,
 
   // ACTIONS
   transferOwner,

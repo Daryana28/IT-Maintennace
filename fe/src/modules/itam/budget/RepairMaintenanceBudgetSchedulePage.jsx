@@ -1,129 +1,1032 @@
-import React, { useState } from "react";
-import { Typography, Space, Select, Button, Tag, Table, Tooltip, Input } from "antd";
-import { FilterOutlined, DownloadOutlined, CalendarOutlined, SearchOutlined } from "@ant-design/icons";
+import React, { useEffect, useMemo, useState } from "react";
+import { Typography, Space, Select, Button, Table, Input, Modal, Form, InputNumber, Popconfirm, DatePicker } from "antd";
+import { FilterOutlined, DownloadOutlined, CalendarOutlined, SearchOutlined, PlusOutlined, EditOutlined, DeleteOutlined } from "@ant-design/icons";
+import dayjs from "dayjs";
 import "./AssetBudgetSchedulePage.css";
 
 const { Title, Text } = Typography;
 const { Option } = Select;
 
+const MONTH_START = 1;
+const MONTH_LABELS = ["Jan", "Feb", "Mar", "Apr", "May", "Jun", "Jul", "Aug", "Sep", "Oct", "Nov", "Dec"];
+const STAGE_OPTIONS = ["All", "Quotation", "PV", "PO", "Delivery", "Implementation", "Completion", "Invoice"];
+const EDIT_STAGE_OPTIONS = STAGE_OPTIONS.filter((stage) => stage !== "All");
+const STAGE_SHORT_LABELS = {
+  Quotation: "QUO",
+  PV: "PV",
+  PO: "PO",
+  Delivery: "DLV",
+  Implementation: "IMP",
+  Completion: "CMP",
+  Invoice: "INV",
+};
+
+const OPERATIONAL_BUDGET_SCHEDULE_STORAGE_KEY = "itam.operationalBudgetSchedule.items.v1";
+const MONTH_PICKER_FORMAT = "MM/YYYY";
+
+const INITIAL_ITEMS = [
+  {
+    key: "1",
+    no: 1,
+    budgetCode: "OP-2026-001",
+    subject: "Operational Support 2026",
+    itemName: "Microsoft 365 License",
+    budgetAmount: 30000000,
+    poTime: "202604",
+    allocation: "Normal",
+    budgetYear: "2026",
+    currentStage: "All",
+    stages: {
+      Quotation: { plan: { start: "2026-03-W1", end: "2026-03-W1" }, actual: { start: "2026-03-W1", end: "2026-03-W1" } },
+      PV: { plan: { start: "2026-03-W2", end: "2026-03-W2" }, actual: { start: "2026-03-W2", end: "2026-03-W2" } },
+      PO: { plan: { start: "2026-03-W3", end: "2026-03-W3" }, actual: { start: "2026-03-W3", end: "2026-03-W3" } },
+      Delivery: { plan: { start: "2026-04-W1", end: "2026-04-W1" }, actual: { start: "2026-04-W1", end: "2026-04-W1" } },
+      Implementation: { plan: { start: "2026-04-W2", end: "2026-04-W2" }, actual: { start: "2026-04-W2", end: "2026-04-W2" } },
+      Completion: { plan: { start: "2026-04-W3", end: "2026-04-W3" }, actual: { start: "2026-04-W3", end: "2026-04-W3" } },
+      Invoice: { plan: { start: "2026-04-W4", end: "2026-04-W4" }, actual: { start: "2026-04-W4", end: "2026-04-W4" } },
+    },
+  },
+  {
+    key: "2",
+    no: 2,
+    budgetCode: "OP-2026-002",
+    subject: "Infrastructure Service",
+    itemName: "AWS Hosting",
+    budgetAmount: 14800000,
+    poTime: "202605",
+    allocation: "Normal",
+    budgetYear: "2026",
+    currentStage: "All",
+    stages: {
+      Quotation: { plan: { start: "2026-04-W2", end: "2026-04-W2" }, actual: { start: "2026-04-W3", end: "2026-04-W3" } },
+      PV: { plan: { start: "2026-04-W4", end: "2026-04-W4" }, actual: { start: "2026-05-W1", end: "2026-05-W1" } },
+      PO: { plan: { start: "2026-05-W2", end: "2026-05-W2" }, actual: { start: "", end: "" } },
+      Delivery: { plan: { start: "2026-05-W4", end: "2026-05-W4" }, actual: { start: "", end: "" } },
+      Implementation: { plan: { start: "2026-06-W1", end: "2026-06-W1" }, actual: { start: "", end: "" } },
+      Completion: { plan: { start: "2026-06-W2", end: "2026-06-W2" }, actual: { start: "", end: "" } },
+      Invoice: { plan: { start: "2026-06-W3", end: "2026-06-W3" }, actual: { start: "", end: "" } },
+    },
+  },
+  {
+    key: "3",
+    no: 3,
+    budgetCode: "OP-2026-003",
+    subject: "Connectivity",
+    itemName: "Internet ISP Dedicated",
+    budgetAmount: 9000000,
+    poTime: "202603",
+    allocation: "Normal",
+    budgetYear: "2026",
+    currentStage: "All",
+    stages: {
+      Quotation: { plan: { start: "2026-03-W1", end: "2026-03-W1" }, actual: { start: "2026-03-W1", end: "2026-03-W1" } },
+      PV: { plan: { start: "2026-03-W2", end: "2026-03-W2" }, actual: { start: "2026-03-W2", end: "2026-03-W2" } },
+      PO: { plan: { start: "2026-03-W3", end: "2026-03-W3" }, actual: { start: "2026-03-W4", end: "2026-03-W4" } },
+      Delivery: { plan: { start: "2026-04-W1", end: "2026-04-W2" }, actual: { start: "", end: "" } },
+      Implementation: { plan: { start: "2026-04-W3", end: "2026-04-W3" }, actual: { start: "", end: "" } },
+      Completion: { plan: { start: "2026-04-W4", end: "2026-04-W4" }, actual: { start: "", end: "" } },
+      Invoice: { plan: { start: "2026-05-W1", end: "2026-05-W1" }, actual: { start: "", end: "" } },
+    },
+  },
+];
+
+function createWeekKey(year, month, week) {
+  if (!year || !month || !week) return "";
+  return `${year}-${String(month).padStart(2, "0")}-${week}`;
+}
+
+function normalizePoTimeValue(value) {
+  if (!value) return "";
+
+  const raw = String(value).trim();
+  if (/^\d{6}$/.test(raw)) {
+    return `${raw.slice(0, 4)}-${raw.slice(4, 6)}`;
+  }
+  if (/^\d{4}-\d{2}$/.test(raw)) {
+    return raw;
+  }
+  if (/^\d{2}\/\d{4}$/.test(raw)) {
+    const [month, year] = raw.split("/");
+    return `${year}-${month}`;
+  }
+
+  const parsed = dayjs(raw);
+  return parsed.isValid() ? parsed.format("YYYY-MM") : "";
+}
+
+function formatPoTime(value) {
+  const normalized = normalizePoTimeValue(value);
+  if (!normalized) return "";
+  const parsed = dayjs(`${normalized}-01`);
+  return parsed.isValid() ? parsed.format(MONTH_PICKER_FORMAT) : normalized;
+}
+
+function shiftMonthValue(monthValue, offset) {
+  const normalized = normalizePoTimeValue(monthValue);
+  if (!normalized) return "";
+  const parsed = dayjs(`${normalized}-01`);
+  return parsed.isValid() ? parsed.add(offset, "month").format("YYYY-MM") : "";
+}
+
+function createWeekKeyFromMonthValue(monthValue, week) {
+  if (!monthValue || !week) return "";
+  const [year, month] = String(monthValue).split("-");
+  return createWeekKey(year, Number(month), week);
+}
+
+function buildAutomaticStages(poTime) {
+  const normalizedPoTime = normalizePoTimeValue(poTime);
+  if (!normalizedPoTime) {
+    return Object.fromEntries(
+      EDIT_STAGE_OPTIONS.map((stage) => [
+        stage,
+        { plan: { start: "", end: "" }, actual: { start: "", end: "" } },
+      ])
+    );
+  }
+
+  const quoMonth = shiftMonthValue(normalizedPoTime, -2);
+  const pvMonth = shiftMonthValue(normalizedPoTime, -1);
+  const poMonth = normalizedPoTime;
+  const dlvMonth = shiftMonthValue(normalizedPoTime, 2);
+  const invMonth = shiftMonthValue(normalizedPoTime, 3);
+
+  return {
+    Quotation: {
+      plan: { start: createWeekKeyFromMonthValue(quoMonth, "W1"), end: createWeekKeyFromMonthValue(quoMonth, "W1") },
+      actual: { start: "", end: "" },
+    },
+    PV: {
+      plan: { start: createWeekKeyFromMonthValue(pvMonth, "W1"), end: createWeekKeyFromMonthValue(pvMonth, "W1") },
+      actual: { start: "", end: "" },
+    },
+    PO: {
+      plan: { start: createWeekKeyFromMonthValue(poMonth, "W1"), end: createWeekKeyFromMonthValue(poMonth, "W1") },
+      actual: { start: "", end: "" },
+    },
+    Delivery: {
+      plan: { start: createWeekKeyFromMonthValue(dlvMonth, "W1"), end: createWeekKeyFromMonthValue(dlvMonth, "W1") },
+      actual: { start: "", end: "" },
+    },
+    Implementation: {
+      plan: { start: "", end: "" },
+      actual: { start: "", end: "" },
+    },
+    Completion: {
+      plan: { start: "", end: "" },
+      actual: { start: "", end: "" },
+    },
+    Invoice: {
+      plan: { start: createWeekKeyFromMonthValue(invMonth, "W1"), end: createWeekKeyFromMonthValue(invMonth, "W1") },
+      actual: { start: "", end: "" },
+    },
+  };
+}
+
+function parseWeekKey(value = "") {
+  const match = /^(\d{4})-(\d{2})-(W[1-4])$/.exec(value);
+  if (!match) return {};
+  return {
+    year: match[1],
+    month: Number(match[2]),
+    week: match[3],
+  };
+}
+
+function buildMonthGroups(year) {
+  return Array.from({ length: 12 }, (_, index) => {
+    const monthNumber = ((MONTH_START - 1 + index) % 12) + 1;
+    const yearOffset = MONTH_START - 1 + index >= 12 ? 1 : 0;
+    const resolvedYear = String(Number(year) + yearOffset);
+    return {
+      year: resolvedYear,
+      monthNumber,
+      label: `${MONTH_LABELS[monthNumber - 1]}-${resolvedYear.slice(-2)}`,
+      weeks: ["W1", "W2", "W3", "W4"],
+    };
+  });
+}
+
+function formatCurrency(value) {
+  return new Intl.NumberFormat("id-ID", {
+    style: "currency",
+    currency: "IDR",
+    minimumFractionDigits: 0,
+  }).format(Number(value || 0));
+}
+
+function hasRangeFilled(range) {
+  return Boolean(range?.start && range?.end);
+}
+
+function isItemClosed(item) {
+  return EDIT_STAGE_OPTIONS.every((stage) => {
+    const planRange = item.stages?.[stage]?.plan;
+    const actualRange = item.stages?.[stage]?.actual;
+    if (!hasRangeFilled(planRange)) return true;
+    return hasRangeFilled(actualRange);
+  });
+}
+
+function getAutomaticStatus(item) {
+  if (isItemClosed(item)) return "Close";
+  if (item.currentStage === "All") return "Progress";
+  const range = item.stages?.[item.currentStage]?.actual;
+  if (range?.start && range?.end) {
+    return `${item.currentStage} Actual`;
+  }
+  return `${item.currentStage} Plan`;
+}
+
+function getStageKeysForView(selectedStage) {
+  return selectedStage === "All" ? EDIT_STAGE_OPTIONS : [selectedStage];
+}
+
+function createDefaultOperationalItems() {
+  return INITIAL_ITEMS.map((item) => ({
+    ...item,
+    stages: Object.fromEntries(
+      Object.entries(item.stages || {}).map(([stage, value]) => [
+        stage,
+        {
+          plan: { ...(value?.plan || {}) },
+          actual: { ...(value?.actual || {}) },
+        },
+      ])
+    ),
+  }));
+}
+
+function loadStoredOperationalItems() {
+  if (typeof window === "undefined") {
+    return createDefaultOperationalItems();
+  }
+
+  try {
+    const raw = window.localStorage.getItem(OPERATIONAL_BUDGET_SCHEDULE_STORAGE_KEY);
+    if (!raw) return createDefaultOperationalItems();
+
+    const parsed = JSON.parse(raw);
+    if (!Array.isArray(parsed)) return createDefaultOperationalItems();
+
+    return parsed.map((item, index) => ({
+      ...item,
+      no: index + 1,
+      key: String(item.key || index + 1),
+      stages: Object.fromEntries(
+        EDIT_STAGE_OPTIONS.map((stage) => [
+          stage,
+          {
+            plan: {
+              start: item?.stages?.[stage]?.plan?.start || "",
+              end: item?.stages?.[stage]?.plan?.end || "",
+            },
+            actual: {
+              start: item?.stages?.[stage]?.actual?.start || "",
+              end: item?.stages?.[stage]?.actual?.end || "",
+            },
+          },
+        ])
+      ),
+    }));
+  } catch {
+    return createDefaultOperationalItems();
+  }
+}
+
 export default function OperationalBudgetSchedulePage() {
   const [year, setYear] = useState("2026");
+  const [searchText, setSearchText] = useState("");
+  const [items, setItems] = useState(() => loadStoredOperationalItems());
+  const [isModalOpen, setIsModalOpen] = useState(false);
+  const [editingItemKey, setEditingItemKey] = useState("");
+  const [editingStage, setEditingStage] = useState("Quotation");
+  const [editingRowType, setEditingRowType] = useState("plan");
+  const [form] = Form.useForm();
+  const [isItemModalOpen, setIsItemModalOpen] = useState(false);
+  const [itemModalMode, setItemModalMode] = useState("add");
+  const [itemEditingKey, setItemEditingKey] = useState("");
+  const [itemForm] = Form.useForm();
 
-  const data = [
-    { key: "1", budgetCode: "OP-2026-001", itemName: "Microsoft 365", status: "Invoice", startMonth: 7, endMonth: 9, budget: "Rp 30.000.000" },
-    { key: "2", budgetCode: "OP-2026-002", itemName: "AWS Hosting", status: "PO", startMonth: 7, endMonth: 9, budget: "Rp 14.800.000" },
-    { key: "3", budgetCode: "OP-2026-003", itemName: "Internet ISP", status: "Closed", startMonth: 7, endMonth: 9, budget: "Rp 9.000.000" }
-  ];
+  const monthGroups = useMemo(() => buildMonthGroups(year), [year]);
 
-  const getStatusColor = (status, isGradient = false) => {
-    switch(status) {
-      case "Plan": return isGradient ? "linear-gradient(90deg, #d9d9d9, #bfbfbf)" : "default";
-      case "PV": return isGradient ? "linear-gradient(90deg, #69c0ff, #1890ff)" : "blue";
-      case "PO": return isGradient ? "linear-gradient(90deg, #5cdbd3, #13c2c2)" : "cyan";
-      case "Delivery": return isGradient ? "linear-gradient(90deg, #ffc069, #fa8c16)" : "orange";
-      case "Installation": return isGradient ? "linear-gradient(90deg, #b37feb, #722ed1)" : "purple";
-      case "Invoice": return isGradient ? "linear-gradient(90deg, #ffadd2, #eb2f96)" : "magenta";
-      case "Closed": return isGradient ? "linear-gradient(90deg, #95de64, #52c41a)" : "green";
-      default: return isGradient ? "linear-gradient(90deg, #d9d9d9, #bfbfbf)" : "default";
+  const yearWeekKeys = useMemo(
+    () =>
+      monthGroups.flatMap((group) =>
+        group.weeks.map((week) => createWeekKey(group.year, group.monthNumber, week))
+      ),
+    [monthGroups]
+  );
+
+  const yearWeekIndexMap = useMemo(
+    () => Object.fromEntries(yearWeekKeys.map((key, index) => [key, index])),
+    [yearWeekKeys]
+  );
+
+  const editingItem = useMemo(
+    () => items.find((item) => item.key === editingItemKey) || null,
+    [items, editingItemKey]
+  );
+
+  const itemEditing = useMemo(
+    () => items.find((item) => item.key === itemEditingKey) || null,
+    [items, itemEditingKey]
+  );
+
+  const filteredItems = useMemo(() => {
+    const query = searchText.trim().toLowerCase();
+    return items.filter((item) => {
+      const matchesYear = item.budgetYear === year;
+      const matchesQuery =
+        !query ||
+        [item.budgetCode, item.subject, item.itemName].some((field) =>
+          String(field).toLowerCase().includes(query)
+        );
+      return matchesYear && matchesQuery;
+    });
+  }, [items, searchText, year]);
+
+  const tableRows = useMemo(
+    () =>
+      filteredItems.flatMap((item) => [
+        { ...item, rowType: "plan", rowKey: `${item.key}-plan` },
+        { ...item, rowType: "actual", rowKey: `${item.key}-actual` },
+      ]),
+    [filteredItems]
+  );
+
+  useEffect(() => {
+    if (typeof window === "undefined") return;
+
+    try {
+      window.localStorage.setItem(
+        OPERATIONAL_BUDGET_SCHEDULE_STORAGE_KEY,
+        JSON.stringify(items)
+      );
+    } catch {
+      // Ignore persistence issues and keep UI functional.
     }
+  }, [items]);
+
+  useEffect(() => {
+    if (!editingItem) return;
+    const stageData = editingItem.stages?.[editingStage] || { plan: {}, actual: {} };
+    const planStart = parseWeekKey(stageData.plan?.start);
+    const planEnd = parseWeekKey(stageData.plan?.end);
+    const actualStart = parseWeekKey(stageData.actual?.start);
+    const actualEnd = parseWeekKey(stageData.actual?.end);
+
+    form.setFieldsValue({
+      budgetYear: editingItem.budgetYear,
+      budgetAmount: editingItem.budgetAmount,
+      currentStage: editingItem.currentStage,
+      stageToEdit: editingStage,
+      planStartMonth:
+        planStart.year && planStart.month ? `${planStart.year}-${String(planStart.month).padStart(2, "0")}` : undefined,
+      planStartWeek: planStart.week,
+      planEndMonth:
+        planEnd.year && planEnd.month ? `${planEnd.year}-${String(planEnd.month).padStart(2, "0")}` : undefined,
+      planEndWeek: planEnd.week,
+      actualStartMonth:
+        actualStart.year && actualStart.month ? `${actualStart.year}-${String(actualStart.month).padStart(2, "0")}` : undefined,
+      actualStartWeek: actualStart.week,
+      actualEndMonth:
+        actualEnd.year && actualEnd.month ? `${actualEnd.year}-${String(actualEnd.month).padStart(2, "0")}` : undefined,
+      actualEndWeek: actualEnd.week,
+    });
+  }, [editingItem, editingStage, form]);
+
+  const openUpdateModal = (item, preferredStage = EDIT_STAGE_OPTIONS[0], rowType = "plan") => {
+    setEditingItemKey(item.key);
+    setEditingStage(preferredStage);
+    setEditingRowType(rowType);
+    setIsModalOpen(true);
   };
 
-  const renderStatus = (status) => {
-    return <Tag color={getStatusColor(status, false)}>{status}</Tag>;
+  const closeUpdateModal = () => {
+    setIsModalOpen(false);
+    setEditingItemKey("");
+    setEditingStage(EDIT_STAGE_OPTIONS[0]);
+    setEditingRowType("plan");
+    form.resetFields();
   };
 
-  const renderGanttCell = (record, month) => {
-    const isWithin = month >= record.startMonth && month <= record.endMonth;
-    if (!isWithin) return null;
+  const openItemModal = (mode, item = null) => {
+    setItemModalMode(mode);
+    setItemEditingKey(item?.key || "");
+    setIsItemModalOpen(true);
 
-    const isStart = month === record.startMonth;
-    const isEnd = month === record.endMonth;
-    const borderRadius = `${isStart ? '14px' : '0'} ${isEnd ? '14px' : '0'} ${isEnd ? '14px' : '0'} ${isStart ? '14px' : '0'}`;
+    if (mode === "edit" && item) {
+      itemForm.setFieldsValue({
+        budgetCode: item.budgetCode,
+        subject: item.subject,
+        itemName: item.itemName,
+        budgetAmount: item.budgetAmount,
+        poTime: normalizePoTimeValue(item.poTime) ? dayjs(`${normalizePoTimeValue(item.poTime)}-01`) : null,
+        allocation: item.allocation,
+        budgetYear: item.budgetYear,
+        currentStage: item.currentStage,
+      });
+      return;
+    }
 
-    return (
-      <Tooltip title={`${record.itemName} - ${record.status} (${record.budget})`} placement="topLeft">
-        <div
-          className="gantt-cell-content"
-          style={{
-            background: getStatusColor(record.status, true),
-            borderRadius: borderRadius,
-            width: "100%",
-            justifyContent: isStart ? "flex-start" : "center",
-          }}
-        >
-          {isStart && <span className="gantt-text">{record.status}</span>}
-        </div>
-      </Tooltip>
+    itemForm.setFieldsValue({
+      budgetCode: "",
+      subject: "",
+      itemName: "",
+      budgetAmount: 0,
+      poTime: dayjs(`${year}-01-01`),
+      allocation: "Normal",
+      budgetYear: year,
+      currentStage: "All",
+    });
+  };
+
+  const closeItemModal = () => {
+    setIsItemModalOpen(false);
+    setItemEditingKey("");
+    itemForm.resetFields();
+  };
+
+  const handleStageViewChange = (itemKey, stage) => {
+    setItems((current) =>
+      current.map((item) => (item.key === itemKey ? { ...item, currentStage: stage } : item))
     );
   };
 
-  const renderMonthCol = (title, dataIndex, monthIndex) => ({
-    title: <div style={{ textAlign: 'center' }}>{title}</div>,
-    key: dataIndex,
-    width: 90,
-    align: "center",
-    className: "gantt-cell",
-    render: (_, record) => renderGanttCell(record, monthIndex)
+  const handleUpdateSave = async () => {
+    const values = await form.validateFields();
+
+    setItems((current) =>
+      current.map((item) => {
+        if (item.key !== editingItemKey) return item;
+
+        return {
+          ...item,
+          budgetYear: values.budgetYear,
+          budgetAmount: values.budgetAmount,
+          currentStage: values.currentStage,
+          stages: {
+            ...item.stages,
+            [values.stageToEdit]: {
+              plan: {
+                start: createWeekKeyFromMonthValue(values.planStartMonth, values.planStartWeek),
+                end: createWeekKeyFromMonthValue(values.planEndMonth, values.planEndWeek),
+              },
+              actual: {
+                start: createWeekKeyFromMonthValue(values.actualStartMonth, values.actualStartWeek),
+                end: createWeekKeyFromMonthValue(values.actualEndMonth, values.actualEndWeek),
+              },
+            },
+          },
+        };
+      })
+    );
+
+    closeUpdateModal();
+  };
+
+  const handleDeleteStageBlock = () => {
+    setItems((current) =>
+      current.map((item) => {
+        if (item.key !== editingItemKey) return item;
+
+        return {
+          ...item,
+          stages: {
+            ...item.stages,
+            [editingStage]: {
+              ...item.stages[editingStage],
+              [editingRowType]: {
+                start: "",
+                end: "",
+              },
+            },
+          },
+        };
+      })
+    );
+
+    closeUpdateModal();
+  };
+
+  const handleItemSave = async () => {
+    const values = await itemForm.validateFields();
+    const normalizedPoTime = values.poTime ? dayjs(values.poTime).format("YYYY-MM") : "";
+    const automaticStages = buildAutomaticStages(normalizedPoTime);
+
+    if (itemModalMode === "edit" && itemEditing) {
+      setItems((current) =>
+        current.map((item) =>
+          item.key === itemEditing.key
+            ? {
+                ...item,
+                budgetCode: values.budgetCode,
+                subject: values.subject,
+                itemName: values.itemName,
+                budgetAmount: values.budgetAmount,
+                poTime: normalizedPoTime,
+                allocation: values.allocation,
+                budgetYear: values.budgetYear,
+                currentStage: "All",
+                stages: {
+                  ...automaticStages,
+                  ...Object.fromEntries(
+                    EDIT_STAGE_OPTIONS.map((stage) => [
+                      stage,
+                      {
+                        plan: automaticStages[stage]?.plan || { start: "", end: "" },
+                        actual: item.stages?.[stage]?.actual || { start: "", end: "" },
+                      },
+                    ])
+                  ),
+                },
+              }
+            : item
+        )
+      );
+    } else {
+      setItems((current) => [
+        ...current,
+        {
+          key: String(Date.now()),
+          no: current.length + 1,
+          budgetCode: values.budgetCode,
+          subject: values.subject,
+          itemName: values.itemName,
+          budgetAmount: values.budgetAmount,
+          poTime: normalizedPoTime,
+          allocation: values.allocation,
+          budgetYear: values.budgetYear,
+          currentStage: "All",
+          stages: automaticStages,
+        },
+      ]);
+    }
+
+    closeItemModal();
+  };
+
+  const handleDeleteItem = (itemKey) => {
+    setItems((current) =>
+      current
+        .filter((item) => item.key !== itemKey)
+        .map((item, index) => ({ ...item, no: index + 1 }))
+    );
+  };
+
+  const buildSegmentsForRow = (record) => {
+    const stageKeys = getStageKeysForView(record.currentStage);
+    const mode = record.rowType;
+
+    return stageKeys
+      .map((stage) => {
+        const range = record.stages?.[stage]?.[mode];
+        if (!range?.start || !range?.end) return null;
+
+        const startIndex = yearWeekIndexMap[range.start];
+        const endIndex = yearWeekIndexMap[range.end];
+        if (startIndex === undefined || endIndex === undefined) return null;
+
+        const planRange = record.stages?.[stage]?.plan || {};
+        const isOnTime =
+          mode === "actual"
+            ? !!range.start &&
+              !!range.end &&
+              range.start === planRange.start &&
+              range.end === planRange.end
+            : false;
+
+        return {
+          stage,
+          startIndex: Math.min(startIndex, endIndex),
+          endIndex: Math.max(startIndex, endIndex),
+          timingState:
+            mode === "actual"
+              ? isOnTime
+                ? "on-time"
+                : startIndex < (yearWeekIndexMap[planRange.start] ?? Number.MAX_SAFE_INTEGER)
+                  ? "advance"
+                  : "delay"
+              : "plan",
+        };
+      })
+      .filter(Boolean);
+  };
+
+  const renderTimelineCell = (record, cellKey) => {
+    const currentIndex = yearWeekIndexMap[cellKey];
+    const segments = buildSegmentsForRow(record);
+
+    const matchingSegment = segments.find(
+      (segment) => currentIndex >= segment.startIndex && currentIndex <= segment.endIndex
+    );
+
+    const preferredStage =
+      matchingSegment?.stage ||
+      (record.currentStage !== "All" ? record.currentStage : EDIT_STAGE_OPTIONS[0]);
+
+    if (!matchingSegment) {
+      return (
+        <button
+          type="button"
+          className="budget-monitoring__week-button"
+          onClick={() => openUpdateModal(record, preferredStage, record.rowType)}
+        >
+          <div className="budget-monitoring__week-cell" />
+        </button>
+      );
+    }
+
+    const isStart = currentIndex === matchingSegment.startIndex;
+    const isEnd = currentIndex === matchingSegment.endIndex;
+
+    return (
+      <button
+        type="button"
+        className="budget-monitoring__week-button"
+        onClick={() => openUpdateModal(record, preferredStage, record.rowType)}
+      >
+        <div
+          className={`budget-monitoring__week-cell budget-monitoring__week-cell--active budget-monitoring__week-cell--${record.rowType}${
+            matchingSegment.timingState ? ` budget-monitoring__week-cell--${matchingSegment.timingState}` : ""
+          }${
+            isStart ? " budget-monitoring__week-cell--start" : ""
+          }${isEnd ? " budget-monitoring__week-cell--end" : ""}`}
+        >
+          <span className="budget-monitoring__week-label">
+            {STAGE_SHORT_LABELS[matchingSegment.stage] || matchingSegment.stage.slice(0, 3).toUpperCase()}
+          </span>
+        </div>
+      </button>
+    );
+  };
+
+  const renderMergedText = (value, className = "") => (
+    <div className={`budget-monitoring__cell-text ${className}`.trim()}>{value || ""}</div>
+  );
+
+  const mergeTopOnly = (value, row, index, className = "") => ({
+    children: index % 2 === 0 ? renderMergedText(value, className) : "",
+    props: { rowSpan: index % 2 === 0 ? 2 : 0 },
   });
 
   const columns = [
-    { title: "Budget Code", dataIndex: "budgetCode", key: "budgetCode", width: 140, fixed: 'left' },
-    { title: "Item Name", dataIndex: "itemName", key: "itemName", width: 200, fixed: 'left' },
-    { title: "Status", dataIndex: "status", key: "status", width: 110, render: renderStatus, fixed: 'left' },
-    renderMonthCol("Jul", "m7", 7),
-    renderMonthCol("Aug", "m8", 8),
-    renderMonthCol("Sep", "m9", 9),
-    renderMonthCol("Oct", "m10", 10),
-    renderMonthCol("Nov", "m11", 11),
-    renderMonthCol("Dec", "m12", 12),
+    {
+      title: "No",
+      dataIndex: "no",
+      key: "no",
+      width: 58,
+      fixed: "left",
+      align: "center",
+      render: (value, row, index) => ({
+        children: index % 2 === 0 ? value : "",
+        props: { rowSpan: index % 2 === 0 ? 2 : 0 },
+      }),
+    },
+    {
+      title: "Num Budget",
+      dataIndex: "budgetCode",
+      key: "budgetCode",
+      width: 110,
+      fixed: "left",
+      render: (value, row, index) => mergeTopOnly(value, row, index, "budget-monitoring__cell-text--nowrap"),
+    },
+    {
+      title: "Subject",
+      dataIndex: "subject",
+      key: "subject",
+      width: 150,
+      fixed: "left",
+      render: mergeTopOnly,
+    },
+    {
+      title: "Nama Item",
+      dataIndex: "itemName",
+      key: "itemName",
+      width: 260,
+      fixed: "left",
+      render: (value, row, index) => ({
+        children: index % 2 === 0 ? <div className="budget-monitoring__item">{value || ""}</div> : "",
+        props: { rowSpan: index % 2 === 0 ? 2 : 0 },
+      }),
+    },
+    {
+      title: "Budget",
+      dataIndex: "budgetAmount",
+      key: "budgetAmount",
+      width: 130,
+      fixed: "left",
+      align: "right",
+      onHeaderCell: () => ({ style: { textAlign: "center" } }),
+      render: (value, row, index) => ({
+        children: index % 2 === 0 ? <span className="budget-monitoring__money">{formatCurrency(value)}</span> : "",
+        props: { rowSpan: index % 2 === 0 ? 2 : 0 },
+      }),
+    },
+    {
+      title: "PO Time",
+      dataIndex: "poTime",
+      key: "poTime",
+      width: 92,
+      fixed: "left",
+      align: "center",
+      render: (value, row, index) => mergeTopOnly(formatPoTime(value), row, index, "budget-monitoring__cell-text--nowrap"),
+    },
+    {
+      title: "Stage",
+      dataIndex: "currentStage",
+      key: "currentStage",
+      width: 150,
+      fixed: "left",
+      align: "center",
+      render: (value, record, index) => ({
+        children:
+          index % 2 === 0 ? (
+            <Select
+              size="small"
+              value={value}
+              className="budget-monitoring__stage-select"
+              onChange={(nextStage) => handleStageViewChange(record.key, nextStage)}
+              options={STAGE_OPTIONS.map((stage) => ({ label: stage, value: stage }))}
+            />
+          ) : (
+            ""
+          ),
+        props: { rowSpan: index % 2 === 0 ? 2 : 0 },
+      }),
+    },
+    {
+      title: "Type",
+      dataIndex: "rowType",
+      key: "rowType",
+      width: 80,
+      fixed: "left",
+      align: "center",
+      render: (value) => <span className={`budget-monitoring__type budget-monitoring__type--${value}`}>{value.toUpperCase()}</span>,
+    },
+    {
+      title: "Alokasi",
+      dataIndex: "allocation",
+      key: "allocation",
+      width: 90,
+      fixed: "left",
+      align: "center",
+      render: (value, row, index) => mergeTopOnly(value, row, index, "budget-monitoring__cell-text--nowrap"),
+    },
+    {
+      title: "Status",
+      key: "status",
+      width: 140,
+      fixed: "left",
+      align: "center",
+      render: (_, record, index) => ({
+        children: index % 2 === 0 ? <span className="budget-monitoring__status">{getAutomaticStatus(record)}</span> : "",
+        props: { rowSpan: index % 2 === 0 ? 2 : 0 },
+      }),
+    },
+    {
+      title: "Budget Year",
+      dataIndex: "budgetYear",
+      key: "budgetYear",
+      width: 100,
+      fixed: "left",
+      align: "center",
+      render: (value, row, index) => mergeTopOnly(value, row, index, "budget-monitoring__cell-text--nowrap"),
+    },
+    {
+      title: "Action",
+      key: "action",
+      fixed: "left",
+      width: 96,
+      align: "center",
+      render: (_, record, index) => ({
+        children:
+          index % 2 === 0 ? (
+            <Space size={8}>
+              <Button
+                type="text"
+                size="small"
+                icon={<EditOutlined />}
+                onClick={() => openItemModal("edit", record)}
+              />
+              <Popconfirm
+                title="Hapus item ini?"
+                okText="Hapus"
+                cancelText="Batal"
+                onConfirm={() => handleDeleteItem(record.key)}
+              >
+                <Button type="text" size="small" danger icon={<DeleteOutlined />} />
+              </Popconfirm>
+            </Space>
+          ) : (
+            ""
+          ),
+        props: { rowSpan: index % 2 === 0 ? 2 : 0 },
+      }),
+    },
+    ...monthGroups.map((group) => ({
+      title: group.label,
+      children: group.weeks.map((week) => {
+        const cellKey = createWeekKey(group.year, group.monthNumber, week);
+        return {
+          title: week,
+          key: cellKey,
+          dataIndex: cellKey,
+          width: 50,
+          align: "center",
+          className: "budget-monitoring__week-col",
+          render: (_, record) => renderTimelineCell(record, cellKey),
+        };
+      }),
+    })),
   ];
 
-  const legendItems = ["Plan", "PV", "PO", "Delivery", "Installation", "Invoice", "Closed"];
-
   return (
-    <div className="budget-schedule-page" style={{ padding: "24px" }}>
+    <div className="budget-schedule-page">
       <div className="schedule-header">
-        <div style={{ display: 'flex', alignItems: 'center', gap: '16px' }}>
-          <div style={{ background: '#e6f7ff', padding: '12px', borderRadius: '12px', color: '#1890ff' }}>
-            <CalendarOutlined style={{ fontSize: '24px' }} />
+        <div className="schedule-header__title">
+          <div className="schedule-header__icon">
+            <CalendarOutlined />
           </div>
           <div>
-            <Title level={3} className="schedule-title">Operational Budget Monitoring Progress</Title>
-            <Text type="secondary">Monitoring progress budget operasional untuk 3 bulan ke depan</Text>
+            <Title level={3} className="schedule-title"
+            style={{ fontWeight: 700 }}>Monitoring Progress Budget Operational</Title>
           </div>
         </div>
-        <Space size="middle">
-          <Input placeholder="Cari item..." prefix={<SearchOutlined style={{ color: '#bfbfbf' }} />} style={{ width: 250, borderRadius: '6px' }} />
-          <Select value={year} onChange={setYear} style={{ width: 100 }} size="large">
+
+        <Space size="middle" wrap>
+          <Input
+            placeholder="Cari budget / item..."
+            prefix={<SearchOutlined style={{ color: "#bfbfbf" }} />}
+            value={searchText}
+            onChange={(e) => setSearchText(e.target.value)}
+            style={{ width: 260 }}
+          />
+          <Select value={year} onChange={setYear} style={{ width: 110 }}>
+            <Option value="2025">2025</Option>
             <Option value="2026">2026</Option>
             <Option value="2027">2027</Option>
           </Select>
-          <Button icon={<FilterOutlined />} size="large">Filter</Button>
-          <Button type="primary" icon={<DownloadOutlined />} size="large">Export</Button>
+          <Button icon={<PlusOutlined />} onClick={() => openItemModal("add")}>Add</Button>
+          <Button icon={<FilterOutlined />}>Filter</Button>
+          <Button type="primary" icon={<DownloadOutlined />}>Export</Button>
         </Space>
       </div>
 
-      <div className="timeline-table-card" style={{ background: '#fff', padding: '24px' }}>
+      <div className="timeline-table-card">
         <Table
           columns={columns}
-          dataSource={data}
+          dataSource={tableRows}
+          rowKey="rowKey"
           pagination={false}
-          scroll={{ x: 1200 }}
-          bordered={false}
-          size="middle"
-          className="timeline-table"
+          scroll={{ x: "max-content", y: 800 }}
+          bordered
+          size="small"
+          className="timeline-table timeline-table--excel"
+          rowClassName={(record) => `budget-monitoring__row budget-monitoring__row--${record.rowType}`}
         />
-
-        <div className="status-legend">
-          <Text strong style={{ marginRight: '8px' }}>Status Legend :</Text>
-          {legendItems.map((status) => (
-            <div key={status} className="status-legend-item">
-              <span className="status-dot" style={{ background: getStatusColor(status, true) }}></span>
-              {status}
-            </div>
-          ))}
-        </div>
       </div>
+
+      <Modal
+        open={isItemModalOpen}
+        title={itemModalMode === "edit" ? "Edit Budget Item" : "Add Budget Item"}
+        onCancel={closeItemModal}
+        onOk={handleItemSave}
+        okText={itemModalMode === "edit" ? "Update" : "Add"}
+        destroyOnClose
+      >
+        <Form form={itemForm} layout="vertical">
+          <Form.Item name="budgetYear" label="Budget Year" rules={[{ required: true }]}>
+            <Select
+              options={[
+                { label: "2025", value: "2025" },
+                { label: "2026", value: "2026" },
+                { label: "2027", value: "2027" },
+              ]}
+            />
+          </Form.Item>
+          <Form.Item name="budgetCode" label="Num Budget" rules={[{ required: true }]}>
+            <Input />
+          </Form.Item>
+          <Form.Item name="subject" label="Subject" rules={[{ required: true }]}>
+            <Input />
+          </Form.Item>
+          <Form.Item name="itemName" label="Nama Item" rules={[{ required: true }]}>
+            <Input />
+          </Form.Item>
+          <Form.Item name="budgetAmount" label="Budget (IDR)" rules={[{ required: true }]}>
+            <InputNumber style={{ width: "100%" }} min={0} />
+          </Form.Item>
+          <Form.Item name="poTime" label="PO Time" rules={[{ required: true }]}>
+            <DatePicker
+              picker="month"
+              format={MONTH_PICKER_FORMAT}
+              style={{ width: "100%" }}
+              allowClear={false}
+            />
+          </Form.Item>
+          <Form.Item name="allocation" label="Alokasi" rules={[{ required: true }]}>
+            <Select
+              options={[
+                { label: "Normal", value: "Normal" },
+                { label: "Urgent", value: "Urgent" },
+              ]}
+            />
+          </Form.Item>
+          <Form.Item name="currentStage" label="Stage Default" rules={[{ required: true }]}>
+            <Select disabled options={[{ label: "All", value: "All" }]} />
+          </Form.Item>
+        </Form>
+      </Modal>
+
+      <Modal
+        open={isModalOpen}
+        title={`Update Tanggal Stage ${editingRowType.toUpperCase()}`}
+        onCancel={closeUpdateModal}
+        onOk={handleUpdateSave}
+        okText="Simpan"
+        destroyOnClose
+        footer={(_, { OkBtn, CancelBtn }) => (
+          <Space>
+            <Button danger onClick={handleDeleteStageBlock}>
+              Delete {editingRowType.toUpperCase()}
+            </Button>
+            <CancelBtn />
+            <OkBtn />
+          </Space>
+        )}
+      >
+        <Form form={form} layout="vertical">
+          <Space style={{ width: "100%" }} size={16} align="start">
+            <Form.Item name="budgetYear" label="Budget Year" rules={[{ required: true }]} style={{ flex: 1 }}>
+              <Select
+                options={[
+                  { label: "2025", value: "2025" },
+                  { label: "2026", value: "2026" },
+                  { label: "2027", value: "2027" },
+                ]}
+              />
+            </Form.Item>
+            <Form.Item name="budgetAmount" label="Budget (IDR)" rules={[{ required: true }]} style={{ flex: 1 }}>
+              <InputNumber style={{ width: "100%" }} min={0} />
+            </Form.Item>
+          </Space>
+
+          <Space style={{ width: "100%" }} size={16} align="start">
+            <Form.Item name="currentStage" label="Stage Yang Ditampilkan" rules={[{ required: true }]} style={{ flex: 1 }}>
+              <Select options={STAGE_OPTIONS.map((stage) => ({ label: stage, value: stage }))} />
+            </Form.Item>
+            <Form.Item name="stageToEdit" label="Stage Yang Diupdate" rules={[{ required: true }]} style={{ flex: 1 }}>
+              <Select options={EDIT_STAGE_OPTIONS.map((stage) => ({ label: stage, value: stage }))} />
+            </Form.Item>
+          </Space>
+
+          {editingRowType !== "actual" && (
+            <>
+              <Text strong>Plan</Text>
+              <Space style={{ width: "100%", marginTop: 12 }} size={16} align="start">
+                <Form.Item name="planStartMonth" label="Start Month" style={{ flex: 1 }}>
+                  <Select options={monthGroups.map((group) => ({ label: group.label, value: `${group.year}-${String(group.monthNumber).padStart(2, "0")}` }))} />
+                </Form.Item>
+                <Form.Item name="planStartWeek" label="Start Week" style={{ flex: 1 }}>
+                  <Select options={["W1", "W2", "W3", "W4"].map((week) => ({ label: week, value: week }))} />
+                </Form.Item>
+              </Space>
+              <Space style={{ width: "100%" }} size={16} align="start">
+                <Form.Item name="planEndMonth" label="End Month" style={{ flex: 1 }}>
+                  <Select options={monthGroups.map((group) => ({ label: group.label, value: `${group.year}-${String(group.monthNumber).padStart(2, "0")}` }))} />
+                </Form.Item>
+                <Form.Item name="planEndWeek" label="End Week" style={{ flex: 1 }}>
+                  <Select options={["W1", "W2", "W3", "W4"].map((week) => ({ label: week, value: week }))} />
+                </Form.Item>
+              </Space>
+            </>
+          )}
+
+          {editingRowType !== "plan" && (
+            <>
+              <Text strong>Actual</Text>
+              <Space style={{ width: "100%", marginTop: 12 }} size={16} align="start">
+                <Form.Item name="actualStartMonth" label="Start Month" style={{ flex: 1 }}>
+                  <Select options={monthGroups.map((group) => ({ label: group.label, value: `${group.year}-${String(group.monthNumber).padStart(2, "0")}` }))} />
+                </Form.Item>
+                <Form.Item name="actualStartWeek" label="Start Week" style={{ flex: 1 }}>
+                  <Select options={["W1", "W2", "W3", "W4"].map((week) => ({ label: week, value: week }))} />
+                </Form.Item>
+              </Space>
+              <Space style={{ width: "100%" }} size={16} align="start">
+                <Form.Item name="actualEndMonth" label="End Month" style={{ flex: 1 }}>
+                  <Select options={monthGroups.map((group) => ({ label: group.label, value: `${group.year}-${String(group.monthNumber).padStart(2, "0")}` }))} />
+                </Form.Item>
+                <Form.Item name="actualEndWeek" label="End Week" style={{ flex: 1 }}>
+                  <Select options={["W1", "W2", "W3", "W4"].map((week) => ({ label: week, value: week }))} />
+                </Form.Item>
+              </Space>
+            </>
+          )}
+        </Form>
+      </Modal>
     </div>
   );
 }
