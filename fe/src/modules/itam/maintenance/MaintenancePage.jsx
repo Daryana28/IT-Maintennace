@@ -5,6 +5,8 @@ import StandardMaintenancePage from "./StandardMaintenance/StandardMaintenancePa
 import ScheduleWithCheckboxView from "./components/ScheduleWithCheckboxView";
 import MaintenanceLogSheetPage from "./MaintenanceLogSheetPage";
 import "./StandardMaintenance/StandardMaintenancePage.css";
+import "./MaintenanceSchedulePage.css";
+import standardMaintenanceService from "./services/standardMaintenanceService";
 
 const { Title } = Typography;
 
@@ -30,6 +32,41 @@ export default function MaintenancePage() {
   const tab = searchParams.get("tab") || defaultTab;
   const yearlyStandardId = searchParams.get("yearly_id");
 
+  React.useEffect(() => {
+    let cancelled = false;
+
+    const ensureYearlyStandardId = async () => {
+      if (yearlyStandardId) return;
+
+      try {
+        const years = await standardMaintenanceService.getYears();
+        if (cancelled || !Array.isArray(years) || years.length === 0) return;
+
+        const latestYear = [...years].sort((a, b) => {
+          const yearDiff = (b?.tahun || 0) - (a?.tahun || 0);
+          if (yearDiff !== 0) return yearDiff;
+          return (b?.id || 0) - (a?.id || 0);
+        })[0];
+
+        if (!latestYear?.id) return;
+
+        setSearchParams({
+          category,
+          tab,
+          yearly_id: String(latestYear.id),
+        });
+      } catch {
+        // Biarkan halaman tetap tampil; child component akan menampilkan error bila diperlukan.
+      }
+    };
+
+    ensureYearlyStandardId();
+
+    return () => {
+      cancelled = true;
+    };
+  }, [yearlyStandardId, category, tab, setSearchParams]);
+
   const handleCategoryChange = (key) => {
     setSearchParams({ category: key, tab, ...(yearlyStandardId ? { yearly_id: yearlyStandardId } : {}) });
   };
@@ -48,7 +85,7 @@ export default function MaintenancePage() {
   const tabItems = [
     { key: "standard", label: "Standard Maintenance" },
     { key: "schedule", label: "Schedule" },
-    { key: "abnormal", label: "Sheet Abnormal" }
+    { key: "abnormal", label: "Logsheet" }
   ];
 
   return (

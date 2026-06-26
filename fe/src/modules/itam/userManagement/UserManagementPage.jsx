@@ -11,8 +11,10 @@ import "./UserManagement.css";
 import userService from "./services/userService";
 import UserTable from "./components/UserTable";
 import UserFormModal from "./components/UserFormModal";
+import { usePageHeader } from "@/layouts/MainLayout/MainLayout";
 
 export default function UserManagementPage() {
+    const { setHeaderBreadcrumb, setHeaderTitle, setHeaderSubtitle } = usePageHeader() || {};
     const [data, setData] = useState([]);
     const [loading, setLoading] = useState(false);
     const [total, setTotal] = useState(0);
@@ -48,6 +50,12 @@ export default function UserManagementPage() {
     useEffect(() => {
         fetchData(1, pageSize, search);
     }, []);
+
+    useEffect(() => {
+        if (setHeaderBreadcrumb) setHeaderBreadcrumb("");
+        if (setHeaderTitle) setHeaderTitle("");
+        if (setHeaderSubtitle) setHeaderSubtitle("");
+    }, [setHeaderBreadcrumb, setHeaderTitle, setHeaderSubtitle]);
 
     const handleSearch = useCallback(
         (value) => {

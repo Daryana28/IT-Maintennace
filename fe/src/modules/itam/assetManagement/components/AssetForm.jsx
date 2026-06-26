@@ -8,8 +8,14 @@ import {
 
 import {
  Button,
+ Col,
+ DatePicker,
+ Divider,
  Drawer,
  Form,
+ Input,
+ Row,
+ Select,
  Space,
 } from "antd";
 
@@ -54,6 +60,7 @@ export default function AssetForm({
 }) {
  const [form] = Form.useForm();
  const [saving, setSaving] = useState(false);
+ const isSoftwareMode = routeGroup === "software-hardware";
 
  const lv1 = Form.useWatch("category_lv1", form);
  const mainType = Form.useWatch("main_type", form);
@@ -224,6 +231,25 @@ export default function AssetForm({
   [categoryMap]
  );
 
+ const buildCategoryLabelPath = useCallback(
+  (id) => {
+   if (!id) return "";
+
+   const names = [];
+   let current = categoryMap.get(String(id));
+
+   while (current) {
+    names.unshift(current.category_name);
+    current = current.parent_id
+     ? categoryMap.get(String(current.parent_id))
+     : null;
+   }
+
+   return names.join(" / ");
+  },
+  [categoryMap]
+ );
+
  useEffect(() => {
   if (!open || initialValues) return;
 
@@ -247,22 +273,29 @@ export default function AssetForm({
    });
   }
 
-  (async () => {
-   const code =
-    await assetService.getNextCode();
+  if (!isSoftwareMode) {
+   (async () => {
+    const code =
+     await assetService.getNextCode();
 
-   if (active) {
-    form.setFieldValue(
-     "asset_code",
-     code
-    );
-   }
-  })();
+    if (active) {
+     form.setFieldValue(
+      "asset_code",
+      code
+     );
+    }
+   })();
+  } else if (active) {
+   form.setFieldValue(
+    "asset_code",
+    ""
+   );
+  }
 
   return () => {
    active = false;
   };
- }, [open, initialValues, form, routeGroup, getRootCategoryIdByRoute, isWorkbookMode, defaultWorkbookCategoryId]);
+ }, [open, initialValues, form, routeGroup, getRootCategoryIdByRoute, isWorkbookMode, defaultWorkbookCategoryId, isSoftwareMode]);
 
  useEffect(() => {
   if (!open) return;
@@ -333,6 +366,10 @@ export default function AssetForm({
 
     await onSubmit({
      ...values,
+     serial_number:
+      isSoftwareMode
+       ? (values.serial_number || values.asset_code || "")
+       : values.serial_number,
      category_id:
       values.category_id ||
       values.category_lv2 ||
@@ -360,7 +397,7 @@ export default function AssetForm({
     setSaving(false);
    }
   },
-   [defaultWorkbookCategoryId, form, onSubmit, saving]
+   [defaultWorkbookCategoryId, form, onSubmit, saving, isSoftwareMode]
   );
 
  const rootOptions = useMemo(
@@ -382,6 +419,19 @@ export default function AssetForm({
   () => buildOptions(lv2),
   [buildOptions, lv2]
  );
+
+ const softwareTypeOptions = useMemo(() => {
+  const rootId = getRootCategoryIdByRoute(routeGroup);
+  if (!rootId) return [];
+
+  return categories
+   .filter((item) => String(item.category_id) !== String(rootId))
+   .filter((item) => buildCategoryPath(item.category_id).includes(rootId))
+   .map((item) => ({
+    value: Number(item.category_id),
+    label: buildCategoryLabelPath(item.category_id),
+   }));
+ }, [buildCategoryLabelPath, buildCategoryPath, categories, getRootCategoryIdByRoute, routeGroup]);
 
  return (
   <Drawer
@@ -414,38 +464,190 @@ export default function AssetForm({
     form={form}
     layout="vertical"
    >
-    <AssetInfoSection
-     form={form}
-     rootOptions={rootOptions}
-     mainTypeOptions={mainTypeOptions}
-     lv2Options={lv2Options}
-     lv3Options={lv3Options}
-     typeProfile={typeProfile}
-     workbookTabKey={workbookTabKey}
-    />
+    {isSoftwareMode ? (
+     <>
+      <Divider orientation="left">
+       Software Info
+      </Divider>
 
-    <UserSection
-     typeProfile={typeProfile}
-     workbookTabKey={workbookTabKey}
-    />
+      <Row gutter={16}>
+       <Col xs={24} md={12}>
+        <Form.Item
+         name="asset_code"
+         label="LICENSE NO"
+         rules={[{ required: true, message: "License No wajib diisi" }]}
+        >
+         <Input />
+        </Form.Item>
+       </Col>
 
-    <FinanceSection
-     typeProfile={typeProfile}
-     onPurchaseChange={
-      onPurchaseChange
-     }
-     workbookTabKey={workbookTabKey}
-    />
+       <Col xs={24} md={12}>
+        <Form.Item
+         name="asset_name"
+         label="DESCRIPTION"
+         rules={[{ required: true, message: "Description wajib diisi" }]}
+        >
+         <Input />
+        </Form.Item>
+       </Col>
 
-    <NetworkSection
-     typeProfile={typeProfile}
-     workbookTabKey={workbookTabKey}
-    />
+       <Col xs={24} md={12}>
+        <Form.Item
+         name="division"
+         label="FUNCTION"
+        >
+         <Input />
+        </Form.Item>
+       </Col>
 
-    {!isWorkbookMode && (
-     <ClassificationSection
-      typeProfile={typeProfile}
-     />
+       <Col xs={24} md={12}>
+        <Form.Item
+         name="department"
+         label="DEPT"
+        >
+         <Input />
+        </Form.Item>
+       </Col>
+
+       <Col xs={24} md={12}>
+        <Form.Item
+         name="category_id"
+         label="TYPE"
+         rules={[{ required: true, message: "Type wajib dipilih" }]}
+        >
+         <Select
+          showSearch
+          optionFilterProp="label"
+          options={softwareTypeOptions}
+         />
+        </Form.Item>
+       </Col>
+
+       <Col xs={24} md={12}>
+        <Form.Item
+         name="owner_name"
+         label="VENDOR"
+        >
+         <Input />
+        </Form.Item>
+       </Col>
+
+       <Col xs={24} md={12}>
+        <Form.Item
+         name="purchase_date"
+         label="PEMBELIAN"
+        >
+         <DatePicker
+          style={{ width: "100%" }}
+          onChange={onPurchaseChange}
+         />
+        </Form.Item>
+       </Col>
+
+       <Col xs={24} md={12}>
+        <Form.Item
+         name="depreciation_date"
+         label="NEXT RENEWAL (MM/YYYY)"
+        >
+         <DatePicker style={{ width: "100%" }} picker="month" format="MM/YYYY" />
+        </Form.Item>
+       </Col>
+
+       <Col xs={24} md={12}>
+        <Form.Item
+         name="status"
+         label="STATUS"
+         rules={[{ required: true, message: "Status wajib dipilih" }]}
+        >
+         <Select
+          options={[
+           { value: "ACTIVE", label: "ACTIVE" },
+           { value: "NON ACTIVE", label: "NON ACTIVE" },
+          ]}
+         />
+        </Form.Item>
+       </Col>
+      </Row>
+
+      <Divider orientation="left">
+       Additional Info
+      </Divider>
+
+      <Row gutter={16}>
+       <Col xs={24} md={12}>
+        <Form.Item
+         name="hostname"
+         label="HOSTNAME / CLIENT"
+        >
+         <Input />
+        </Form.Item>
+       </Col>
+
+       <Col xs={24} md={12}>
+        <Form.Item
+         name="ip_main"
+         label="IP MAIN / URL"
+        >
+         <Input />
+        </Form.Item>
+       </Col>
+
+       <Col xs={24} md={12}>
+        <Form.Item
+         name="ip_backup"
+         label="IP BACKUP / BACKUP"
+        >
+         <Input />
+        </Form.Item>
+       </Col>
+
+       <Col xs={24} md={12}>
+        <Form.Item
+         name="serial_number"
+         label="SERIAL / LICENSE NUMBER"
+         extra="Jika kosong, otomatis mengikuti LICENSE NO."
+        >
+         <Input />
+        </Form.Item>
+       </Col>
+      </Row>
+     </>
+    ) : (
+     <>
+      <AssetInfoSection
+       form={form}
+       rootOptions={rootOptions}
+       mainTypeOptions={mainTypeOptions}
+       lv2Options={lv2Options}
+       lv3Options={lv3Options}
+       typeProfile={typeProfile}
+       workbookTabKey={workbookTabKey}
+      />
+
+      <UserSection
+       typeProfile={typeProfile}
+       workbookTabKey={workbookTabKey}
+      />
+
+      <FinanceSection
+       typeProfile={typeProfile}
+       onPurchaseChange={
+        onPurchaseChange
+       }
+       workbookTabKey={workbookTabKey}
+      />
+
+      <NetworkSection
+       typeProfile={typeProfile}
+       workbookTabKey={workbookTabKey}
+      />
+
+      {!isWorkbookMode && (
+       <ClassificationSection
+        typeProfile={typeProfile}
+       />
+      )}
+     </>
     )}
    </Form>
   </Drawer>

@@ -29,13 +29,23 @@ export default function ScheduleWithCheckboxView({ overrideCategory, overrideYea
     try {
       const years = await standardMaintenanceService.getYears();
       if (years && years.length > 0) {
-        setAvailableYears(years.map(y => y.tahun));
+        const uniqueYears = [...new Set(years.map(y => y.tahun))];
+        setAvailableYears(uniqueYears);
+
+        if (overrideYearlyId) {
+          const activeYear = years.find((item) => String(item.id) === String(overrideYearlyId));
+          if (activeYear?.tahun) {
+            setSelectedYear(activeYear.tahun);
+            return;
+          }
+        }
+
         // Default to latest year if current not found
         const currentYear = dayjs().year();
-        if (years.some(y => y.tahun === currentYear)) {
+        if (uniqueYears.includes(currentYear)) {
           setSelectedYear(currentYear);
         } else {
-          setSelectedYear(years[0].tahun);
+          setSelectedYear(uniqueYears[0]);
         }
       } else {
         setAvailableYears([dayjs().year()]);
@@ -50,14 +60,19 @@ export default function ScheduleWithCheckboxView({ overrideCategory, overrideYea
   const loadMatrixData = useCallback(async () => {
     try {
       setLoading(true);
-      const data = await maintenanceScheduleService.getMonthlyView(selectedYear, selectedMonth, overrideCategory);
+      const data = await maintenanceScheduleService.getMonthlyView(
+        selectedYear,
+        selectedMonth,
+        overrideCategory,
+        overrideYearlyId
+      );
       setMatrixData(data || []);
     } catch (err) {
       console.error("Gagal memuat data matrix schedule", err);
     } finally {
       setLoading(false);
     }
-  }, [selectedYear, selectedMonth, overrideCategory]);
+  }, [selectedYear, selectedMonth, overrideCategory, overrideYearlyId]);
 
   useEffect(() => {
     fetchYears();
@@ -220,7 +235,7 @@ export default function ScheduleWithCheckboxView({ overrideCategory, overrideYea
       render: (_, __, idx) => idx + 1
     },
     {
-      title: "Ktg",
+      title: "Kategori",
       dataIndex: "subKategori",
       key: "subKategori",
       width: 100,
@@ -244,7 +259,7 @@ export default function ScheduleWithCheckboxView({ overrideCategory, overrideYea
       render: (val) => val || "-"
     },
     {
-      title: "Sub Pk",
+      title: "Sub Perangkat",
       dataIndex: "subPerangkat",
       key: "subPerangkat",
       width: 110,
@@ -256,33 +271,12 @@ export default function ScheduleWithCheckboxView({ overrideCategory, overrideYea
       render: (val) => val || "-"
     },
     {
-      title: "Aset",
-      key: "asset",
-      width: 150,
-      fixed: "left",
-      onCell: (record, idx) => ({
-        rowSpan: getRowSpan(matrixData, record, idx, "asset", ["subKategori", "namaPerangkat", "subPerangkat"]),
-        style: { verticalAlign: "top", background: "#fff" }
-      }),
-      render: (_, record) => {
-        const hostname = record.asset?.hostname;
-        const name = record.asset?.nama_asset;
-        const code = record.asset?.asset_code;
-        return (
-          <div>
-            <Text strong>{hostname && hostname !== "-" ? hostname : name || "-"}</Text>
-            {code && code !== "-" && <div style={{ fontSize: "11px", color: "#64748b" }}>{code}</div>}
-          </div>
-        );
-      }
-    },
-    {
       title: "Fungsi",
       dataIndex: "fungsi",
       key: "fungsi",
       width: 130,
       onCell: (record, idx) => ({
-        rowSpan: getRowSpan(matrixData, record, idx, "fungsi", ["subKategori", "namaPerangkat", "subPerangkat", "asset"]),
+        rowSpan: getRowSpan(matrixData, record, idx, "fungsi", ["subKategori", "namaPerangkat", "subPerangkat"]),
         style: { verticalAlign: "top", background: "#fff" }
       })
     },
@@ -292,7 +286,7 @@ export default function ScheduleWithCheckboxView({ overrideCategory, overrideYea
       key: "deskripsi",
       width: 150,
       onCell: (record, idx) => ({
-        rowSpan: getRowSpan(matrixData, record, idx, "deskripsi", ["subKategori", "namaPerangkat", "subPerangkat", "asset", "fungsi"]),
+        rowSpan: getRowSpan(matrixData, record, idx, "deskripsi", ["subKategori", "namaPerangkat", "subPerangkat", "fungsi"]),
         style: { verticalAlign: "top", background: "#fff" }
       })
     },

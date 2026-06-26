@@ -16,6 +16,29 @@ const ROUTE_GROUP_CATEGORY_NAMES = {
   "cyber-security": "Cyber Security",
 };
 
+const CANONICAL_ROOT_NAMES = new Set(
+  Object.values(ROUTE_GROUP_CATEGORY_NAMES).map((value) => value.toLowerCase())
+);
+
+function findScopedRoot(categories = [], routeGroup = "") {
+  const targetName = ROUTE_GROUP_CATEGORY_NAMES[routeGroup];
+
+  if (!targetName) return null;
+
+  const normalizedTargetName = targetName.toLowerCase();
+  return (
+    categories.find(
+      (item) =>
+        !item.parent_id &&
+        (item.category_name || "").toLowerCase() === normalizedTargetName
+    ) ||
+    categories.find(
+      (item) => (item.category_name || "").toLowerCase() === normalizedTargetName
+    ) ||
+    null
+  );
+}
+
 const ROUTE_ACTION_LABELS = {
   list: "All",
   schedule: "Schedule",
@@ -32,38 +55,64 @@ export function getAssetRouteGroup(pathname = "") {
 }
 
 export function getScopedCategoryIds(categories = [], routeGroup = "") {
-  const targetName = ROUTE_GROUP_CATEGORY_NAMES[routeGroup];
-
-  if (!targetName) return "";
-
-  const root = categories.find(
-    (item) => (item.category_name || "").toLowerCase() === targetName.toLowerCase()
-  );
+  const root = findScopedRoot(categories, routeGroup);
 
   if (!root) return "";
 
   const ids = [];
-  const visit = (parentId) => {
-    ids.push(String(parentId));
+  const visit = (node) => {
+    if (!node) return;
+
+    const nodeName = String(node.category_name || "").toLowerCase();
+    if (node.category_id !== root.category_id && CANONICAL_ROOT_NAMES.has(nodeName)) {
+      return;
+    }
+
+    ids.push(String(node.category_id));
     categories
-      .filter((item) => String(item.parent_id || "") === String(parentId))
-      .forEach((child) => visit(child.category_id));
+      .filter((item) => String(item.parent_id || "") === String(node.category_id))
+      .forEach((child) => visit(child));
   };
 
-  visit(root.category_id);
+  visit(root);
   return ids.join(",");
 }
 
 export function getScopedRootCategoryId(categories = [], routeGroup = "") {
-  const targetName = ROUTE_GROUP_CATEGORY_NAMES[routeGroup];
-
-  if (!targetName) return "";
-
-  const root = categories.find(
-    (item) => (item.category_name || "").toLowerCase() === targetName.toLowerCase()
-  );
+  const root = findScopedRoot(categories, routeGroup);
 
   return root ? String(root.category_id) : "";
+}
+
+export function assetBelongsToRouteGroup(row = {}, categories = [], routeGroup = "") {
+  const root = findScopedRoot(categories, routeGroup);
+  if (!root) return true;
+
+  const categoryId = row?.category_id || row?.category?.category_id;
+  if (!categoryId) return false;
+
+  const categoryMap = new Map(
+    categories.map((item) => [String(item.category_id), item])
+  );
+
+  let current = categoryMap.get(String(categoryId));
+  while (current) {
+    const currentName = String(current.category_name || "").toLowerCase();
+
+    if (String(current.category_id) === String(root.category_id)) {
+      return true;
+    }
+
+    if (CANONICAL_ROOT_NAMES.has(currentName)) {
+      return false;
+    }
+
+    current = current.parent_id
+      ? categoryMap.get(String(current.parent_id))
+      : null;
+  }
+
+  return false;
 }
 
 export function getAssetRouteGroupLabel(routeGroup = "") {

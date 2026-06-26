@@ -25,14 +25,14 @@ const HARDWARE_WORKBOOK_TABS = [
     label: "SCANNER",
     typeCode: "SCANNER",
     exportType: "SCANNER",
-    aliases: ["scanner", "scanners"],
+    aliases: ["scanner", "scanners", "barcode scanner", "bht"],
   },
   {
     key: "accessdoor",
     label: "ACCESSDOOR",
     typeCode: "ACCESSDOOR",
     exportType: "ACCES DOOR",
-    aliases: ["acces door", "access door", "reader", "fingerprint", "face attendance", "suprema"],
+    aliases: ["accessdoor", "acces door", "access door", "reader", "fingerprint", "face attendance", "suprema"],
   },
   {
     key: "lainnya",
@@ -76,6 +76,11 @@ function normalizeValue(value = "") {
   return String(value).trim().toLowerCase();
 }
 
+export function getWorkbookTabAliases(routeGroup = "", tabKey = "") {
+  const tabs = getAssetWorkbookTabs(routeGroup);
+  return tabs.find((tab) => tab.key === tabKey)?.aliases || [];
+}
+
 function buildCategoryPathNames(categoryId, categoryMap) {
   const names = [];
   let current = categoryMap.get(String(categoryId ?? ""));
@@ -116,6 +121,10 @@ export function matchAssetToWorkbookTab(row, categories = [], routeGroup = "") {
   );
 
   const valuesToCheck = [
+    row?.TYPE,
+    row?.type,
+    row?.type_code,
+    row?.["TYPE CODE"],
     row?.category?.category_name,
     row?.asset_name,
     row?.hostname,
@@ -211,20 +220,48 @@ export function resolveImportCategory(categories = [], row = {}, routeGroup = ""
   const normalizedTypeCode = normalizeValue(row.type_code || row["TYPE CODE"] || "");
 
   const categoryRows = Array.isArray(categories) ? categories : [];
+  const scopedCategoryIds = getScopedCategoryIds(categoryRows, routeGroup)
+    .split(",")
+    .map((id) => String(id).trim())
+    .filter(Boolean);
   const routeScopedIds = new Set(
-    (getWorkbookTabCategoryIds(categoryRows, routeGroup, "pc").length ||
-    getWorkbookTabCategoryIds(categoryRows, routeGroup, "cctv").length ||
-    getWorkbookTabCategoryIds(categoryRows, routeGroup, "gathering").length ||
-    getWorkbookTabCategoryIds(categoryRows, routeGroup, "scanner").length ||
-    getWorkbookTabCategoryIds(categoryRows, routeGroup, "accessdoor").length ||
-    getWorkbookTabCategoryIds(categoryRows, routeGroup, "lainnya").length)
-      ? categoryRows.map((item) => String(item.category_id))
+    scopedCategoryIds.length
+      ? scopedCategoryIds
       : categoryRows.map((item) => String(item.category_id))
   );
 
-  const scopedCategories = routeGroup
-    ? categoryRows.filter((item) => routeScopedIds.has(String(item.category_id)))
-    : categoryRows;
+  const scopedCategories = categoryRows.filter((item) =>
+    routeScopedIds.has(String(item.category_id))
+  );
+
+  if (normalizeValue(routeGroup) === "software-hardware") {
+    const rootSoftwareCategory = scopedCategories.find(
+      (item) => normalizeValue(item.category_name) === "software hardware"
+    );
+
+    const directSoftwareMatch = scopedCategories.find((item) => {
+      const categoryName = normalizeValue(item.category_name);
+      return (
+        categoryName === normalizedType ||
+        categoryName === normalizedTypeCode ||
+        categoryName === normalizedSheet
+      );
+    });
+
+    if (directSoftwareMatch) {
+      return {
+        category_id: directSoftwareMatch.category_id,
+        category_name: directSoftwareMatch.category_name,
+      };
+    }
+
+    if (rootSoftwareCategory) {
+      return {
+        category_id: rootSoftwareCategory.category_id,
+        category_name: rootSoftwareCategory.category_name,
+      };
+    }
+  }
 
   const candidates = [
     {
@@ -301,3 +338,4 @@ export function resolveImportCategory(categories = [], row = {}, routeGroup = ""
     category_name: "",
   };
 }
+import { getScopedCategoryIds } from "./routeCategoryScope";

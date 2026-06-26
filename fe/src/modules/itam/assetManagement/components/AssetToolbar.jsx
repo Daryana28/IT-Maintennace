@@ -12,6 +12,7 @@ export default function AssetToolbar({
  onImport,
  onExport,
  onPrintLabels,
+ showPrintLabels = true,
  onDeleteAll,
  deleteAllLabel = "Delete All",
 }) {
@@ -38,12 +39,14 @@ export default function AssetToolbar({
     Export Excel
    </Button>
 
-   <Button
-    icon={<PrinterOutlined />}
-    onClick={onPrintLabels}
-   >
-    Cetak Label
-   </Button>
+   {showPrintLabels && onPrintLabels && (
+    <Button
+     icon={<PrinterOutlined />}
+     onClick={onPrintLabels}
+    >
+     Cetak Label
+    </Button>
+   )}
 
    {onDeleteAll && (
     <Popconfirm

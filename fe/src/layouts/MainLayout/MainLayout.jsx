@@ -44,7 +44,7 @@ function MainLayout({ children }) {
 
   // First-time login / password reset redirect guard
   useEffect(() => {
-    if (user?.must_change_password && location.pathname !== "/itam/account/profile") {
+    if (Boolean(user?.must_change_password) && location.pathname !== "/itam/account/profile") {
       navigate("/itam/account/profile", { replace: true });
     }
   }, [user, location.pathname, navigate]);
@@ -94,7 +94,7 @@ function MainLayout({ children }) {
               </div>
             )}
             
-            {user?.must_change_password && (
+            {Boolean(user?.must_change_password) && (
               <div style={{ margin: "0 0 20px 0" }}>
                 <Alert
                   message="Ganti Password Wajib"

@@ -8,7 +8,11 @@ const unwrap = (res, fallback = null) => {
 };
 
 async function generateSchedule(yearly_standard_id) {
-  const res = await apiClient.post(`${BASE_URL}/generate`, { yearly_standard_id });
+  const res = await apiClient.post(
+    `${BASE_URL}/generate`,
+    { yearly_standard_id },
+    { timeout: 10 * 60 * 1000 }
+  );
   return res.data;
 }
 
@@ -34,9 +38,10 @@ async function cancelSchedule(id, reason = "") {
 }
 
 
-async function getMonthlyView(year, month, category) {
+async function getMonthlyView(year, month, category, yearly_standard_id) {
   const params = { year, month };
   if (category) params.category = category;
+  if (yearly_standard_id) params.yearly_standard_id = yearly_standard_id;
   const res = await apiClient.get(`${BASE_URL}/monthly-view`, { params });
   return unwrap(res, []);
 }

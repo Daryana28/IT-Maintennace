@@ -119,8 +119,15 @@ export default async function (
   };
 
   const allCategories = await AssetCategory.findAll({
-   attributes: ["category_id", "category_name"],
+   attributes: ["category_id", "category_name", "parent_id", "level_no"],
   });
+
+  const findRootCategory = (rootName) =>
+   allCategories.find(
+    (category) =>
+     !category.parent_id &&
+     normalizeValue(category.category_name) === normalizeValue(rootName)
+   );
 
   const resolveCategoryId = (rawTypeValue) => {
    const normalizedType = normalizeValue(rawTypeValue);
@@ -257,13 +264,28 @@ export default async function (
     return existingCategory.category_id;
    }
 
+   const normalizedTypeCode = String(rawTypeCode || "").trim().toUpperCase();
+   const hardwareTypeCodes = new Set([
+    "PC",
+    "CCTV",
+    "GATHERING",
+    "SCANNER",
+    "ACCESSDOOR",
+    "LAINNYA",
+   ]);
+   const hardwareRoot = findRootCategory("Hardware");
+   const softwareHardwareRoot = findRootCategory("Software Hardware");
+   const parentCategory = hardwareTypeCodes.has(normalizedTypeCode)
+    ? hardwareRoot
+    : softwareHardwareRoot;
+
    const createdCategory = await AssetCategory.create(
     {
      category_name: desiredCategoryName,
      category_code: `CAT-${Date.now()}`,
-     parent_id: null,
-     show_in_tabs: true,
-     level_no: 2,
+     parent_id: parentCategory?.category_id || null,
+     show_in_tabs: !parentCategory,
+     level_no: parentCategory ? Number(parentCategory.level_no || 1) + 1 : 2,
      sort_no: 0,
      is_active: true,
      created_at: new Date(),
@@ -276,6 +298,8 @@ export default async function (
    allCategories.push({
     category_id: createdCategory.category_id,
     category_name: createdCategory.category_name,
+    parent_id: createdCategory.parent_id,
+    level_no: createdCategory.level_no,
    });
 
    return createdCategory.category_id;

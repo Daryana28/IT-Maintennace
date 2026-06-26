@@ -13,17 +13,17 @@ export default function MaintenanceLogSheetPage({ overrideCategory }) {
   const category = overrideCategory; 
 
   const titleMap = {
-    hardware: "Hardware Logsheet Abnormal",
-    "software-hardware": "Software Logsheet Abnormal",
-    application: "Application Logsheet Abnormal",
-    network: "Network Logsheet Abnormal",
-    networking: "Networking Logsheet Abnormal",
-    software: "Application Logsheet Abnormal",
-    cyber: "Cyber Logsheet Abnormal",
-    "cyber-security": "Cyber Security Logsheet Abnormal",
-    "network-cyber": "Network & Cyber Logsheet Abnormal",
+    hardware: "Hardware Logsheet",
+    "software-hardware": "Software Logsheet",
+    application: "Application Logsheet",
+    network: "Network Logsheet",
+    networking: "Networking Logsheet",
+    software: "Application Logsheet",
+    cyber: "Cyber Logsheet",
+    "cyber-security": "Cyber Security Logsheet",
+    "network-cyber": "Network & Cyber Logsheet",
   };
-  const title = titleMap[category] || "Logsheet Abnormal";
+  const title = titleMap[category] || "Logsheet";
 
   const [logSheets, setLogSheets] = useState([]);
   const [loading, setLoading] = useState(false);

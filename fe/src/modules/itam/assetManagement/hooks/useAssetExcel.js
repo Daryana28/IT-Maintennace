@@ -487,7 +487,11 @@ function resolveImportTypeCode(typeCodeValue = "", sheetName = "") {
   return SHEET_TYPE_CODE_MAP[normalizedSheetName] || "";
 }
 
-function normalizeExcelDate(value) {
+function normalizeExcelDate(value, options = {}) {
+  const {
+    yearOnlyAsFirstDay = false,
+  } = options;
+
   if (value === null || value === undefined || value === "") return "";
 
   if (value instanceof Date && !Number.isNaN(value.getTime())) {
@@ -509,6 +513,12 @@ function normalizeExcelDate(value) {
   if (/^\d{1,2}\/\d{4}$/.test(raw)) {
     const [month, year] = raw.split("/");
     return `${String(year).padStart(4, "0")}-${String(month).padStart(2, "0")}-01`;
+  }
+
+  if (/^\d{4}$/.test(raw)) {
+    return yearOnlyAsFirstDay
+      ? `${raw}-01-01`
+      : raw;
   }
 
   if (/^\d+(\.\d+)?$/.test(raw)) {
@@ -819,8 +829,8 @@ export default function useAssetExcel() {
           nik: row.nik || row.NIK,
           qty: quantity || "",
           serial_number: row.serial_number || licenseNo || assetCode,
-          last_renew: normalizeExcelDate(lastRenew),
-          purchase_date: normalizeExcelDate(purchaseDate),
+          last_renew: normalizeExcelDate(lastRenew, { yearOnlyAsFirstDay: true }),
+          purchase_date: normalizeExcelDate(purchaseDate, { yearOnlyAsFirstDay: true }),
           depreciation_date: normalizeExcelDate(depreciationDate),
           hostname,
           ip_main: row.ip_main || row["IP ADDRESS MAIN"],

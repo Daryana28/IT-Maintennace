@@ -156,6 +156,8 @@ export default function ImportTab({ overrideCategory, yearlyStandardId, onImport
         yearly_standard_id: yearlyStandardId,
         kategori: apiCategory,
         checks: checksList
+      }, {
+        timeout: 10 * 60 * 1000
       });
 
       if (response.data.success) {
@@ -168,7 +170,7 @@ export default function ImportTab({ overrideCategory, yearlyStandardId, onImport
       }
     } catch (error) {
       console.error(error);
-      message.error(error.response?.data?.message || 'Terjadi kesalahan saat men-generate schedule');
+      message.error(error?.message || error?.response?.data?.message || 'Terjadi kesalahan saat men-generate schedule');
     } finally {
       setUploading(false);
     }
@@ -226,6 +228,7 @@ export default function ImportTab({ overrideCategory, yearlyStandardId, onImport
         initialChecks={parsedChecks}
         year={targetYear}
         categoryName={apiCategory}
+        loading={uploading}
         onSave={handleSaveAndGenerate}
         onCancel={handleCancelPreview}
       />

@@ -71,9 +71,9 @@ function buildTimelineMarkers(record, year, month) {
 
  if (purchase && purchase.year === year && purchase.month === month) {
   markers.push({
-   type: depreciation ? "replace" : "new",
+   type: "replace",
    date: purchase.value,
-   label: depreciation ? "Replace" : "New",
+   label: "Replace",
   });
  }
 
@@ -123,7 +123,13 @@ function createPlanColumns(onDepreciationClick, startYear, endYear) {
          <button
           type="button"
           className="asset-plan-marker-cell"
-          onClick={() => onDepreciationClick && onDepreciationClick(record)}
+          onClick={() =>
+            onDepreciationClick &&
+            onDepreciationClick(record, markers, {
+              year,
+              month: i + 1,
+            })
+          }
          >
           {markers.map((marker, markerIndex) => (
            <span
@@ -166,6 +172,7 @@ function AssetTable({
  onHeaderFilterChange,
  hideActionColumn,
  hideIpAndStatus,
+ hideStatusColumn,
  contextRouteGroup = "",
  statusOptions,
  showTimelineLegend = false,
@@ -375,6 +382,10 @@ function AssetTable({
   width: 150,
   render: (_, record) => {
    if (record?.__isEmpty) return "";
+   if (isSoftwareRoute) {
+    return record.type || record.TYPE || record.category?.category_name || "-";
+   }
+
    return record.type || record.TYPE || record.asset_name || record.category?.category_name || "-";
   },
  };
@@ -450,7 +461,7 @@ function AssetTable({
     width: 150,
    });
 
- const statusColumn = !hideIpAndStatus && ({
+ const statusColumn = !hideIpAndStatus && !hideStatusColumn && ({
     title: renderHeaderSelect(
       isGatheringWorkbookTab ? gatheringLabels.status : "STATUS",
       headerFilters.status || "",
@@ -607,7 +618,7 @@ function AssetTable({
  return (
   <>
    {showTimelineLegend && !hidePlanColumns && (
-    <div className="asset-plan-legend" aria-label="Timeline legend">
+   <div className="asset-plan-legend" aria-label="Timeline legend">
      <span className="asset-plan-legend__item">
       <span className="asset-plan-marker asset-plan-marker--planning" />
       <span>: Planing</span>
@@ -615,10 +626,6 @@ function AssetTable({
      <span className="asset-plan-legend__item">
       <span className="asset-plan-marker asset-plan-marker--replace" />
       <span>: Replace</span>
-     </span>
-     <span className="asset-plan-legend__item">
-      <span className="asset-plan-marker asset-plan-marker--new" />
-      <span>: New</span>
      </span>
     </div>
    )}

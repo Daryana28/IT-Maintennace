@@ -1,30 +1,54 @@
 import React, { useEffect } from "react";
-import { Modal, Form, Input, DatePicker, message, Select } from "antd";
+import { Modal, Form, Input, message } from "antd";
+import dayjs from "dayjs";
+import assetService from "../services/assetService";
 
-export default function AssetReplacementModal({ open, asset, onCancel, onSuccess }) {
+export default function AssetReplacementModal({
+  open,
+  asset,
+  replacementDate,
+  onCancel,
+  onSuccess,
+}) {
   const [form] = Form.useForm();
 
   useEffect(() => {
     if (open && asset) {
+      const effectiveReplacementDate =
+        replacementDate ||
+        asset.depreciation_date ||
+        dayjs().format("YYYY-MM-DD");
+
       form.setFieldsValue({
         asset_code: asset.asset_code,
         asset_name: asset.asset_name,
+        replacement_date: effectiveReplacementDate,
       });
     } else {
       form.resetFields();
     }
-  }, [open, asset, form]);
+  }, [open, asset, replacementDate, form]);
 
   const handleSubmit = async () => {
     try {
       const values = await form.validateFields();
-      // Placeholder untuk integrasi API
-      console.log("Replacement payload:", { asset_id: asset?.asset_id, ...values });
-      message.success("Pengajuan replacement berhasil disimpan.");
-      if (onSuccess) onSuccess();
-      onCancel();
+      await assetService.replace(asset?.asset_id, {
+        new_asset_code: values.new_asset_code,
+        replacement_date: values.replacement_date,
+        new_hostname: values.new_hostname || null,
+        new_ip_main: values.new_ip_main || null,
+        new_ip_backup: values.new_ip_backup || null,
+        reason: values.reason || null,
+      });
+      message.success("Replacement asset berhasil disimpan.");
+      if (onSuccess) {
+        await onSuccess();
+      } else {
+        onCancel();
+      }
     } catch (error) {
-      // Form validation error
+      if (error?.errorFields) return;
+      message.error(error?.response?.data?.message || error?.message || "Gagal menyimpan replacement");
     }
   };
 
@@ -46,22 +70,36 @@ export default function AssetReplacementModal({ open, asset, onCancel, onSuccess
           <Input disabled />
         </Form.Item>
         <Form.Item 
-          label="Budget Code (Anggaran Aset)" 
-          name="budget_code"
-          rules={[{ required: true, message: "Pilih budget code untuk replacement ini" }]}
+          label="Tanggal Replace"
+          name="replacement_date"
+          extra="Tanggal ini otomatis mengikuti sel timeline yang Anda pilih."
         >
-          <Select placeholder="Pilih Budget Code">
-            <Select.Option value="OP-2026-001">OP-2026-001 - Microsoft 365</Select.Option>
-            <Select.Option value="OP-2026-002">OP-2026-002 - AWS Hosting</Select.Option>
-            <Select.Option value="OP-2026-003">OP-2026-003 - Internet ISP</Select.Option>
-          </Select>
+          <Input disabled />
         </Form.Item>
         <Form.Item 
-          label="Tanggal Replacement" 
-          name="replacement_date"
-          rules={[{ required: true, message: "Pilih tanggal replacement" }]}
+          label="No Asset Baru" 
+          name="new_asset_code"
+          rules={[{ required: true, message: "Masukkan no asset baru" }]}
         >
-          <DatePicker style={{ width: "100%" }} format="YYYY-MM-DD" />
+          <Input placeholder="Contoh: FI-00999" />
+        </Form.Item>
+        <Form.Item 
+          label="Hostname Baru" 
+          name="new_hostname"
+        >
+          <Input placeholder="Opsional" />
+        </Form.Item>
+        <Form.Item 
+          label="IP Main Baru" 
+          name="new_ip_main"
+        >
+          <Input placeholder="Opsional" />
+        </Form.Item>
+        <Form.Item 
+          label="IP Backup Baru" 
+          name="new_ip_backup"
+        >
+          <Input placeholder="Opsional" />
         </Form.Item>
         <Form.Item 
           label="Alasan Replacement" 

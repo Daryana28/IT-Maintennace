@@ -1,9 +1,10 @@
-import { useState, useCallback, useEffect } from "react";
+import { useState, useCallback, useEffect, useMemo } from "react";
 import { useLocation, useNavigate } from "react-router-dom";
-import { Card, Space, Button, message, Flex, Modal, Tabs } from "antd";
+import { Card, Space, Button, message, Flex, Modal, Tabs, Form, Select } from "antd";
 import { PlusOutlined, ReloadOutlined } from "@ant-design/icons";
 import { encodePath } from "@/shared/utils/routeCipher";
 import { usePageHeader } from "@/layouts/MainLayout/MainLayout";
+import dayjs from "dayjs";
 
 import AssetTable from "./components/AssetTable";
 import AssetForm from "./components/AssetForm";
@@ -23,12 +24,12 @@ import {
   getAssetRouteActionLabel,
   getAssetRouteGroup,
   getAssetRouteGroupLabel,
+  assetBelongsToRouteGroup,
   getScopedCategoryIds,
 } from "./utils/routeCategoryScope";
 import {
   getAssetWorkbookTabs,
   getWorkbookTabCategoryIds,
-  matchAssetToWorkbookTab,
   resolveImportCategory,
 } from "./utils/assetWorkbookTabs";
 
@@ -73,15 +74,22 @@ export default function ListAssetPage() {
   const [multiOpen, setMultiOpen] = useState(false);
   const [replaceOpen, setReplaceOpen] = useState(false);
   const [replaceAsset, setReplaceAsset] = useState(null);
+  const [replaceDate, setReplaceDate] = useState("");
+  const [timelineModalOpen, setTimelineModalOpen] = useState(false);
+  const [timelineSaving, setTimelineSaving] = useState(false);
+  const [timelineContext, setTimelineContext] = useState(null);
   const [activeWorkbookTab, setActiveWorkbookTab] = useState("");
+  const [timelineForm] = Form.useForm();
   const routeGroup = getAssetRouteGroup(location.pathname);
   const isSoftwareRoute = routeGroup === "software-hardware";
   const workbookTabs = getAssetWorkbookTabs(routeGroup);
+  const routeScopedRows = useMemo(
+    () => rows.filter((row) => assetBelongsToRouteGroup(row, categories, routeGroup)),
+    [rows, categories, routeGroup]
+  );
   const displayedRows = workbookTabs.length > 0 && activeWorkbookTab
-    ? rows.filter(
-        (row) => matchAssetToWorkbookTab(row, categories, routeGroup) === activeWorkbookTab
-      )
-    : rows;
+    ? rows
+    : routeScopedRows;
   const activeTabDefaultCategoryId = activeWorkbookTab
     ? (
       getWorkbookTabCategoryIds(categories, routeGroup, activeWorkbookTab)[0] ||
@@ -93,8 +101,15 @@ export default function ListAssetPage() {
 
   const handleReplace = useCallback((row) => {
     setReplaceAsset(row);
+    setReplaceDate(row?.depreciation_date || dayjs().format("YYYY-MM-DD"));
     setReplaceOpen(true);
   }, []);
+
+  const closeTimelineModal = useCallback(() => {
+    setTimelineModalOpen(false);
+    setTimelineContext(null);
+    timelineForm.resetFields();
+  }, [timelineForm]);
 
   const buildFilters = useCallback(
     (override = {}) => {
@@ -111,6 +126,9 @@ export default function ListAssetPage() {
         ...headerFilters,
         ...(resolvedCategoryId
           ? { category_id: resolvedCategoryId }
+          : {}),
+        ...(activeWorkbookTab
+          ? { workbook_tab: activeWorkbookTab }
           : {}),
         exclude_status: "DISPOSE,DISPOSED",
         sort_by: "purchase_date",
@@ -131,22 +149,60 @@ export default function ListAssetPage() {
     setQrOpen(true);
   }, []);
 
-  const handleDepreciationClick = useCallback((record) => {
-    Modal.info({
-      title: "Informasi Depresiasi",
-      content: (
-        <div style={{ marginTop: 16 }}>
-          <p style={{ margin: '4px 0' }}><strong>No Asset:</strong> {record.asset_code}</p>
-          <p style={{ margin: '4px 0' }}><strong>Hostname:</strong> {record.hostname}</p>
-          <p style={{ margin: '4px 0' }}><strong>Nama Aset:</strong> {record.asset_name}</p>
-          <p style={{ margin: '4px 0' }}><strong>Tgl Pembelian:</strong> {record.purchase_date || '-'}</p>
-          <p style={{ margin: '4px 0' }}><strong>Tgl Disposal:</strong> {record.depreciation_date}</p>
-        </div>
-      ),
-      okText: "Tutup",
-      maskClosable: true,
+  const handleDepreciationClick = useCallback((record, markers = [], cell = {}) => {
+    const defaultStatus = markers.some((marker) => marker.type === "replace")
+      ? "replace"
+      : "planning";
+
+    setTimelineContext({
+      record,
+      markers,
+      year: cell.year,
+      month: cell.month,
     });
-  }, []);
+
+    timelineForm.setFieldsValue({
+      target_status: defaultStatus,
+    });
+
+    setTimelineModalOpen(true);
+  }, [timelineForm]);
+
+  const handleTimelineSubmit = useCallback(async () => {
+    if (!timelineContext?.record?.asset_id) return;
+
+    const { target_status: targetStatus } = await timelineForm.validateFields();
+    const targetDate = dayjs(`${timelineContext.year}-${String(timelineContext.month).padStart(2, "0")}-01`);
+
+    if (targetStatus === "replace") {
+      setReplaceAsset(timelineContext.record);
+      setReplaceDate(targetDate.format("YYYY-MM-DD"));
+      setReplaceOpen(true);
+      setTimelineModalOpen(false);
+      return;
+    }
+
+    const payload = {};
+    if (targetStatus === "planning") {
+      payload.depreciation_date = targetDate.format("YYYY-MM-DD");
+      payload.status = "ACTIVE";
+    }
+
+    setTimelineSaving(true);
+    try {
+      await assetService.update(timelineContext.record.asset_id, {
+        ...timelineContext.record,
+        ...payload,
+      });
+      message.success("Timeline asset berhasil diperbarui.");
+      closeTimelineModal();
+      await reload(1, pageSize, buildFilters());
+    } catch (error) {
+      message.error(error?.response?.data?.message || error?.message || "Gagal memperbarui timeline asset.");
+    } finally {
+      setTimelineSaving(false);
+    }
+  }, [buildFilters, closeTimelineModal, pageSize, reload, timelineContext, timelineForm]);
 
   const closeQr = useCallback(() => {
     setQrAsset(null);
@@ -363,6 +419,7 @@ export default function ListAssetPage() {
                 onImport={importExcel}
                 onExport={() => exportExcel(rows, { categories, routeGroup })}
                 onPrintLabels={openMultiPrint}
+                showPrintLabels={false}
                 onDeleteAll={handleDeleteAllActiveTab}
                 deleteAllLabel={workbookTabs.find((tab) => tab.key === activeWorkbookTab)?.label || "tab aktif"}
               />
@@ -446,8 +503,56 @@ export default function ListAssetPage() {
       <AssetReplacementModal
         open={replaceOpen}
         asset={replaceAsset}
-        onCancel={() => setReplaceOpen(false)}
+        replacementDate={replaceDate}
+        onCancel={() => {
+          setReplaceOpen(false);
+          setReplaceAsset(null);
+          setReplaceDate("");
+        }}
+        onSuccess={async () => {
+          setReplaceOpen(false);
+          setReplaceAsset(null);
+          setReplaceDate("");
+          await reload(1, pageSize, buildFilters());
+        }}
       />
+
+      <Modal
+        title="Ubah Status Timeline Asset"
+        open={timelineModalOpen}
+        onCancel={closeTimelineModal}
+        onOk={handleTimelineSubmit}
+        okText="Simpan"
+        cancelText="Batal"
+        confirmLoading={timelineSaving}
+        destroyOnHidden
+      >
+        <Form form={timelineForm} layout="vertical">
+          <Form.Item label="No Asset">
+            <div>{timelineContext?.record?.asset_code || "-"}</div>
+          </Form.Item>
+          <Form.Item label="Marker Saat Ini">
+            <div>{timelineContext?.markers?.map((marker) => marker.label).join(", ") || "-"}</div>
+          </Form.Item>
+          <Form.Item label="Periode">
+            <div>
+              {timelineContext?.month || "-"} / {timelineContext?.year || "-"}
+            </div>
+          </Form.Item>
+          <Form.Item
+            label="Status Timeline"
+            name="target_status"
+            rules={[{ required: true, message: "Pilih status timeline." }]}
+          >
+            <Select
+              options={[
+                { value: "planning", label: "Planning" },
+                { value: "replace", label: "Replace" },
+              ]}
+            />
+          </Form.Item>
+        </Form>
+      </Modal>
     </div>
   );
 }

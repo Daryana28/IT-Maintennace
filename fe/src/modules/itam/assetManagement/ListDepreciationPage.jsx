@@ -1,12 +1,10 @@
-import { useState, useCallback, useEffect } from "react";
+import { useState, useCallback, useEffect, useMemo } from "react";
 import { useLocation, useNavigate } from "react-router-dom";
-import { Card, Space, Button, message, Flex, Divider, Modal } from "antd";
-import { PlusOutlined, ReloadOutlined, DownloadOutlined, UploadOutlined, PrinterOutlined, FileExcelOutlined } from "@ant-design/icons";
+import { Card, Space, Button, message, Flex, Divider, Modal, Tabs, Input } from "antd";
+import { PlusOutlined, ReloadOutlined } from "@ant-design/icons";
 import { encodePath } from "@/shared/utils/routeCipher";
 import { usePageHeader } from "@/layouts/MainLayout/MainLayout";
 
-import AssetFilter from "./components/AssetFilter";
-import AssetCategoryTabs from "./components/AssetCategoryTabs";
 import AssetTable from "./components/AssetTable";
 import AssetForm from "./components/AssetForm";
 import AssetToolbar from "./components/AssetToolbar";
@@ -17,7 +15,6 @@ import AssetMultiQrModal from "./components/AssetMultiQrModal";
 import useAsset from "./hooks/useAsset";
 import useAssetExcel from "./hooks/useAssetExcel";
 import useAssetActions from "./hooks/useAssetActions";
-import useAssetCategoryTabs from "./hooks/useAssetCategoryTabs";
 import useAssetPageState from "./hooks/useAssetPageState";
 
 import assetService from "./services/assetService";
@@ -25,26 +22,13 @@ import {
   getAssetRouteActionLabel,
   getAssetRouteGroup,
   getAssetRouteGroupLabel,
-  getScopedRootCategoryId,
+  assetBelongsToRouteGroup,
   getScopedCategoryIds,
 } from "./utils/routeCategoryScope";
-import { getAssetTypeProfile } from "./utils/assetTypeProfiles";
-
-const EXTRA_DEPRECIATION_STATUS_OPTIONS = [
-  { value: "RETIRED", label: "RETIRED" },
-  { value: "DISPOSE", label: "DISPOSE" },
-  { value: "DISPOSED", label: "DISPOSED" },
-];
-
-function getDescendantCategoryIds(parentId, categoriesList) {
-  if (!parentId) return [];
-  let ids = [parentId];
-  const children = categoriesList.filter((c) => String(c.parent_id) === String(parentId));
-  children.forEach((child) => {
-    ids = ids.concat(getDescendantCategoryIds(child.category_id, categoriesList));
-  });
-  return ids;
-}
+import {
+  getAssetWorkbookTabs,
+  getWorkbookTabCategoryIds,
+} from "./utils/assetWorkbookTabs";
 
 export default function ListDepreciationPage() {
   const navigate = useNavigate();
@@ -77,18 +61,6 @@ export default function ListDepreciationPage() {
     setHeaderFilter,
   } = useAssetPageState();
 
-  const {
-    lv1,
-    lv2,
-    lv3,
-    lv4,
-    setLv1,
-    setLv2,
-    setLv3,
-    setLv4,
-    selectedCategory,
-  } = useAssetCategoryTabs();
-
   const { exportExcel, downloadTemplate, readExcel } = useAssetExcel();
 
   const [qrOpen, setQrOpen] = useState(false);
@@ -97,51 +69,42 @@ export default function ListDepreciationPage() {
   const [selectedRows, setSelectedRows] = useState([]);
   const [multiOpen, setMultiOpen] = useState(false);
   const routeGroup = getAssetRouteGroup(location.pathname);
-  const scopedRootCategoryId = getScopedRootCategoryId(categories, routeGroup);
-  const depreciationStatusOptions = [
-    ...new Map(
-      [
-        ...getAssetTypeProfile(routeGroup).statusOptions,
-        ...EXTRA_DEPRECIATION_STATUS_OPTIONS,
-      ].map((option) => [option.value, option])
-    ).values(),
-  ];
+  const workbookTabs = getAssetWorkbookTabs(routeGroup);
+  const [activeWorkbookTab, setActiveWorkbookTab] = useState("");
+  const routeScopedRows = useMemo(
+    () => rows.filter((row) => assetBelongsToRouteGroup(row, categories, routeGroup)),
+    [rows, categories, routeGroup]
+  );
+  const displayedRows = workbookTabs.length > 0 && activeWorkbookTab
+    ? rows
+    : routeScopedRows;
 
   const buildFilters = useCallback(
     (override = {}) => {
       const scopedCategoryIds = getScopedCategoryIds(categories, routeGroup);
-      const scopedIdList = scopedCategoryIds
-        ? scopedCategoryIds.split(",").filter(Boolean)
+      const activeTabCategoryIds = activeWorkbookTab
+        ? getWorkbookTabCategoryIds(categories, routeGroup, activeWorkbookTab)
         : [];
 
-      let finalCategoryIds = scopedCategoryIds;
-
-      if (selectedCategory && categories?.length) {
-        const selectedCategoryIds = getDescendantCategoryIds(
-          selectedCategory,
-          categories
-        ).map(String);
-
-        const scopedSelection = selectedCategoryIds.filter((id) =>
-          scopedIdList.includes(id)
-        );
-
-        if (scopedSelection.length > 0) {
-          finalCategoryIds = scopedSelection.join(",");
-        }
-      }
+      let finalCategoryIds = activeTabCategoryIds.length > 0
+        ? activeTabCategoryIds.join(",")
+        : scopedCategoryIds;
 
       return {
         ...filters,
         ...headerFilters,
         has_depreciation_date: "1",
+        depreciation_history: "1",
         sort_by: "depreciation_date",
         sort_order: "ASC",
         category_id: finalCategoryIds,
+        ...(activeWorkbookTab
+          ? { workbook_tab: activeWorkbookTab }
+          : {}),
         ...override,
       };
     },
-    [filters, headerFilters, selectedCategory, categories, routeGroup]
+    [filters, headerFilters, categories, routeGroup, activeWorkbookTab]
   );
 
   const openDetail = useCallback(
@@ -241,6 +204,29 @@ export default function ListDepreciationPage() {
     reload(page, pageSize, buildFilters());
   }, [reload, page, pageSize, buildFilters]);
 
+  const handleDeleteAllVisibleRows = useCallback(async () => {
+    const assetIds = displayedRows
+      .map((row) => row?.asset_id)
+      .filter(Boolean);
+
+    if (!assetIds.length) {
+      message.warning("Tidak ada data depresiasi pada tab aktif untuk dihapus.");
+      return;
+    }
+
+    try {
+      await assetService.bulkDeleteByAssetIds(assetIds);
+      message.success("Semua data pada list depresiasi tab aktif berhasil dihapus.");
+      await reload(1, pageSize, buildFilters());
+    } catch (error) {
+      const errorMessage =
+        error?.response?.data?.message ||
+        error?.message ||
+        "Gagal menghapus data list depresiasi.";
+      message.error(errorMessage);
+    }
+  }, [displayedRows, reload, pageSize, buildFilters]);
+
   useEffect(() => {
     if (categories.length === 0) {
       return;
@@ -248,14 +234,22 @@ export default function ListDepreciationPage() {
 
     reload(1, pageSize, buildFilters());
     // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [categories, selectedCategory, routeGroup]);
+  }, [categories, routeGroup, activeWorkbookTab]);
 
   useEffect(() => {
-    setLv1("");
-    setLv2("");
-    setLv3("");
-    setLv4("");
-  }, [routeGroup, setLv1, setLv2, setLv3, setLv4]);
+    if (!workbookTabs.length) {
+      setActiveWorkbookTab("");
+      return;
+    }
+
+    setActiveWorkbookTab((currentTab) => {
+      if (workbookTabs.some((tab) => tab.key === currentTab)) {
+        return currentTab;
+      }
+
+      return workbookTabs[0].key;
+    });
+  }, [workbookTabs]);
 
   useEffect(() => {
     const routeGroupLabel = getAssetRouteGroupLabel(routeGroup);
@@ -273,21 +267,6 @@ export default function ListDepreciationPage() {
 
   return (
     <div className="workspace-page">
-      <div className="asset-category-card" style={{ marginBottom: '16px' }}>
-        <AssetCategoryTabs
-          categories={categories}
-          lv1={lv1}
-          lv2={lv2}
-          lv3={lv3}
-          lv4={lv4}
-          setLv1={setLv1}
-          setLv2={setLv2}
-          setLv3={setLv3}
-          setLv4={setLv4}
-          scopeRootId={scopedRootCategoryId}
-        />
-      </div>
-
       <Card 
         className="workspace-card" 
         bordered={false}
@@ -306,13 +285,15 @@ export default function ListDepreciationPage() {
           gap="middle"
         >
           <div className="workspace-filter-area" style={{ flex: '1 1 300px' }}>
-            <AssetFilter
-              keyword={headerFilters.asset_name}
-              status={headerFilters.status}
-              statusOptions={depreciationStatusOptions}
-              onKeywordChange={(value) => handleHeaderFilterChange("asset_name", value)}
-              onStatusChange={(value) => handleHeaderFilterChange("status", value)}
-            />
+            <div className="asset-filter-bar">
+              <Input
+                allowClear
+                value={headerFilters.asset_name || ""}
+                placeholder="Search asset"
+                onChange={(e) => handleHeaderFilterChange("asset_name", e.target.value)}
+                style={{ maxWidth: 280 }}
+              />
+            </div>
           </div>
 
           <div className="workspace-actions-area" style={{ flex: '0 0 auto' }}>
@@ -330,6 +311,9 @@ export default function ListDepreciationPage() {
                 onImport={importExcel}
                 onExport={() => exportExcel(rows)}
                 onPrintLabels={openMultiPrint}
+                showPrintLabels={false}
+                onDeleteAll={handleDeleteAllVisibleRows}
+                deleteAllLabel={workbookTabs.find((tab) => tab.key === activeWorkbookTab)?.label || "tab aktif"}
               />
               <Button
                 type="primary"
@@ -343,8 +327,20 @@ export default function ListDepreciationPage() {
         </Flex>
 
         <div className="workspace-table-container">
+          {workbookTabs.length > 0 && (
+            <Tabs
+              className="asset-workbook-tabs"
+              activeKey={activeWorkbookTab}
+              onChange={setActiveWorkbookTab}
+              items={workbookTabs.map((tab) => ({
+                key: tab.key,
+                label: tab.label,
+              }))}
+              style={{ marginBottom: 16 }}
+            />
+          )}
           <AssetTable
-            rows={rows}
+            rows={displayedRows}
             categories={categories}
             loading={loading}
             page={page}
@@ -363,7 +359,8 @@ export default function ListDepreciationPage() {
             headerFilters={headerFilters}
             onHeaderFilterChange={handleHeaderFilterChange}
             contextRouteGroup={routeGroup}
-            statusOptions={depreciationStatusOptions}
+            hideStatusColumn={true}
+            workbookTabKey={activeWorkbookTab}
           />
         </div>
       </Card>

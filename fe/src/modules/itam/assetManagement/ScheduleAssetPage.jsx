@@ -1,16 +1,20 @@
 import { useState, useCallback, useEffect, useMemo } from "react";
-import { Card, Space, Button, Flex, DatePicker } from "antd";
+import { Card, Space, Button, Flex, DatePicker, Modal, Form, Select, message } from "antd";
 import { ReloadOutlined } from "@ant-design/icons";
 import { useLocation } from "react-router-dom";
 import { usePageHeader } from "@/layouts/MainLayout/MainLayout";
+import dayjs from "dayjs";
 
 import AssetTable from "./components/AssetTable";
+import AssetReplacementModal from "./components/AssetReplacementModal";
 
 import useAsset from "./hooks/useAsset";
+import assetService from "./services/assetService";
 import {
   getAssetRouteActionLabel,
   getAssetRouteGroup,
   getAssetRouteGroupLabel,
+  assetBelongsToRouteGroup,
   getScopedCategoryIds,
 } from "./utils/routeCategoryScope";
 
@@ -45,11 +49,20 @@ export default function ScheduleAssetPage() {
   });
   const [filterDate, setFilterDate] = useState(null);
   const [filterYear, setFilterYear] = useState(null);
+  const [timelineModalOpen, setTimelineModalOpen] = useState(false);
+  const [timelineSaving, setTimelineSaving] = useState(false);
+  const [timelineContext, setTimelineContext] = useState(null);
+  const [replaceOpen, setReplaceOpen] = useState(false);
+  const [replaceAsset, setReplaceAsset] = useState(null);
+  const [timelineForm] = Form.useForm();
   const routeGroup = getAssetRouteGroup(location.pathname);
 
   const sortedRows = useMemo(() => {
-    if (!rows) return [];
-    return [...rows].sort((a, b) => {
+    const scopedRows = (rows || []).filter((row) =>
+      assetBelongsToRouteGroup(row, categories, routeGroup)
+    );
+
+    return [...scopedRows].sort((a, b) => {
       const typeA = a.category?.category_name || "";
       const typeB = b.category?.category_name || "";
       const typeCompare = typeA.localeCompare(typeB);
@@ -99,6 +112,83 @@ export default function ScheduleAssetPage() {
     });
   }, [reload, pageSize, filters, headerFilters, categories, routeGroup]);
 
+  const buildScopedFilters = useCallback(() => {
+    const scopedCategoryIds = getScopedCategoryIds(categories, routeGroup);
+    return {
+      ...filters,
+      ...headerFilters,
+      ...(scopedCategoryIds ? { category_id: scopedCategoryIds } : {}),
+    };
+  }, [categories, filters, headerFilters, routeGroup]);
+
+  const closeTimelineModal = useCallback(() => {
+    setTimelineModalOpen(false);
+    setTimelineContext(null);
+    timelineForm.resetFields();
+  }, [timelineForm]);
+
+  const handleTimelineClick = useCallback((record, markers = [], cell = {}) => {
+    const defaultStatus = markers.some((marker) => marker.type === "replace")
+      ? "replace"
+      : markers.some((marker) => marker.type === "planning")
+      ? "planning"
+      : "new";
+
+    setTimelineContext({
+      record,
+      markers,
+      year: cell.year,
+      month: cell.month,
+    });
+
+    timelineForm.setFieldsValue({
+      target_status: defaultStatus,
+    });
+
+    setTimelineModalOpen(true);
+  }, [timelineForm]);
+
+  const handleTimelineSubmit = useCallback(async () => {
+    if (!timelineContext?.record?.asset_id) return;
+
+    const { target_status: targetStatus } = await timelineForm.validateFields();
+    const targetDate = dayjs(`${timelineContext.year}-${String(timelineContext.month).padStart(2, "0")}-01`);
+
+    if (targetStatus === "replace") {
+      setReplaceAsset(timelineContext.record);
+      setReplaceOpen(true);
+      setTimelineModalOpen(false);
+      return;
+    }
+
+    const payload = {};
+    if (targetStatus === "new") {
+      payload.purchase_date = targetDate.format("YYYY-MM-DD");
+      payload.depreciation_date = targetDate.add(6, "year").format("YYYY-MM-DD");
+      payload.status = "ACTIVE";
+    }
+
+    if (targetStatus === "planning") {
+      payload.depreciation_date = targetDate.format("YYYY-MM-DD");
+      payload.status = "ACTIVE";
+    }
+
+    setTimelineSaving(true);
+    try {
+      await assetService.update(timelineContext.record.asset_id, {
+        ...timelineContext.record,
+        ...payload,
+      });
+      message.success("Timeline asset berhasil diperbarui.");
+      closeTimelineModal();
+      await reload(1, pageSize, buildScopedFilters());
+    } catch (error) {
+      message.error(error?.response?.data?.message || error?.message || "Gagal memperbarui timeline asset.");
+    } finally {
+      setTimelineSaving(false);
+    }
+  }, [buildScopedFilters, closeTimelineModal, pageSize, reload, timelineContext, timelineForm]);
+
   useEffect(() => {
     const routeGroupLabel = getAssetRouteGroupLabel(routeGroup);
     const routeActionLabel = getAssetRouteActionLabel(location.pathname);
@@ -117,13 +207,11 @@ export default function ScheduleAssetPage() {
     const scopedCategoryIds = getScopedCategoryIds(categories, routeGroup);
     if (categories.length > 0) {
       reload(1, pageSize, {
-        ...filters,
-        ...headerFilters,
-        ...(scopedCategoryIds ? { category_id: scopedCategoryIds } : {}),
+        ...buildScopedFilters(),
       });
     }
     // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [categories, routeGroup]);
+  }, [categories, routeGroup, buildScopedFilters]);
 
   return (
     <div className="workspace-page">
@@ -176,9 +264,59 @@ export default function ScheduleAssetPage() {
             hideActionColumn={true}
             hideIpAndStatus={true}
             contextRouteGroup={routeGroup}
+            onDepreciationClick={handleTimelineClick}
           />
         </div>
       </Card>
+
+      <Modal
+        title="Ubah Status Timeline Asset"
+        open={timelineModalOpen}
+        onCancel={closeTimelineModal}
+        onOk={handleTimelineSubmit}
+        okText="Simpan"
+        cancelText="Batal"
+        confirmLoading={timelineSaving}
+        destroyOnHidden
+      >
+        <Form form={timelineForm} layout="vertical">
+          <Form.Item label="No Asset">
+            <div>{timelineContext?.record?.asset_code || "-"}</div>
+          </Form.Item>
+          <Form.Item label="Periode">
+            <div>
+              {timelineContext?.month || "-"} / {timelineContext?.year || "-"}
+            </div>
+          </Form.Item>
+          <Form.Item
+            label="Status Timeline"
+            name="target_status"
+            rules={[{ required: true, message: "Pilih status timeline." }]}
+          >
+            <Select
+              options={[
+                { value: "new", label: "New" },
+                { value: "planning", label: "Planning" },
+                { value: "replace", label: "Replace" },
+              ]}
+            />
+          </Form.Item>
+        </Form>
+      </Modal>
+
+      <AssetReplacementModal
+        open={replaceOpen}
+        asset={replaceAsset}
+        onCancel={() => {
+          setReplaceOpen(false);
+          setReplaceAsset(null);
+        }}
+        onSuccess={async () => {
+          setReplaceOpen(false);
+          setReplaceAsset(null);
+          await reload(1, pageSize, buildScopedFilters());
+        }}
+      />
     </div>
   );
 }

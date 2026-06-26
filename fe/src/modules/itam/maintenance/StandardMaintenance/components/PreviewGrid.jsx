@@ -1,5 +1,5 @@
 import React, { useState, useMemo, useEffect, useCallback } from "react";
-import { Card, Typography, Select, Button, Space, Modal, Alert, Input, Form, message } from "antd";
+import { Card, Typography, Select, Button, Space, Modal, Alert, Input, Form, message, Spin } from "antd";
 import { 
   PlusOutlined, 
   DeleteOutlined, 
@@ -89,7 +89,7 @@ const GridRow = React.memo(function GridRow({
   );
 });
 
-export default function PreviewGrid({ initialChecks, year, categoryName, onSave, onCancel }) {
+export default function PreviewGrid({ initialChecks, year, categoryName, loading = false, onSave, onCancel }) {
   const targetYear = parseInt(year) || new Date().getFullYear();
 
   const [checks, setChecks] = useState([]);
@@ -403,16 +403,17 @@ export default function PreviewGrid({ initialChecks, year, categoryName, onSave,
   };
 
   return (
-    <Card className="preview-card" variant="borderless">
+    <Spin spinning={loading} tip="Sedang generate schedule...">
+      <Card className="preview-card" variant="borderless">
       <div className="preview-header">
         <div>
           <Title level={4} style={{ margin: 0 }}>Review Standard Maintenance & Date Mapping</Title>
           <Text type="secondary">Tahun: <strong>{targetYear}</strong> | Kategori: <strong>{categoryName}</strong></Text>
         </div>
         <Space>
-          <Button onClick={onCancel} icon={<CloseOutlined />}>Batal</Button>
-          <Button type="dashed" onClick={() => setModalOpen(true)} icon={<PlusOutlined />}>Tambah Item</Button>
-          <Button type="primary" onClick={handleSaveAndGenerate} icon={<SaveOutlined />} style={{ backgroundColor: "#107c41", borderColor: "#107c41" }}>Generate Schedule</Button>
+          <Button onClick={onCancel} icon={<CloseOutlined />} disabled={loading}>Batal</Button>
+          <Button type="dashed" onClick={() => setModalOpen(true)} icon={<PlusOutlined />} disabled={loading}>Tambah Item</Button>
+          <Button type="primary" onClick={handleSaveAndGenerate} icon={<SaveOutlined />} loading={loading} style={{ backgroundColor: "#107c41", borderColor: "#107c41" }}>Generate Schedule</Button>
         </Space>
       </div>
 
@@ -526,6 +527,7 @@ export default function PreviewGrid({ initialChecks, year, categoryName, onSave,
           </Form.Item>
         </Form>
       </Modal>
-    </Card>
+      </Card>
+    </Spin>
   );
 }

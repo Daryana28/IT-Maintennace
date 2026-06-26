@@ -159,7 +159,7 @@ export const MENU = [
         children: [
           { key: "mHardwareStandard", label: "Standard Maintenance", path: "/itam/maintenance/hardware/yearly-standard", roles: ALL_MAINT_STAFF },
           { key: "mHardwareSchedule", label: "Schedule", path: "/itam/maintenance/hardware/schedule", roles: ALL_MAINT_STAFF },
-          { key: "mHardwareLogSheet", label: "Logsheet Abnormal", path: "/itam/maintenance/hardware/logsheet", roles: ALL_MAINT_STAFF },
+          { key: "mHardwareLogSheet", label: "Logsheet", path: "/itam/maintenance/hardware/logsheet", roles: ALL_MAINT_STAFF },
         ],
       },
       {
@@ -169,7 +169,7 @@ export const MENU = [
         children: [
           { key: "mSoftwareHardwareStandard", label: "Standard Maintenance", path: "/itam/maintenance/software-hardware/yearly-standard", roles: ALL_MAINT_STAFF },
           { key: "mSoftwareHardwareSchedule", label: "Schedule", path: "/itam/maintenance/software-hardware/schedule", roles: ALL_MAINT_STAFF },
-          { key: "mSoftwareHardwareLogSheet", label: "Logsheet Abnormal", path: "/itam/maintenance/software-hardware/logsheet", roles: ALL_MAINT_STAFF },
+          { key: "mSoftwareHardwareLogSheet", label: "Logsheet", path: "/itam/maintenance/software-hardware/logsheet", roles: ALL_MAINT_STAFF },
         ],
       },
       {
@@ -179,7 +179,7 @@ export const MENU = [
         children: [
           { key: "mApplicationStandard", label: "Standard Maintenance", path: "/itam/maintenance/application/yearly-standard", roles: ALL_MAINT_STAFF },
           { key: "mApplicationSchedule", label: "Schedule", path: "/itam/maintenance/application/schedule", roles: ALL_MAINT_STAFF },
-          { key: "mApplicationLogSheet", label: "Logsheet Abnormal", path: "/itam/maintenance/application/logsheet", roles: ALL_MAINT_STAFF },
+          { key: "mApplicationLogSheet", label: "Logsheet", path: "/itam/maintenance/application/logsheet", roles: ALL_MAINT_STAFF },
         ],
       },
       {
@@ -189,7 +189,7 @@ export const MENU = [
         children: [
           { key: "mNetworkCyberStandard", label: "Standard Maintenance", path: "/itam/maintenance/network-cyber/yearly-standard", roles: ALL_MAINT_STAFF },
           { key: "mNetworkCyberSchedule", label: "Schedule", path: "/itam/maintenance/network-cyber/schedule", roles: ALL_MAINT_STAFF },
-          { key: "mNetworkCyberLogSheet", label: "Logsheet Abnormal", path: "/itam/maintenance/network-cyber/logsheet", roles: ALL_MAINT_STAFF },
+          { key: "mNetworkCyberLogSheet", label: "Logsheet", path: "/itam/maintenance/network-cyber/logsheet", roles: ALL_MAINT_STAFF },
         ],
       },
     ],

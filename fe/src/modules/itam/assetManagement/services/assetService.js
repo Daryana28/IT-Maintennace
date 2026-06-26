@@ -141,6 +141,24 @@ async function bulkDeleteByCategories(categoryIds = []) {
   return res.data;
 }
 
+async function bulkDeleteByAssetIds(assetIds = []) {
+  const res = await apiClient.post(
+    `${BASE_URL}/bulk-delete`,
+    { asset_ids: assetIds }
+  );
+
+  return res.data;
+}
+
+async function replace(id, payload) {
+ const res = await apiClient.post(
+  `${BASE_URL}/${toId(id)}/replace`,
+  payload
+ );
+
+ return res.data;
+}
+
 async function getHistory(id) {
   const res = await apiClient.get(
     `${BASE_URL}/${toId(id)}/history`
@@ -208,6 +226,8 @@ export default {
   remove,
   bulkImport,
   bulkDeleteByCategories,
+  bulkDeleteByAssetIds,
+  replace,
 
   // ACTIONS
   transferOwner,

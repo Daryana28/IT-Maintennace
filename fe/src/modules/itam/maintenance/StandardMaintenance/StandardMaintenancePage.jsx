@@ -38,6 +38,7 @@ export default function StandardMaintenancePage({ overrideCategory, overrideYear
   const [activeTab, setActiveTab] = useState("list");
   const [categories, setCategories] = useState([]);
   const [maintenanceData, setMaintenanceData] = useState([]);
+  const [generatingSchedule, setGeneratingSchedule] = useState(false);
 
   const loadData = React.useCallback(async () => {
     try {
@@ -150,6 +151,16 @@ export default function StandardMaintenancePage({ overrideCategory, overrideYear
   ];
 
   const sortedData = maintenanceData;
+  const headerTitle = React.useMemo(() => {
+    if (!headerData) return "Standard Maintenance Detail";
+    const rawTitle = String(headerData.judul || "").trim();
+    const yearText = String(headerData.tahun || "").trim();
+    if (!rawTitle) return "Standard Maintenance Detail";
+    if (!yearText) return rawTitle;
+    return rawTitle.toLowerCase().includes(yearText.toLowerCase())
+      ? rawTitle
+      : `${rawTitle} ${yearText}`;
+  }, [headerData]);
 
   return (
     <div className="page-shell">
@@ -158,7 +169,7 @@ export default function StandardMaintenancePage({ overrideCategory, overrideYear
         <Row justify="space-between" align="middle">
           <Col>
             <Title level={3} className="header-title">
-              {headerData ? `${headerData.judul} ${headerData.tahun}` : 'Standard Maintenance Detail'}
+              {headerTitle}
             </Title>
             <div className="header-breadcrumb">
               Maintenance &gt; Yearly Standard Configuration &gt; Detail
@@ -167,12 +178,16 @@ export default function StandardMaintenancePage({ overrideCategory, overrideYear
           <Col>
             <Button 
               type="primary" 
+              loading={generatingSchedule}
               onClick={async () => {
+                setGeneratingSchedule(true);
                 try {
                   const res = await maintenanceScheduleService.generateSchedule(yearlyStandardId);
                   message.success(res.message || "Berhasil generate schedule");
                 } catch (e) {
-                  message.error(e.response?.data?.message || "Gagal generate schedule");
+                  message.error(e?.message || e?.response?.data?.message || "Gagal generate schedule");
+                } finally {
+                  setGeneratingSchedule(false);
                 }
               }}
             >

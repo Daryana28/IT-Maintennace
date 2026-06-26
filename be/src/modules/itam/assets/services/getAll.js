@@ -39,6 +39,16 @@ const include = [
  },
 ];
 
+const WORKBOOK_TAB_ALIASES = {
+ hardware: {
+  pc: ["pc", "personal computer", "desktop", "workstation", "all in one", "pc industrial", "laptop"],
+  cctv: ["cctv", "nvr", "camera"],
+  gathering: ["gathering", "teleconference", "wireless display transmiter", "camera pocket", "podcast"],
+  scanner: ["scanner", "scanners", "barcode scanner", "bht"],
+  accessdoor: ["accessdoor", "acces door", "access door", "reader", "fingerprint", "face attendance", "suprema"],
+ },
+};
+
 export default async function (
  query = {}
 ) {
@@ -102,6 +112,21 @@ export default async function (
    });
   }
  });
+
+  if (query.workbook_tab) {
+  const workbookTab = String(query.workbook_tab).trim().toLowerCase();
+  const aliases = WORKBOOK_TAB_ALIASES.hardware[workbookTab] || [];
+
+  if (aliases.length > 0) {
+    andConditions.push({
+      [Op.or]: aliases.flatMap((alias) => ([
+        where(col("category.category_name"), { [Op.like]: `%${alias}%` }),
+        { asset_name: { [Op.like]: `%${alias}%` } },
+        { hostname: { [Op.like]: `%${alias}%` } },
+      ])),
+    });
+  }
+ }
 
  if (query.type) {
   andConditions.push(

@@ -128,8 +128,32 @@
   overflow: hidden;
 }
 
+.premium-gantt-table .ant-table-header,
+.premium-gantt-table .ant-table-sticky-holder,
+.premium-gantt-table .ant-table-sticky-scroll {
+  background: #f3f4f6 !important;
+}
+
+.premium-gantt-table .ant-table-measure-row,
+.premium-gantt-table .ant-table-measure-row > td {
+  height: 0 !important;
+  min-height: 0 !important;
+  padding: 0 !important;
+  border: 0 !important;
+  background: transparent !important;
+  opacity: 0 !important;
+  font-size: 0 !important;
+  line-height: 0 !important;
+}
+
+.premium-gantt-table .ant-table-measure-row > td::before,
+.premium-gantt-table .ant-table-measure-row > td::after {
+  display: none !important;
+  content: none !important;
+}
+
 .premium-gantt-table .ant-table-thead>tr>th {
-  background: #f3f4f6;
+  background: #f3f4f6 !important;
   color: #111827;
   font-weight: 700;
   font-size: 12px;
@@ -327,9 +351,13 @@
 }
 
 /* Fixed header cells: opaque background, no shadow */
-.premium-gantt-table .ant-table-thead>tr>th.ant-table-cell-fix-left {
+.premium-gantt-table .ant-table-thead>tr>th.ant-table-cell-fix-left,
+.premium-gantt-table .ant-table-thead>tr>th.ant-table-cell-fix-left-last,
+.premium-gantt-table .ant-table-thead>tr>th.ant-table-cell-fix-right,
+.premium-gantt-table .ant-table-thead>tr>th.ant-table-cell-fix-right-last {
   background-color: #f3f4f6 !important;
   box-shadow: none !important;
+  z-index: 3;
 }
 
 /* Remove ALL shadow effects from fixed cells - ::after pseudo-element */
@@ -353,8 +381,14 @@
 
 /* Force remove shadow from thead fixed cells - all variants */
 .premium-gantt-table .ant-table-thead th[class*="ant-table-cell-fix"] {
+  background: #f3f4f6 !important;
   box-shadow: none !important;
   -webkit-box-shadow: none !important;
+}
+
+.premium-gantt-table .ant-table-thead > tr > th::before,
+.premium-gantt-table .ant-table-thead > tr > th::after {
+  background: transparent !important;
 }
 
 /* Also handle any Ant Design generated shadow styles */
