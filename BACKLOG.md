@@ -10,6 +10,11 @@
 *None*
 
 ## 🟢 Done
+- `T-042` Cleanup debug scripts and console.logs
+- `T-041` Fix model association aliases for log sheet display
+- `T-040` Fix getAllAbnormalLogs query for null schedule_id
+- `T-039` Add virtual checkbox generation + on-the-fly actual creation endpoints
+- `T-038` DB migrations to make schedule_id nullable in maintenance_actual and maintenance_log_sheets
 - `T-037` Standard Maintenance grid render performance optimization (memoization & O(1) set lookup)
 - `T-036` Fix standard maintenance child menus import mapping and user password alert display
 - `T-035` Verification & Documentation updates

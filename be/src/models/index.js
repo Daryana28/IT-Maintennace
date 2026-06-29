@@ -395,6 +395,7 @@ StandardMaintenance.hasMany(StandardMaintenanceDetail, {
 });
 StandardMaintenanceDetail.belongsTo(StandardMaintenance, {
   foreignKey: "standard_maintenance_id",
+  as: "standard_maintenance",
 });
 
 StandardMaintenanceDetail.hasMany(StandardMaintenanceCheck, {
@@ -403,6 +404,7 @@ StandardMaintenanceDetail.hasMany(StandardMaintenanceCheck, {
 });
 StandardMaintenanceCheck.belongsTo(StandardMaintenanceDetail, {
   foreignKey: "standard_maintenance_detail_id",
+  as: "standard_maintenance_detail",
 });
 
 Asset.hasMany(MaintenanceSchedule, { foreignKey: "asset_id", as: "schedules" });

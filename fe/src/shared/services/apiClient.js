@@ -32,7 +32,8 @@ http.interceptors.response.use(
   if (
    status === 401 &&
    !originalRequest._retry &&
-   !originalRequest.url.includes("/auth/refresh")
+   !originalRequest.url.includes("/auth/refresh") &&
+    !originalRequest.url.includes("/auth/login")
   ) {
    if (isRefreshing) {
     return new Promise((resolve, reject) => {

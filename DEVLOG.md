@@ -195,3 +195,16 @@
   3. Optimized planned date checks to use a `Set` (`plannedSet.has(d.dateStr)`) for instant $O(1)$ lookups, reducing checks per render loop to a sub-millisecond hash check.
   4. Wrapped standard grid update callbacks (`handleToggleCell`, `handlePeriodikChange`, `handleDeleteRow`) in `useCallback` hook with dependency-free functional updates (`setChecks(prev => ...)`). This ensures callback references remain static and only the modified row re-renders when a cell is clicked, boosting interactions to 60 FPS.
 - **Blockers**: None.
+  
+  
+### [2026-06-29 08:30] - T-038 s.d. T-042 - Lead DevOps / Backend & Frontend Developer  
+- **Summary**: Fixed Schedule tab checkbox display and abnormal log sheet flow when no maintenance_schedules exist.  
+- **Technical Decisions**:  
+  1. **DB Migrations**: Altered `maintenance_actual.schedule_id` and `maintenance_log_sheets.schedule_id` to `BIGINT NULL` to allow creating actual/log records without a schedule.  
+  2. **Model Updates**: Updated `maintenanceActualModel.js` and `maintenanceLogSheetModel.js` to set `allowNull: true` on `schedule_id`.  
+  3. **Virtual Checkbox Generation** (`maintenanceScheduleController.js`): Rewrote `getMonthlyScheduleMatrix` to generate virtual checkbox entries by calling `generateCheckboxDates()` per check's periodik, merging with any existing `MaintenanceActual` records by `check_id`. Fixed date range bug.  
+  4. **Actual Entry Endpoints** (`maintenanceActualController.js`): Added `createActualEntry` (`POST /maintenance-actual`) and `upsertAndSetStatus` (`POST /maintenance-actual/upsert`).  
+  5. **Frontend Virtual Checkbox Handling** (`ScheduleWithCheckboxView.jsx`): Updated `handleUpdateStatus` and added `handleAbnormalClick` to create actual records on first interaction.  
+  6. **Log Sheet Display Fix** (`maintenanceAbnormalLogController.js`): Fixed `getAllAbnormalLogs` query - removed empty `where`, added `required: false` on all nested includes.  
+  7. **Model Association Aliases** (`models/index.js`): Added `as: "standard_maintenance_detail"` and `as: "standard_maintenance"` to match frontend filter keys.  
+  8. **Cleanup**: Removed debug `console.log` from `useScheduleData.js`. Deleted debug scripts. 

@@ -46,6 +46,16 @@ async function getMonthlyView(year, month, category, yearly_standard_id) {
   return unwrap(res, []);
 }
 
+async function upsertActualEntry({ check_id, tanggal, status }) {
+  const res = await apiClient.post(`/maintenance-actual/upsert`, { check_id, tanggal, status });
+  return res.data;
+}
+
+async function createActualEntry({ check_id, tanggal }) {
+  const res = await apiClient.post(`/maintenance-actual`, { check_id, tanggal });
+  return res.data;
+}
+
 async function updateActualStatus(actualId, status) {
   const res = await apiClient.put(`/maintenance-actual/${actualId}/status`, { status });
   return res.data;
@@ -68,6 +78,8 @@ export default {
   updateSchedule,
   cancelSchedule,
   getMonthlyView,
+  upsertActualEntry,
+  createActualEntry,
   updateActualStatus,
   submitAbnormalLog,
   getAllAbnormalLogs,

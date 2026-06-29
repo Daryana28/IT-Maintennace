@@ -1,5 +1,5 @@
 import React, { useState, useCallback } from "react";
-import { Card, Table, Form, message, Row, Col, Statistic, Tabs, Empty, Button } from "antd";
+import { Card, Table, Form, message, Row, Col, Statistic, Tabs, Empty, Button, Spin } from "antd";
 import { CheckOutlined } from "@ant-design/icons";
 import { useRBACStore } from "@/app/store/rbacStore";
 
@@ -493,7 +493,12 @@ export default function MaintenanceSchedulePage() {
         </div>
 
         {/* GANTT TABLE SECTION */}
-        {displaySchedules.length === 0 ? (
+        {loading && displaySchedules.length === 0 ? (
+          <div style={{ textAlign: 'center', padding: '80px 0' }}>
+            <Spin size="large" tip="Memuat data jadwal maintenance..." />
+            <div style={{ marginTop: 16, color: '#8c8c8c' }}>Sedang memuat data jadwal maintenance...</div>
+          </div>
+        ) : displaySchedules.length === 0 ? (
           <div className="maintenance-excel__empty">
             <Empty
               description="Belum ada jadwal maintenance"

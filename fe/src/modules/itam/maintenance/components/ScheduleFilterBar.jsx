@@ -19,6 +19,7 @@ const ScheduleFilterBar = memo(function ScheduleFilterBar({
     return (
         <div className="filter-container">
             <Row gutter={[24, 16]} align="bottom">
+                {viewMode !== "yearly" && (
                 <Col xs={24} md={6}>
                     <Text className="filter-label">Periode Waktu</Text>
                     <RangePicker
@@ -32,6 +33,7 @@ const ScheduleFilterBar = memo(function ScheduleFilterBar({
                         allowClear={false}
                     />
                 </Col>
+                )}
                 <Col xs={24} md={5}>
                     <Text className="filter-label">Sub Kategori</Text>
                     <Select
@@ -66,6 +68,7 @@ const ScheduleFilterBar = memo(function ScheduleFilterBar({
                             { label: "1 Hari", value: "daily" },
                             { label: "1 Minggu", value: "weekly" },
                             { label: "1 Bulan", value: "monthly" },
+                            { label: "Tahunan", value: "yearly" },
                         ]}
                         value={viewMode}
                         onChange={onViewModeChange}
