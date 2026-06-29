@@ -16,6 +16,45 @@ import "./AssetBudgetPage.css";
 const { Title, Text } = Typography;
 const { Option } = Select;
 
+function normalizeBudgetCode(value) {
+  return String(value || "").trim().toUpperCase();
+}
+
+function detectBudgetYear(item) {
+  const budgetCode = normalizeBudgetCode(item?.budgetCode);
+  const subject = String(item?.subject || "");
+  const subjectYearMatch = subject.match(/\b(20\d{2})\b/);
+  if (subjectYearMatch) return subjectYearMatch[1];
+
+  const budgetCodeYearMatch = budgetCode.match(/^(\d{2})[A-Z]/);
+  if (budgetCodeYearMatch) {
+    return `20${budgetCodeYearMatch[1]}`;
+  }
+
+  const poYear = String(item?.poDate || "").trim().slice(0, 4);
+  if (/^20\d{2}$/.test(poYear)) return poYear;
+
+  const shipYear = String(item?.shipDate || "").trim().slice(0, 4);
+  if (/^20\d{2}$/.test(shipYear)) return shipYear;
+
+  const acceptanceYear = String(item?.acceptanceMonth || "").trim().slice(0, 4);
+  if (/^20\d{2}$/.test(acceptanceYear)) return acceptanceYear;
+
+  return "";
+}
+
+function buildAssetTemplateRows(data = []) {
+  return data.map((item, index, array) => {
+    const isFirstInGroup = index === 0 || normalizeBudgetCode(array[index - 1]?.budgetCode) !== normalizeBudgetCode(item.budgetCode);
+
+    return [
+      isFirstInGroup ? item.budgetCode || "" : "",
+      isFirstInGroup ? item.subject || "" : "",
+      "", "", "", "", "", "", "", "", "", "", "", "", "", "", "", "", "", "", "", "", "", "", "", "", "", "", "", "", "",
+    ];
+  });
+}
+
 export default function AssetBudgetPage() {
   const [searchText, setSearchText] = useState("");
   const currentYear = new Date().getFullYear();
@@ -23,6 +62,7 @@ export default function AssetBudgetPage() {
 
   const [data, setData] = useState([]);
   const [loading, setLoading] = useState(false);
+  const [deletingAll, setDeletingAll] = useState(false);
 
   const fetchAssetBudgets = async () => {
     setLoading(true);
@@ -73,21 +113,93 @@ export default function AssetBudgetPage() {
   };
 
   React.useEffect(() => {
-    fetchAssetBudgets();
+    const timerId = window.setTimeout(() => {
+      fetchAssetBudgets();
+    }, 0);
+
+    return () => {
+      window.clearTimeout(timerId);
+    };
   }, []);
+
+  const handleDeleteAll = async () => {
+    setDeletingAll(true);
+    try {
+      const response = await axios.delete(`${import.meta.env.VITE_API_URL}/asset-budgets`);
+      if (response.data.success) {
+        setData([]);
+        message.success(response.data.message || "Semua data asset budget berhasil dihapus");
+      }
+    } catch (error) {
+      message.error("Gagal menghapus semua data asset budget: " + (error.response?.data?.message || error.message));
+    } finally {
+      setDeletingAll(false);
+    }
+  };
 
   const [isModalVisible, setIsModalVisible] = useState(false);
   const [modalMode, setModalMode] = useState("create");
   const [editingKey, setEditingKey] = useState(null);
   const [form] = Form.useForm();
+  const [currentPage, setCurrentPage] = useState(1);
+  const [pageSize, setPageSize] = useState(10);
 
-  const downloadTemplate = () => {
+  const LEGACY_DOWNLOAD_TEMPLATE = () => {
     const headers = [
       ["予算№\nNo.Budget", "設備予算件名\nSubject", "当初計画\nInitial plan (IDR)", "見直し\nReview (IDR)", "Item\nNo.", "個別ｱｲﾃﾑ\nItems", "Factory", "Vehicle Type", "数量\nQty", "目的区分\nPurpose", "売却\nSale", "通貨\ncurrency", "購入金額\nPrice (PENGAJUAN)", "購入金額\nPrice (APPROVED)", "為替\nレート\nRate", "個別予算\nBudget (IDR)", "発注月\nPO Date (YYYYMM)", "納入月\n(出荷月)\nShip Date (YYYYMM)", "検収月\n(YYYYMM)", "支払条件\nPayment Conditions", "支払日①\nPay 1 (YYYYMM)", "Rate 1", "Amount 1", "支払日②\nPay 2 (YYYYMM)", "Rate 2", "Amount 2", "支払日③\nPay 3 (YYYYMM)", "Rate 3", "Amount 3", "量産運用\n開始月\nMass Pro Timing (YYYYMM)", "資産\n計上月\nCapitalized month (YYYYMM)"]
     ];
 
     const wb = XLSX.utils.book_new();
     const ws = XLSX.utils.aoa_to_sheet(headers);
+
+    XLSX.utils.book_append_sheet(wb, ws, "Template");
+    XLSX.writeFile(wb, "Template_Budget_Asset.xlsx");
+  };
+
+  const downloadTemplate = () => {
+    const headers = [[
+      "No.Budget",
+      "Subject",
+      "Initial plan (IDR)",
+      "Review (IDR)",
+      "Item No.",
+      "Items",
+      "Factory",
+      "Vehicle Type",
+      "Qty",
+      "Purpose",
+      "Sale",
+      "Currency",
+      "Price (PENGAJUAN)",
+      "Price (APPROVED)",
+      "Rate",
+      "Budget (IDR)",
+      "PO Date (YYYYMM)",
+      "Ship Date (YYYYMM)",
+      "Acceptance Month (YYYYMM)",
+      "Payment Conditions",
+      "Pay 1 (YYYYMM)",
+      "Rate 1",
+      "Amount 1",
+      "Pay 2 (YYYYMM)",
+      "Rate 2",
+      "Amount 2",
+      "Pay 3 (YYYYMM)",
+      "Rate 3",
+      "Amount 3",
+      "Mass Pro Timing (YYYYMM)",
+      "Capitalized Month (YYYYMM)",
+    ]];
+    const templateRows = buildAssetTemplateRows(displayData);
+
+    const wb = XLSX.utils.book_new();
+    const ws = XLSX.utils.aoa_to_sheet([...headers, ...templateRows]);
+    ws["!cols"] = [
+      { wch: 14 }, { wch: 28 }, { wch: 18 }, { wch: 18 }, { wch: 10 }, { wch: 42 }, { wch: 14 }, { wch: 16 },
+      { wch: 8 }, { wch: 14 }, { wch: 10 }, { wch: 10 }, { wch: 18 }, { wch: 18 }, { wch: 10 }, { wch: 16 },
+      { wch: 14 }, { wch: 14 }, { wch: 18 }, { wch: 20 }, { wch: 14 }, { wch: 10 }, { wch: 14 }, { wch: 14 },
+      { wch: 10 }, { wch: 14 }, { wch: 14 }, { wch: 10 }, { wch: 14 }, { wch: 18 }, { wch: 20 },
+    ];
 
     XLSX.utils.book_append_sheet(wb, ws, "Template");
     XLSX.writeFile(wb, "Template_Budget_Asset.xlsx");
@@ -290,18 +402,52 @@ export default function AssetBudgetPage() {
     }).format(value);
   };
 
+  const displayData = (() => {
+    const query = searchText.trim().toLowerCase();
+
+    const filtered = data.filter((item) => {
+      const matchesQuery =
+        !query ||
+        [
+          item.budgetCode,
+          item.subject,
+          item.itemNo,
+          item.itemName,
+        ].some((field) => String(field || "").toLowerCase().includes(query));
+
+      const itemYear = detectBudgetYear(item);
+      const matchesYear = !selectedYear || itemYear === String(selectedYear);
+
+      return matchesQuery && matchesYear;
+    });
+
+    return [...filtered].sort((left, right) => {
+      const budgetCompare = normalizeBudgetCode(left.budgetCode).localeCompare(normalizeBudgetCode(right.budgetCode), undefined, { numeric: true });
+      if (budgetCompare !== 0) return budgetCompare;
+
+      const itemNoCompare = String(left.itemNo || "").localeCompare(String(right.itemNo || ""), undefined, { numeric: true });
+      if (itemNoCompare !== 0) return itemNoCompare;
+
+      return String(left.itemName || "").localeCompare(String(right.itemName || ""));
+    });
+  })();
+
+  const totalPages = Math.max(1, Math.ceil(displayData.length / pageSize));
+  const safeCurrentPage = Math.min(currentPage, totalPages);
+  const pagedData = displayData.slice((safeCurrentPage - 1) * pageSize, safeCurrentPage * pageSize);
+
   const renderMergedCell = (customRender = (val) => val) => (value, row, index) => {
     const obj = {
       children: customRender(value, row, index),
       props: {},
     };
     
-    if (index > 0 && data[index - 1].budgetCode === row.budgetCode) {
+    if (index > 0 && normalizeBudgetCode(pagedData[index - 1]?.budgetCode) === normalizeBudgetCode(row.budgetCode)) {
       obj.props.rowSpan = 0;
     } else {
       let rowSpan = 1;
-      for (let i = index + 1; i < data.length; i++) {
-        if (data[i].budgetCode === row.budgetCode) {
+      for (let i = index + 1; i < pagedData.length; i++) {
+        if (normalizeBudgetCode(pagedData[i]?.budgetCode) === normalizeBudgetCode(row.budgetCode)) {
           rowSpan++;
         } else {
           break;
@@ -386,8 +532,9 @@ export default function AssetBudgetPage() {
     },
   ];
 
-  const wrapColumnKeys = new Set(["itemName", "factory", "vehicleType"]);
+  const wrapColumnKeys = new Set(["subject", "itemName", "factory", "vehicleType"]);
   const columnWidthOverrides = {
+    subject: 180,
     itemName: 280,
     factory: 110,
     vehicleType: 150,
@@ -436,6 +583,16 @@ export default function AssetBudgetPage() {
           <Upload beforeUpload={handleImport} showUploadList={false}>
             <Button icon={<UploadOutlined />}>Import Excel</Button>
           </Upload>
+          <Popconfirm
+            title="Hapus semua asset budget?"
+            description="Semua data asset budget akan dihapus. Lanjutkan?"
+            okText="Hapus Semua"
+            cancelText="Batal"
+            okButtonProps={{ danger: true, loading: deletingAll }}
+            onConfirm={handleDeleteAll}
+          >
+            <Button danger loading={deletingAll} icon={<DeleteOutlined />}>Delete All</Button>
+          </Popconfirm>
           <Button type="primary" icon={<PlusOutlined />} onClick={() => handleOpenModal("create")}>Tambah Budget</Button>
         </Space>
       </div>
@@ -456,9 +613,9 @@ export default function AssetBudgetPage() {
               onChange={setSelectedYear}
               style={{ width: 120 }}
             >
-              <Option value={currentYear - 1}>{currentYear - 1}</Option>
-              <Option value={currentYear}>{currentYear}</Option>
-              <Option value={currentYear + 1}>{currentYear + 1}</Option>
+              {Array.from({ length: 7 }, (_, index) => 2024 + index).map((year) => (
+                <Option key={year} value={year}>{year}</Option>
+              ))}
             </Select>
             <Button icon={<FilterOutlined />}>Filter Lanjutan</Button>
           </Space>
@@ -466,12 +623,18 @@ export default function AssetBudgetPage() {
 
         <Table
           columns={displayColumns}
-          dataSource={data}
+          dataSource={pagedData}
           loading={loading}
           scroll={{ x: 3800, y: 600 }}
           sticky
           pagination={{
-            total: data.length,
+            total: displayData.length,
+            current: safeCurrentPage,
+            pageSize,
+            onChange: (page, size) => {
+              setCurrentPage(page);
+              setPageSize(size);
+            },
             showSizeChanger: true,
             showTotal: (total) => `Total ${total} item`,
           }}

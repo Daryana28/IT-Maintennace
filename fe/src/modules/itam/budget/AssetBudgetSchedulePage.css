@@ -185,7 +185,7 @@
   border-top: 0 !important;
   padding: 0;
   background: #ffffff;
-  vertical-align: top;
+  vertical-align: middle;
   height: 34px;
 }
 
@@ -201,7 +201,7 @@
 }
 
 .timeline-table--excel .ant-table-tbody > tr > td[rowspan] {
-  vertical-align: top !important;
+  vertical-align: middle !important;
 }
 
 .timeline-table--excel .ant-table-placeholder > td {
@@ -261,8 +261,28 @@
   white-space: nowrap;
 }
 
+.timeline-table--excel .ant-table-thead > tr > th.budget-monitoring__action-col.ant-table-cell-fix-right,
+.timeline-table--excel .ant-table-tbody > tr > td.budget-monitoring__action-col.ant-table-cell-fix-right {
+  position: sticky !important;
+  right: 0 !important;
+  background: #ffffff !important;
+  z-index: 8 !important;
+}
+
+.timeline-table--excel .ant-table-thead > tr > th.budget-monitoring__action-col.ant-table-cell-fix-right {
+  background: #eef5fb !important;
+  z-index: 9 !important;
+}
+
 .budget-monitoring__action-col .ant-space {
   flex-wrap: nowrap !important;
+}
+
+.budget-monitoring__action-space {
+  width: 100%;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
 }
 
 .timeline-table--excel .ant-table-tbody > tr:hover > td,
@@ -285,12 +305,33 @@
   word-break: break-word;
 }
 
+.budget-monitoring__item--merged {
+  min-height: 68px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  text-align: center;
+}
+
 .budget-monitoring__cell-text {
   padding: 8px;
 }
 
+.budget-monitoring__cell-text--merged {
+  min-height: 68px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  text-align: center;
+}
+
 .budget-monitoring__cell-text--nowrap {
   white-space: nowrap;
+}
+
+.budget-monitoring__cell-text--center {
+  justify-content: center;
+  text-align: center;
 }
 
 .budget-monitoring__money {
@@ -302,6 +343,42 @@
   font-weight: 600;
   white-space: nowrap;
   font-size: 12px;
+}
+
+.budget-monitoring__money--merged {
+  min-height: 68px;
+  align-items: center;
+  gap: 6px;
+}
+
+.budget-monitoring__transfer-trigger {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  width: 18px;
+  height: 18px;
+  border: 0;
+  border-radius: 999px;
+  background: #e6f4ff;
+  color: #1677ff;
+  cursor: pointer;
+  padding: 0;
+  flex: 0 0 auto;
+}
+
+.budget-monitoring__transfer-trigger:hover {
+  background: #d0e8ff;
+}
+
+.budget-monitoring__transfer-popover {
+  max-width: 260px;
+  line-height: 1.5;
+}
+
+.budget-monitoring__transfer-popover-item + .budget-monitoring__transfer-popover-item {
+  margin-top: 10px;
+  padding-top: 10px;
+  border-top: 1px solid #e5e7eb;
 }
 
 .budget-monitoring__phase,

@@ -63,6 +63,17 @@
   word-break: keep-all;
 }
 
+.budget-table .ant-table-tbody > tr.ant-table-measure-row,
+.budget-table .ant-table-tbody > tr.ant-table-measure-row > td {
+  height: 0 !important;
+  min-height: 0 !important;
+  padding: 0 !important;
+  border: 0 !important;
+  background: transparent !important;
+  line-height: 0 !important;
+  font-size: 0 !important;
+}
+
 .budget-table .budget-table__cell--wrap {
   white-space: normal !important;
   word-break: break-word !important;

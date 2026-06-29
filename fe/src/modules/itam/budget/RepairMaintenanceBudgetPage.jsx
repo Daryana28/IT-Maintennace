@@ -1,116 +1,437 @@
-import React, { useState } from "react";
-import { Table, Card, Row, Col, Typography, Space, Button, Modal, Form, Input, InputNumber, Popconfirm } from "antd";
-import { DownloadOutlined, PrinterOutlined, PlusOutlined, EditOutlined, DeleteOutlined } from "@ant-design/icons";
+import React, { useEffect, useMemo, useState } from "react";
+import { Table, Card, Row, Col, Typography, Space, Button, Modal, Form, Input, InputNumber, Popconfirm, Upload, message } from "antd";
+import { DownloadOutlined, PrinterOutlined, PlusOutlined, EditOutlined, DeleteOutlined, UploadOutlined } from "@ant-design/icons";
+import * as XLSX from "xlsx";
 import "./OperationalBudgetPage.css";
 
 const { Title, Text } = Typography;
 
-export default function OperationalBudgetPage() {
-  const [data, setData] = useState([
+const STORAGE_KEY = "itam.operationalBudget.items.v2";
+const MONTHS = [
+  { key: "jan", label: "JAN", quarter: "Q1" },
+  { key: "feb", label: "FEB", quarter: "Q1" },
+  { key: "mar", label: "MAR", quarter: "Q1" },
+  { key: "apr", label: "APR", quarter: "Q2" },
+  { key: "may", label: "MAY", quarter: "Q2" },
+  { key: "jun", label: "JUN", quarter: "Q2" },
+  { key: "jul", label: "JUL", quarter: "Q3" },
+  { key: "aug", label: "AUG", quarter: "Q3" },
+  { key: "sep", label: "SEP", quarter: "Q3" },
+  { key: "oct", label: "OCT", quarter: "Q4" },
+  { key: "nov", label: "NOV", quarter: "Q4" },
+  { key: "dec", label: "DEC", quarter: "Q4" }
+];
+const QUARTERS = [
+  { key: "Q1", label: "1st quarter", months: ["jan", "feb", "mar"], totalLabel: "SUB1" },
+  { key: "Q2", label: "2nd quarter", months: ["apr", "may", "jun"], totalLabel: "SUB2" },
+  { key: "Q3", label: "3rd quarter", months: ["jul", "aug", "sep"], totalLabel: "SUB3" },
+  { key: "Q4", label: "4th quarter", months: ["oct", "nov", "dec"], totalLabel: "SUB4" }
+];
+
+const toNumber = (value) => Number(value || 0);
+
+function buildMonthValues(amounts) {
+  return MONTHS.reduce((acc, month) => {
+    acc[`${month.key}Plan`] = toNumber(amounts?.[`${month.key}Plan`]);
+    acc[`${month.key}Actual`] = toNumber(amounts?.[`${month.key}Actual`]);
+    return acc;
+  }, {});
+}
+
+function createDefaultItems() {
+  return [
     {
       key: "1",
-      budgetCode: "OP-2026-001",
+      budgetCode: "744003 - Internet Charge",
       costCode: "CC-01",
       acctBudget: "AB-100",
       largeAccount: "LA-01",
       costCode1: "CC1-A",
       deptSect: "IT Dept",
       accNo: "5001",
-      accDesc: "Software License",
-      itemName: "Microsoft 365",
-      reason: "Yearly Subscription",
-      initialBudgetPlan: 120000000,
-      initialBudgetActual: 110000000,
-      janPlan: 10000000, janActual: 9000000,
-      febPlan: 10000000, febActual: 10000000,
-      marPlan: 10000000, marActual: 8000000,
-      aprPlan: 10000000, aprActual: 11000000,
-      mayPlan: 10000000, mayActual: 10000000,
-      junPlan: 10000000, junActual: 10000000,
-      julPlan: 10000000, julActual: 9000000,
-      augPlan: 10000000, augActual: 10000000,
-      sepPlan: 10000000, sepActual: 10000000,
-      octPlan: 10000000, octActual: 12000000,
-      novPlan: 10000000, novActual: 10000000,
-      decPlan: 10000000, decActual: 10000000,
+      accDesc: "Telecommunication",
+      itemName: "INTERNET CORPORATE & VSAT",
+      reason: "Biaya internet tahunan",
+      initialBudgetPlan: 231600000,
+      initialBudgetActual: 115800000,
+      ...buildMonthValues({
+        julPlan: 19300000,
+        augPlan: 19300000,
+        sepPlan: 19300000,
+        octPlan: 19300000,
+        novPlan: 19300000,
+        decPlan: 19300000
+      })
     },
     {
       key: "2",
-      budgetCode: "OP-2026-002",
-      costCode: "CC-02",
-      acctBudget: "AB-101",
-      largeAccount: "LA-02",
+      budgetCode: "744003 - Internet Charge",
+      costCode: "CC-01",
+      acctBudget: "AB-100",
+      largeAccount: "LA-01",
       costCode1: "CC1-B",
-      deptSect: "IT Infrastructure",
+      deptSect: "IT Dept",
       accNo: "5002",
-      accDesc: "Cloud Services",
-      itemName: "AWS Hosting",
-      reason: "Monthly Server Hosting",
-      initialBudgetPlan: 60000000,
-      initialBudgetActual: 55500000,
-      janPlan: 5000000, janActual: 4500000,
-      febPlan: 5000000, febActual: 4800000,
-      marPlan: 5000000, marActual: 5000000,
-      aprPlan: 5000000, aprActual: 5200000,
-      mayPlan: 5000000, mayActual: 5000000,
-      junPlan: 5000000, junActual: 5100000,
-      julPlan: 5000000, julActual: 4900000,
-      augPlan: 5000000, augActual: 5000000,
-      sepPlan: 5000000, sepActual: 4800000,
-      octPlan: 5000000, octActual: 5500000,
-      novPlan: 5000000, novActual: 5200000,
-      decPlan: 5000000, decActual: 500000,
+      accDesc: "Telecommunication",
+      itemName: "EMAIL CORPORATE",
+      reason: "Biaya email corporate",
+      initialBudgetPlan: 179833500,
+      initialBudgetActual: 85635000,
+      ...buildMonthValues({
+        julPlan: 14986125,
+        augPlan: 14986125,
+        sepPlan: 14986125,
+        octPlan: 14986125,
+        novPlan: 14986125,
+        decPlan: 14986125
+      })
     },
     {
       key: "3",
-      budgetCode: "OP-2026-003",
-      costCode: "CC-01",
-      acctBudget: "AB-102",
-      largeAccount: "LA-01",
+      budgetCode: "749003 - R&M IT Hardware",
+      costCode: "CC-02",
+      acctBudget: "AB-101",
+      largeAccount: "LA-02",
       costCode1: "CC1-C",
-      deptSect: "IT Support",
+      deptSect: "SISA",
       accNo: "5003",
-      accDesc: "Telecommunication",
-      itemName: "Internet ISP",
-      reason: "Fiber Optic 1Gbps Dedicated",
-      initialBudgetPlan: 36000000,
-      initialBudgetActual: 33000000,
-      janPlan: 3000000, janActual: 3000000,
-      febPlan: 3000000, febActual: 3000000,
-      marPlan: 3000000, marActual: 3000000,
-      aprPlan: 3000000, aprActual: 3000000,
-      mayPlan: 3000000, mayActual: 3000000,
-      junPlan: 3000000, junActual: 3000000,
-      julPlan: 3000000, julActual: 3000000,
-      augPlan: 3000000, augActual: 3000000,
-      sepPlan: 3000000, sepActual: 3000000,
-      octPlan: 3000000, octActual: 3000000,
-      novPlan: 3000000, novActual: 3000000,
-      decPlan: 3000000, decActual: 0,
+      accDesc: "Maintenance",
+      itemName: "MAINTENANCE SERVER DEVICE (ICT)",
+      reason: "Preventive maintenance server",
+      initialBudgetPlan: 135000000,
+      initialBudgetActual: 56250000,
+      ...buildMonthValues({
+        julPlan: 11250000,
+        augPlan: 11250000,
+        sepPlan: 11250000,
+        octPlan: 11250000,
+        novPlan: 11250000,
+        decPlan: 11250000
+      })
     }
-  ]);
+  ];
+}
 
+function loadStoredItems() {
+  if (typeof window === "undefined") return createDefaultItems();
+
+  try {
+    const raw = window.localStorage.getItem(STORAGE_KEY);
+    if (!raw) return createDefaultItems();
+
+    const parsed = JSON.parse(raw);
+    if (!Array.isArray(parsed)) return createDefaultItems();
+
+    return parsed.map((item, index) => ({
+      key: item.key || String(index + 1),
+      budgetCode: item.budgetCode || "",
+      costCode: item.costCode || "",
+      acctBudget: item.acctBudget || "",
+      largeAccount: item.largeAccount || "",
+      costCode1: item.costCode1 || "",
+      deptSect: item.deptSect || "",
+      accNo: item.accNo || "",
+      accDesc: item.accDesc || "",
+      itemName: item.itemName || "",
+      reason: item.reason || "",
+      initialBudgetPlan: toNumber(item.initialBudgetPlan),
+      initialBudgetActual: toNumber(item.initialBudgetActual),
+      ...buildMonthValues(item)
+    }));
+  } catch {
+    return createDefaultItems();
+  }
+}
+
+function getRowAnnualTotal(item, type) {
+  return MONTHS.reduce((sum, month) => sum + toNumber(item[`${month.key}${type}`]), 0);
+}
+
+function getQuarterTotal(item, quarter, type) {
+  return quarter.months.reduce((sum, month) => sum + toNumber(item[`${month}${type}`]), 0);
+}
+
+function buildTableRows(items) {
+  const grouped = new Map();
+
+  items.forEach((item) => {
+    const groupKey = item.budgetCode || "-";
+    const existing = grouped.get(groupKey) || [];
+    existing.push(item);
+    grouped.set(groupKey, existing);
+  });
+
+  const rows = [];
+
+  grouped.forEach((groupItems, budgetCode) => {
+    const itemRowCount = groupItems.length * 2;
+    const totalRows = 2;
+    const budgetRowSpan = itemRowCount + totalRows;
+
+    groupItems.forEach((item, itemIndex) => {
+      const budgetRowSpanForFirstItem = itemIndex === 0 ? budgetRowSpan : 0;
+
+      rows.push({
+        ...item,
+        tableKey: `${item.key}-plan`,
+        rowType: "plan",
+        rowLabel: "PLAN 2026",
+        budgetRowSpan: budgetRowSpanForFirstItem,
+        itemRowSpan: 2
+      });
+
+      rows.push({
+        ...item,
+        tableKey: `${item.key}-actual`,
+        rowType: "actual",
+        rowLabel: "ACTUAL 2026",
+        budgetRowSpan: 0,
+        itemRowSpan: 0
+      });
+    });
+
+    const totals = groupItems.reduce((acc, item) => {
+      const next = { ...acc };
+      MONTHS.forEach((month) => {
+        next[`${month.key}Plan`] += toNumber(item[`${month.key}Plan`]);
+        next[`${month.key}Actual`] += toNumber(item[`${month.key}Actual`]);
+      });
+      next.initialBudgetPlan += toNumber(item.initialBudgetPlan);
+      next.initialBudgetActual += toNumber(item.initialBudgetActual);
+      return next;
+    }, MONTHS.reduce((acc, month) => {
+      acc[`${month.key}Plan`] = 0;
+      acc[`${month.key}Actual`] = 0;
+      return acc;
+    }, { initialBudgetPlan: 0, initialBudgetActual: 0 }));
+
+    rows.push({
+      key: `summary-plan-${budgetCode}`,
+      tableKey: `summary-plan-${budgetCode}`,
+      budgetCode,
+      itemName: "",
+      rowType: "summary-plan",
+      rowLabel: "TOTAL PLAN 2026",
+      budgetRowSpan: 0,
+      itemRowSpan: 1,
+      isSummary: true,
+      ...totals
+    });
+
+    rows.push({
+      key: `summary-actual-${budgetCode}`,
+      tableKey: `summary-actual-${budgetCode}`,
+      budgetCode,
+      itemName: "",
+      rowType: "summary-actual",
+      rowLabel: "TOTAL ACTUAL 2026",
+      budgetRowSpan: 0,
+      itemRowSpan: 1,
+      isSummary: true,
+      ...totals
+    });
+  });
+
+  return rows;
+}
+
+function buildExportRows(items) {
+  return items.map((item) => ({
+    budgetCode: item.budgetCode || "",
+    costCode: item.costCode || "",
+    acctBudget: item.acctBudget || "",
+    largeAccount: item.largeAccount || "",
+    costCode1: item.costCode1 || "",
+    deptSect: item.deptSect || "",
+    accNo: item.accNo || "",
+    accDesc: item.accDesc || "",
+    itemName: item.itemName || "",
+    reason: item.reason || "",
+    initialBudgetPlan: toNumber(item.initialBudgetPlan),
+    initialBudgetActual: toNumber(item.initialBudgetActual),
+    ...MONTHS.reduce((acc, month) => {
+      acc[`${month.key}Plan`] = toNumber(item[`${month.key}Plan`]);
+      acc[`${month.key}Actual`] = toNumber(item[`${month.key}Actual`]);
+      return acc;
+    }, {})
+  }));
+}
+
+function buildOperationalSheetRows(items, includeSample = false) {
+  const headerTop = [
+    "BUDGET CODE",
+    "ITEM NAME",
+    "INITIAL BUDGET",
+    "1ST QUARTER",
+    "",
+    "",
+    "",
+    "2ND QUARTER",
+    "",
+    "",
+    "",
+    "3RD QUARTER",
+    "",
+    "",
+    "",
+    "4TH QUARTER",
+    "",
+    "",
+    "",
+    "TOTAL"
+  ];
+
+  const headerBottom = [
+    "",
+    "",
+    "",
+    "JAN",
+    "FEB",
+    "MAR",
+    "SUB1",
+    "APR",
+    "MAY",
+    "JUN",
+    "SUB2",
+    "JUL",
+    "AUG",
+    "SEP",
+    "SUB3",
+    "OCT",
+    "NOV",
+    "DEC",
+    "SUB4",
+    "TOTAL"
+  ];
+
+  const sourceItems = includeSample
+    ? [
+        {
+          budgetCode: "744003 - Internet Charge",
+          itemName: "INTERNET CORPORATE & VSAT",
+          rowLabel: "PLAN 2026",
+          initialBudgetPlan: 0,
+          ...MONTHS.reduce((acc, month) => {
+            acc[`${month.key}Plan`] = 0;
+            return acc;
+          }, {})
+        },
+        {
+          budgetCode: "744003 - Internet Charge",
+          itemName: "INTERNET CORPORATE & VSAT",
+          rowLabel: "ACTUAL 2026",
+          initialBudgetActual: 0,
+          ...MONTHS.reduce((acc, month) => {
+            acc[`${month.key}Actual`] = 0;
+            return acc;
+          }, {})
+        }
+      ]
+    : items.flatMap((item) => [
+        {
+          ...item,
+          rowLabel: "PLAN 2026"
+        },
+        {
+          ...item,
+          rowLabel: "ACTUAL 2026"
+        }
+      ]);
+
+  const dataRows = sourceItems.map((item) => {
+    const isActualRow = item.rowLabel === "ACTUAL 2026";
+    const suffix = isActualRow ? "Actual" : "Plan";
+    const quarterTotals = QUARTERS.map((quarter) =>
+      quarter.months.reduce((sum, monthKey) => sum + toNumber(item[`${monthKey}${suffix}`]), 0)
+    );
+    const annualTotal = MONTHS.reduce((sum, month) => sum + toNumber(item[`${month.key}${suffix}`]), 0);
+
+    return [
+      item.budgetCode || "",
+      item.itemName || "",
+      item.rowLabel,
+      ...QUARTERS.flatMap((quarter, quarterIndex) => [
+        ...quarter.months.map((monthKey) => toNumber(item[`${monthKey}${suffix}`])),
+        quarterTotals[quarterIndex]
+      ]),
+      annualTotal
+    ];
+  });
+
+  return [headerTop, headerBottom, ...dataRows];
+}
+
+function buildOperationalWorksheet(items, includeSample = false) {
+  const sheetRows = buildOperationalSheetRows(items, includeSample);
+  const worksheet = XLSX.utils.aoa_to_sheet(sheetRows);
+
+  worksheet["!merges"] = [
+    { s: { r: 0, c: 0 }, e: { r: 1, c: 0 } },
+    { s: { r: 0, c: 1 }, e: { r: 1, c: 1 } },
+    { s: { r: 0, c: 2 }, e: { r: 1, c: 2 } },
+    { s: { r: 0, c: 3 }, e: { r: 0, c: 6 } },
+    { s: { r: 0, c: 7 }, e: { r: 0, c: 10 } },
+    { s: { r: 0, c: 11 }, e: { r: 0, c: 14 } },
+    { s: { r: 0, c: 15 }, e: { r: 0, c: 18 } },
+    { s: { r: 0, c: 19 }, e: { r: 1, c: 19 } }
+  ];
+
+  worksheet["!cols"] = [
+    { wch: 24 },
+    { wch: 34 },
+    { wch: 18 },
+    ...Array.from({ length: 16 }, () => ({ wch: 12 })),
+    { wch: 14 }
+  ];
+
+  return worksheet;
+}
+
+export default function OperationalBudgetPage() {
+  const [data, setData] = useState(() => loadStoredItems());
   const [isModalVisible, setIsModalVisible] = useState(false);
   const [modalMode, setModalMode] = useState("create");
   const [editingKey, setEditingKey] = useState(null);
+  const [messageApi, contextHolder] = message.useMessage();
   const [form] = Form.useForm();
 
+  useEffect(() => {
+    if (typeof window !== "undefined") {
+      window.localStorage.setItem(STORAGE_KEY, JSON.stringify(data));
+    }
+  }, [data]);
+
   const formatCurrency = (value) => {
-    if (!value) return "-";
+    if (!value) return "0";
     return new Intl.NumberFormat("id-ID", {
       minimumFractionDigits: 0,
+      maximumFractionDigits: 0
     }).format(value);
   };
 
   const handleOpenModal = (mode, record = null) => {
     setModalMode(mode);
+
     if (mode === "edit" && record) {
       setEditingKey(record.key);
-      form.setFieldsValue(record);
+      form.setFieldsValue({
+        ...record,
+        ...MONTHS.reduce((acc, month) => {
+          acc[`${month.key}Plan`] = toNumber(record[`${month.key}Plan`]);
+          acc[`${month.key}Actual`] = toNumber(record[`${month.key}Actual`]);
+          return acc;
+        }, {})
+      });
     } else {
       setEditingKey(null);
       form.resetFields();
+      form.setFieldsValue(MONTHS.reduce((acc, month) => {
+        acc[`${month.key}Plan`] = 0;
+        acc[`${month.key}Actual`] = 0;
+        return acc;
+      }, { initialBudgetPlan: 0, initialBudgetActual: 0 }));
     }
+
     setIsModalVisible(true);
   };
 
@@ -120,188 +441,300 @@ export default function OperationalBudgetPage() {
   };
 
   const handleSubmit = (values) => {
-    const newRecord = { ...values };
+    const normalized = {
+      ...values,
+      key: modalMode === "create" ? Date.now().toString() : editingKey,
+      initialBudgetPlan: toNumber(values.initialBudgetPlan),
+      initialBudgetActual: toNumber(values.initialBudgetActual),
+      ...MONTHS.reduce((acc, month) => {
+        acc[`${month.key}Plan`] = toNumber(values[`${month.key}Plan`]);
+        acc[`${month.key}Actual`] = toNumber(values[`${month.key}Actual`]);
+        return acc;
+      }, {})
+    };
 
     if (modalMode === "create") {
-      newRecord.key = Date.now().toString();
-      setData([newRecord, ...data]);
+      setData((current) => [normalized, ...current]);
+      messageApi.success("Budget operasional berhasil ditambahkan.");
     } else {
-      setData(data.map(item => item.key === editingKey ? { ...item, ...newRecord } : item));
+      setData((current) => current.map((item) => (item.key === editingKey ? normalized : item)));
+      messageApi.success("Budget operasional berhasil diperbarui.");
     }
+
     handleCloseModal();
   };
 
   const handleDelete = (key) => {
-    setData(data.filter(item => item.key !== key));
+    setData((current) => current.filter((item) => item.key !== key));
+    messageApi.success("Budget operasional berhasil dihapus.");
   };
 
-  const tableData = [];
-  data.forEach((item) => {
-    tableData.push({
-      ...item,
-      isPlanRow: true,
-      rowSpan: 2,
-      tableKey: `${item.key}-plan`
-    });
-    tableData.push({
-      ...item,
-      isPlanRow: false,
-      rowSpan: 0,
-      tableKey: `${item.key}-actual`
-    });
+  const handleDeleteAll = () => {
+    setData([]);
+    if (typeof window !== "undefined") {
+      window.localStorage.removeItem(STORAGE_KEY);
+    }
+    messageApi.success("Semua budget operasional berhasil dihapus.");
+  };
+
+  const downloadTemplate = () => {
+    const worksheet = buildOperationalWorksheet([], true);
+    const workbook = XLSX.utils.book_new();
+    XLSX.utils.book_append_sheet(workbook, worksheet, "Operational Budget");
+    XLSX.writeFile(workbook, "Template_Operational_Budget.xlsx");
+  };
+
+  const handleImport = (file) => {
+    const reader = new FileReader();
+
+    reader.onload = (event) => {
+      try {
+        const workbook = XLSX.read(new Uint8Array(event.target.result), { type: "array" });
+        const firstSheet = workbook.Sheets[workbook.SheetNames[0]];
+        const sheetRows = XLSX.utils.sheet_to_json(firstSheet, { header: 1, defval: "" });
+        const dataRows = sheetRows.slice(2).filter((row) => row.some((cell) => String(cell || "").trim() !== ""));
+
+        if (!dataRows.length) {
+          messageApi.warning("File import kosong.");
+          return;
+        }
+
+        const parsedMap = new Map();
+
+        dataRows.forEach((row, index) => {
+          const budgetCode = String(row[0] || "").trim();
+          const itemName = String(row[1] || "").trim();
+          const rowLabel = String(row[2] || "").trim().toUpperCase();
+
+          if (!budgetCode && !itemName) return;
+          if (rowLabel !== "PLAN 2026" && rowLabel !== "ACTUAL 2026") return;
+
+          const itemKey = `${budgetCode}__${itemName || index}`;
+          const current =
+            parsedMap.get(itemKey) ||
+            {
+              key: `${Date.now()}-${index}`,
+              budgetCode,
+              costCode: "",
+              acctBudget: "",
+              largeAccount: "",
+              costCode1: "",
+              deptSect: "",
+              accNo: "",
+              accDesc: "",
+              itemName,
+              reason: "",
+              initialBudgetPlan: 0,
+              initialBudgetActual: 0,
+              ...MONTHS.reduce((acc, month) => {
+                acc[`${month.key}Plan`] = 0;
+                acc[`${month.key}Actual`] = 0;
+                return acc;
+              }, {})
+            };
+
+          const monthValues = [
+            { month: "jan", col: 3 },
+            { month: "feb", col: 4 },
+            { month: "mar", col: 5 },
+            { month: "apr", col: 7 },
+            { month: "may", col: 8 },
+            { month: "jun", col: 9 },
+            { month: "jul", col: 11 },
+            { month: "aug", col: 12 },
+            { month: "sep", col: 13 },
+            { month: "oct", col: 15 },
+            { month: "nov", col: 16 },
+            { month: "dec", col: 17 }
+          ];
+
+          if (rowLabel === "PLAN 2026") {
+            current.initialBudgetPlan = monthValues.reduce((sum, entry) => sum + toNumber(row[entry.col]), 0);
+            monthValues.forEach((entry) => {
+              current[`${entry.month}Plan`] = toNumber(row[entry.col]);
+            });
+          }
+
+          if (rowLabel === "ACTUAL 2026") {
+            current.initialBudgetActual = monthValues.reduce((sum, entry) => sum + toNumber(row[entry.col]), 0);
+            monthValues.forEach((entry) => {
+              current[`${entry.month}Actual`] = toNumber(row[entry.col]);
+            });
+          }
+
+          parsedMap.set(itemKey, current);
+        });
+
+        const importedItems = Array.from(parsedMap.values()).filter((item) => item.budgetCode || item.itemName);
+
+        setData(importedItems);
+        messageApi.success(`Berhasil import ${importedItems.length} budget operasional.`);
+      } catch (error) {
+        messageApi.error(`Gagal import file: ${error.message}`);
+      }
+    };
+
+    reader.readAsArrayBuffer(file);
+    return false;
+  };
+
+  const handleExport = () => {
+    const worksheet = buildOperationalWorksheet(buildExportRows(data), false);
+    const workbook = XLSX.utils.book_new();
+    XLSX.utils.book_append_sheet(workbook, worksheet, "Operational Budget");
+    XLSX.writeFile(workbook, "Operational_Budget.xlsx");
+  };
+
+  const tableData = useMemo(() => buildTableRows(data), [data]);
+
+  const renderBudgetCodeCell = (_, record) => ({
+    children: record.budgetRowSpan > 0 ? <div className="budget-code-cell">{record.budgetCode || "-"}</div> : null,
+    props: { rowSpan: record.budgetRowSpan }
   });
 
-  const mergedCellRender = (text, record) => ({
-    children: text,
-    props: { rowSpan: record.rowSpan }
+  const renderItemNameCell = (_, record) => ({
+    children: record.itemRowSpan > 0 ? (
+      <div className="item-name-cell">
+        <div className="item-name-main">{record.itemName || "-"}</div>
+        {record.accDesc ? <div className="item-name-meta">{record.accDesc}</div> : null}
+      </div>
+    ) : null,
+    props: { rowSpan: record.itemRowSpan }
   });
 
-  const createMonthCol = (m) => ({
-    title: m,
-    key: m.toLowerCase(),
+  const renderInitialBudgetLabel = (_, record) => (
+    <span className={`row-label row-label--${record.rowType}`}>{record.rowLabel}</span>
+  );
+
+  const renderMonthValue = (monthKey, record) => {
+    const suffix = record.rowType.includes("actual") ? "Actual" : "Plan";
+
+    return (
+      <Text className={`budget-val budget-val--${record.rowType}`}>
+        {formatCurrency(record[`${monthKey}${suffix}`])}
+      </Text>
+    );
+  };
+
+  const createMonthCol = (monthKey, label) => ({
+    title: label,
+    key: monthKey,
     width: 120,
     align: "right",
-    render: (_, record) => {
-      const val = record.isPlanRow ? record[`${m.toLowerCase()}Plan`] : record[`${m.toLowerCase()}Actual`];
-      return record.isPlanRow ? <Text className="budget-val-plan">{formatCurrency(val)}</Text> : <Text className="budget-val-actual">{formatCurrency(val)}</Text>;
-    }
+    render: (_, record) => renderMonthValue(monthKey, record)
   });
 
-  const quarterColumns = [
-    {
-      title: "Q1",
-      children: [
-        ...["Jan", "Feb", "Mar"].map(createMonthCol),
-        {
-          title: "計1",
-          key: "q1_total",
-          width: 120,
-          align: "right",
-          render: (_, record) => {
-            const total = record.isPlanRow
-              ? (record.janPlan || 0) + (record.febPlan || 0) + (record.marPlan || 0)
-              : (record.janActual || 0) + (record.febActual || 0) + (record.marActual || 0);
-            return record.isPlanRow ? <Text className="budget-val-plan" strong>{formatCurrency(total)}</Text> : <Text className="budget-val-actual" strong>{formatCurrency(total)}</Text>;
-          }
+  const quarterColumns = QUARTERS.map((quarter) => ({
+    title: quarter.label,
+    children: [
+      ...quarter.months.map((monthKey) => {
+        const month = MONTHS.find((item) => item.key === monthKey);
+        return createMonthCol(monthKey, month?.label || monthKey.toUpperCase());
+      }),
+      {
+        title: quarter.totalLabel,
+        key: `${quarter.key}-total`,
+        width: 120,
+        align: "right",
+        render: (_, record) => {
+          const suffix = record.rowType.includes("actual") ? "Actual" : "Plan";
+          return (
+            <Text className={`budget-val budget-val--${record.rowType}`} strong>
+              {formatCurrency(getQuarterTotal(record, quarter, suffix))}
+            </Text>
+          );
         }
-      ]
-    },
-    {
-      title: "Q2",
-      children: [
-        ...["Apr", "May", "Jun"].map(createMonthCol),
-        {
-          title: "計1",
-          key: "q2_total",
-          width: 120,
-          align: "right",
-          render: (_, record) => {
-            const total = record.isPlanRow
-              ? (record.aprPlan || 0) + (record.mayPlan || 0) + (record.junPlan || 0)
-              : (record.aprActual || 0) + (record.mayActual || 0) + (record.junActual || 0);
-            return record.isPlanRow ? <Text className="budget-val-plan" strong>{formatCurrency(total)}</Text> : <Text className="budget-val-actual" strong>{formatCurrency(total)}</Text>;
-          }
-        }
-      ]
-    },
-    {
-      title: "Q3",
-      children: [
-        ...["Jul", "Aug", "Sep"].map(createMonthCol),
-        {
-          title: "計1",
-          key: "q3_total",
-          width: 120,
-          align: "right",
-          render: (_, record) => {
-            const total = record.isPlanRow
-              ? (record.julPlan || 0) + (record.augPlan || 0) + (record.sepPlan || 0)
-              : (record.julActual || 0) + (record.augActual || 0) + (record.sepActual || 0);
-            return record.isPlanRow ? <Text className="budget-val-plan" strong>{formatCurrency(total)}</Text> : <Text className="budget-val-actual" strong>{formatCurrency(total)}</Text>;
-          }
-        }
-      ]
-    },
-    {
-      title: "Q4",
-      children: [
-        ...["Oct", "Nov", "Dec"].map(createMonthCol),
-        {
-          title: "計1",
-          key: "q4_total",
-          width: 120,
-          align: "right",
-          render: (_, record) => {
-            const total = record.isPlanRow
-              ? (record.octPlan || 0) + (record.novPlan || 0) + (record.decPlan || 0)
-              : (record.octActual || 0) + (record.novActual || 0) + (record.decActual || 0);
-            return record.isPlanRow ? <Text className="budget-val-plan" strong>{formatCurrency(total)}</Text> : <Text className="budget-val-actual" strong>{formatCurrency(total)}</Text>;
-          }
-        }
-      ]
-    }
-  ];
+      }
+    ]
+  }));
 
   const columns = [
-    { title: "Budget Code", dataIndex: "budgetCode", key: "budgetCode", width: 140, fixed: "left", render: mergedCellRender },
-    { title: "Cost Code", dataIndex: "costCode", key: "costCode", width: 100, render: mergedCellRender },
-    { title: "Acct Budget", dataIndex: "acctBudget", key: "acctBudget", width: 100, render: mergedCellRender },
-    { title: "Large Account", dataIndex: "largeAccount", key: "largeAccount", width: 120, render: mergedCellRender },
-    { title: "Cost Code 1", dataIndex: "costCode1", key: "costCode1", width: 100, render: mergedCellRender },
-    { title: "Dept/Sect", dataIndex: "deptSect", key: "deptSect", width: 120, render: mergedCellRender },
-    { title: "Acc No", dataIndex: "accNo", key: "accNo", width: 80, render: mergedCellRender },
-    { title: "Acc Desc", dataIndex: "accDesc", key: "accDesc", width: 150, render: mergedCellRender },
-    { title: "Item Name", dataIndex: "itemName", key: "itemName", width: 150, render: mergedCellRender },
-    { title: "Reason for Application", dataIndex: "reason", key: "reason", width: 200, render: mergedCellRender },
     {
-      title: "Type",
-      key: "type",
-      width: 80,
-      align: "center",
-      render: (_, record) => record.isPlanRow ? <span className="type-tag-plan">Plan</span> : <span className="type-tag-actual">Actual</span>
+      title: "Budget code",
+      dataIndex: "budgetCode",
+      key: "budgetCode",
+      width: 220,
+      fixed: "left",
+      render: renderBudgetCodeCell
+    },
+    {
+      title: "Item Name",
+      dataIndex: "itemName",
+      key: "itemName",
+      width: 320,
+      fixed: "left",
+      render: renderItemNameCell
     },
     {
       title: "Initial Budget",
-      key: "initialBudget",
-      width: 140,
-      align: "right",
-      render: (_, record) => {
-        const val = record.isPlanRow ? record.initialBudgetPlan : record.initialBudgetActual;
-        return record.isPlanRow ? <Text className="budget-val-plan" strong>{formatCurrency(val)}</Text> : <Text className="budget-val-actual" strong>{formatCurrency(val)}</Text>;
-      }
+      dataIndex: "rowLabel",
+      key: "rowLabel",
+      width: 170,
+      fixed: "left",
+      render: renderInitialBudgetLabel
     },
     ...quarterColumns,
+    {
+      title: "TOTAL",
+      key: "annualTotal",
+      width: 140,
+      align: "right",
+      fixed: "right",
+      render: (_, record) => {
+        const suffix = record.rowType.includes("actual") ? "Actual" : "Plan";
+        return (
+          <Text className={`budget-val budget-val--${record.rowType}`} strong>
+            {formatCurrency(record.isSummary ? record[`initialBudget${suffix}`] : getRowAnnualTotal(record, suffix))}
+          </Text>
+        );
+      }
+    },
     {
       title: "Action",
       key: "action",
       align: "center",
       fixed: "right",
-      width: 100,
+      width: 110,
       render: (_, record) => ({
-        children: (
+        children: record.isSummary ? null : (
           <Space size="small">
             <Button type="primary" ghost icon={<EditOutlined />} size="small" onClick={() => handleOpenModal("edit", record)} />
-            <Popconfirm title="Hapus?" onConfirm={() => handleDelete(record.key)} okText="Ya" cancelText="Batal">
+            <Popconfirm title="Hapus data budget ini?" onConfirm={() => handleDelete(record.key)} okText="Ya" cancelText="Batal">
               <Button type="primary" danger ghost icon={<DeleteOutlined />} size="small" />
             </Popconfirm>
           </Space>
         ),
-        props: { rowSpan: record.rowSpan }
+        props: { rowSpan: record.itemRowSpan }
       })
     }
   ];
 
   return (
     <div className="op-budget-page">
+      {contextHolder}
       <div className="op-budget-header">
         <div>
           <Title className="op-budget-title">Operational Budget</Title>
-          <Text className="op-budget-subtitle">Alokasi dan perencanaan pengeluaran operasional tahunan</Text>
+          {/* <Text className="op-budget-subtitle">Form input sudah disesuaikan ke pola Excel: plan, actual, subtotal quarter, dan total tahunan.</Text> */}
         </div>
         <Space>
+          <Button icon={<DownloadOutlined />} onClick={downloadTemplate}>Download Template</Button>
+          <Upload beforeUpload={handleImport} showUploadList={false}>
+            <Button icon={<UploadOutlined />}>Import</Button>
+          </Upload>
+          <Popconfirm
+            title="Hapus semua budget operasional?"
+            description="Semua data operational budget akan dihapus. Lanjutkan?"
+            okText="Hapus Semua"
+            cancelText="Batal"
+            okButtonProps={{ danger: true }}
+            onConfirm={handleDeleteAll}
+          >
+            <Button danger icon={<DeleteOutlined />}>Delete All</Button>
+          </Popconfirm>
           <Button type="primary" icon={<PlusOutlined />} onClick={() => handleOpenModal("create")}>Tambah Budget</Button>
-          <Button icon={<PrinterOutlined />}>Print</Button>
-          <Button icon={<DownloadOutlined />}>Export</Button>
+          <Button icon={<PrinterOutlined />} onClick={() => window.print()}>Print</Button>
+          <Button icon={<DownloadOutlined />} onClick={handleExport}>Export</Button>
         </Space>
       </div>
 
@@ -310,13 +743,12 @@ export default function OperationalBudgetPage() {
           columns={columns}
           dataSource={tableData}
           rowKey="tableKey"
-          rowClassName={(record) => record.isPlanRow ? 'plan-row' : 'actual-row'}
+          rowClassName={(record) => `budget-row budget-row--${record.rowType}`}
           className="op-budget-table"
-          scroll={{ x: 2600, y: 600 }}
+          scroll={{ x: 2400, y: 620 }}
           pagination={false}
           bordered
           size="middle"
-          className="budget-table"
         />
       </Card>
 
@@ -328,44 +760,52 @@ export default function OperationalBudgetPage() {
         okText="Simpan"
         cancelText="Batal"
         destroyOnClose
-        width={900}
+        width={1280}
       >
         <Form form={form} layout="vertical" onFinish={handleSubmit}>
           <Row gutter={16}>
-            <Col span={8}><Form.Item name="budgetCode" label="Budget Code"><Input /></Form.Item></Col>
-            <Col span={8}><Form.Item name="costCode" label="Cost Code"><Input /></Form.Item></Col>
-            <Col span={8}><Form.Item name="acctBudget" label="Acct Budget"><Input /></Form.Item></Col>
+            <Col xs={24} md={8}><Form.Item name="budgetCode" label="Budget Code" rules={[{ required: true, message: "Budget code wajib diisi" }]}><Input /></Form.Item></Col>
+            <Col xs={24} md={8}><Form.Item name="costCode" label="Cost Code"><Input /></Form.Item></Col>
+            <Col xs={24} md={8}><Form.Item name="acctBudget" label="Acct Budget"><Input /></Form.Item></Col>
           </Row>
           <Row gutter={16}>
-            <Col span={8}><Form.Item name="largeAccount" label="Large Account"><Input /></Form.Item></Col>
-            <Col span={8}><Form.Item name="costCode1" label="Cost Code 1"><Input /></Form.Item></Col>
-            <Col span={8}><Form.Item name="deptSect" label="Dept/Sect"><Input /></Form.Item></Col>
+            <Col xs={24} md={8}><Form.Item name="largeAccount" label="Large Account"><Input /></Form.Item></Col>
+            <Col xs={24} md={8}><Form.Item name="costCode1" label="Cost Code 1"><Input /></Form.Item></Col>
+            <Col xs={24} md={8}><Form.Item name="deptSect" label="Dept/Sect"><Input /></Form.Item></Col>
           </Row>
           <Row gutter={16}>
-            <Col span={8}><Form.Item name="accNo" label="Acc No"><Input /></Form.Item></Col>
-            <Col span={8}><Form.Item name="accDesc" label="Acc Desc"><Input /></Form.Item></Col>
-            <Col span={8}><Form.Item name="itemName" label="Item Name"><Input /></Form.Item></Col>
+            <Col xs={24} md={8}><Form.Item name="accNo" label="Acc No"><Input /></Form.Item></Col>
+            <Col xs={24} md={8}><Form.Item name="accDesc" label="Acc Desc"><Input /></Form.Item></Col>
+            <Col xs={24} md={8}><Form.Item name="itemName" label="Item Name" rules={[{ required: true, message: "Item name wajib diisi" }]}><Input /></Form.Item></Col>
           </Row>
           <Row gutter={16}>
-            <Col span={16}><Form.Item name="reason" label="Reason for Application"><Input /></Form.Item></Col>
+            <Col span={24}><Form.Item name="reason" label="Reason for Application"><Input /></Form.Item></Col>
           </Row>
           <Row gutter={16}>
-            <Col span={12}><Form.Item name="initialBudgetPlan" label="Initial Budget (Plan)"><InputNumber style={{ width: '100%' }} /></Form.Item></Col>
-            <Col span={12}><Form.Item name="initialBudgetActual" label="Initial Budget (Actual)"><InputNumber style={{ width: '100%' }} /></Form.Item></Col>
+            <Col xs={24} md={12}><Form.Item name="initialBudgetPlan" label="Initial Budget Total (Plan)"><InputNumber min={0} style={{ width: "100%" }} formatter={(value) => `${value}`.replace(/\B(?=(\d{3})+(?!\d))/g, ".")} parser={(value) => value?.replace(/\./g, "")} /></Form.Item></Col>
+            <Col xs={24} md={12}><Form.Item name="initialBudgetActual" label="Initial Budget Total (Actual)"><InputNumber min={0} style={{ width: "100%" }} formatter={(value) => `${value}`.replace(/\B(?=(\d{3})+(?!\d))/g, ".")} parser={(value) => value?.replace(/\./g, "")} /></Form.Item></Col>
           </Row>
-          <Typography.Text strong style={{ display: 'block', marginBottom: '16px' }}>Alokasi Bulanan</Typography.Text>
-          <Row gutter={16}>
-            {["jan", "feb", "mar", "apr", "may", "jun"].map(m => (
-              <Col span={4} key={m}><Form.Item name={m} label={m.toUpperCase()}><InputNumber style={{ width: '100%' }} /></Form.Item></Col>
-            ))}
-          </Row>
-          <Row gutter={16}>
-            {["jul", "aug", "sep", "oct", "nov", "dec"].map(m => (
-              <Col span={4} key={m}><Form.Item name={m} label={m.toUpperCase()}><InputNumber style={{ width: '100%' }} /></Form.Item></Col>
-            ))}
-          </Row>
+
+          <div className="op-budget-form-section">
+            <Typography.Text strong>Alokasi Bulanan Sesuai Excel</Typography.Text>
+            <div className="op-budget-month-grid">
+              {MONTHS.map((month) => (
+                <div className="op-budget-month-card" key={month.key}>
+                  <div className="op-budget-month-card__title">{month.label}</div>
+                  <Form.Item name={`${month.key}Plan`} label="Plan" className="op-budget-month-card__field">
+                    <InputNumber min={0} style={{ width: "100%" }} formatter={(value) => `${value}`.replace(/\B(?=(\d{3})+(?!\d))/g, ".")} parser={(value) => value?.replace(/\./g, "")} />
+                  </Form.Item>
+                  <Form.Item name={`${month.key}Actual`} label="Actual" className="op-budget-month-card__field">
+                    <InputNumber min={0} style={{ width: "100%" }} formatter={(value) => `${value}`.replace(/\B(?=(\d{3})+(?!\d))/g, ".")} parser={(value) => value?.replace(/\./g, "")} />
+                  </Form.Item>
+                </div>
+              ))}
+            </div>
+          </div>
         </Form>
       </Modal>
     </div>
   );
 }
+
+

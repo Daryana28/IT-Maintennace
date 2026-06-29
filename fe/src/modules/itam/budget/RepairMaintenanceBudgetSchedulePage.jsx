@@ -1,10 +1,10 @@
-import React, { useEffect, useMemo, useState } from "react";
-import { Typography, Space, Select, Button, Table, Input, Modal, Form, InputNumber, Popconfirm, DatePicker } from "antd";
-import { FilterOutlined, DownloadOutlined, CalendarOutlined, SearchOutlined, PlusOutlined, EditOutlined, DeleteOutlined } from "@ant-design/icons";
+import React, { useCallback, useEffect, useMemo, useState } from "react";
+import { Typography, Space, Select, Button, Table, Input, Modal, Form, InputNumber, Popconfirm, DatePicker, Popover, message } from "antd";
+import { FilterOutlined, DownloadOutlined, CalendarOutlined, SearchOutlined, PlusOutlined, EditOutlined, DeleteOutlined, InfoCircleOutlined } from "@ant-design/icons";
 import dayjs from "dayjs";
 import "./AssetBudgetSchedulePage.css";
 
-const { Title, Text } = Typography;
+const { Title } = Typography;
 const { Option } = Select;
 
 const MONTH_START = 1;
@@ -22,6 +22,7 @@ const STAGE_SHORT_LABELS = {
 };
 
 const OPERATIONAL_BUDGET_SCHEDULE_STORAGE_KEY = "itam.operationalBudgetSchedule.items.v1";
+const OPERATIONAL_BUDGET_STORAGE_KEY = "itam.operationalBudget.items.v2";
 const MONTH_PICKER_FORMAT = "MM/YYYY";
 
 const INITIAL_ITEMS = [
@@ -31,7 +32,13 @@ const INITIAL_ITEMS = [
     budgetCode: "OP-2026-001",
     subject: "Operational Support 2026",
     itemName: "Microsoft 365 License",
-    budgetAmount: 30000000,
+    budgetPlanAmount: 30000000,
+    actualBudgetAmount: 0,
+    borrowedFromBudgetCode: "",
+    borrowedAmount: 0,
+    transferDate: "",
+    borrowPurpose: "",
+    borrowRemark: "",
     poTime: "202604",
     allocation: "Normal",
     budgetYear: "2026",
@@ -52,7 +59,13 @@ const INITIAL_ITEMS = [
     budgetCode: "OP-2026-002",
     subject: "Infrastructure Service",
     itemName: "AWS Hosting",
-    budgetAmount: 14800000,
+    budgetPlanAmount: 14800000,
+    actualBudgetAmount: 0,
+    borrowedFromBudgetCode: "",
+    borrowedAmount: 0,
+    transferDate: "",
+    borrowPurpose: "",
+    borrowRemark: "",
     poTime: "202605",
     allocation: "Normal",
     budgetYear: "2026",
@@ -73,7 +86,13 @@ const INITIAL_ITEMS = [
     budgetCode: "OP-2026-003",
     subject: "Connectivity",
     itemName: "Internet ISP Dedicated",
-    budgetAmount: 9000000,
+    budgetPlanAmount: 9000000,
+    actualBudgetAmount: 0,
+    borrowedFromBudgetCode: "",
+    borrowedAmount: 0,
+    transferDate: "",
+    borrowPurpose: "",
+    borrowRemark: "",
     poTime: "202603",
     allocation: "Normal",
     budgetYear: "2026",
@@ -219,6 +238,10 @@ function hasRangeFilled(range) {
   return Boolean(range?.start && range?.end);
 }
 
+function getEffectiveActualAmount(item) {
+  return Number(item?.actualBudgetAmount || 0) + Number(item?.borrowedAmount || 0);
+}
+
 function isItemClosed(item) {
   return EDIT_STAGE_OPTIONS.every((stage) => {
     const planRange = item.stages?.[stage]?.plan;
@@ -238,6 +261,24 @@ function getAutomaticStatus(item) {
   return `${item.currentStage} Plan`;
 }
 
+function detectOperationalBudgetYear(entry) {
+  const budgetCode = String(entry?.budgetCode || "").trim().toUpperCase();
+  const subject = String(entry?.subject || "");
+  const reason = String(entry?.reason || "");
+  const subjectYearMatch = subject.match(/\b(20\d{2})\b/);
+  if (subjectYearMatch) return subjectYearMatch[1];
+  const reasonYearMatch = reason.match(/\b(20\d{2})\b/);
+  if (reasonYearMatch) return reasonYearMatch[1];
+
+  const operationalCodeYearMatch = budgetCode.match(/(?:^|[^0-9])(20\d{2})(?:[^0-9]|$)/);
+  if (operationalCodeYearMatch) return operationalCodeYearMatch[1];
+
+  const budgetCodeYearMatch = budgetCode.match(/^(\d{2})[A-Z]/);
+  if (budgetCodeYearMatch) return `20${budgetCodeYearMatch[1]}`;
+
+  return "2026";
+}
+
 function getStageKeysForView(selectedStage) {
   return selectedStage === "All" ? EDIT_STAGE_OPTIONS : [selectedStage];
 }
@@ -245,6 +286,13 @@ function getStageKeysForView(selectedStage) {
 function createDefaultOperationalItems() {
   return INITIAL_ITEMS.map((item) => ({
     ...item,
+    budgetPlanAmount: Number(item.budgetPlanAmount ?? item.budgetAmount ?? 0),
+    actualBudgetAmount: Number(item.actualBudgetAmount ?? 0),
+    borrowedFromBudgetCode: String(item.borrowedFromBudgetCode || "").trim(),
+    borrowedAmount: Number(item.borrowedAmount ?? 0),
+    transferDate: String(item.transferDate || ""),
+    borrowPurpose: String(item.borrowPurpose || ""),
+    borrowRemark: String(item.borrowRemark || ""),
     stages: Object.fromEntries(
       Object.entries(item.stages || {}).map(([stage, value]) => [
         stage,
@@ -273,6 +321,13 @@ function loadStoredOperationalItems() {
       ...item,
       no: index + 1,
       key: String(item.key || index + 1),
+      budgetPlanAmount: Number(item.budgetPlanAmount ?? item.budgetAmount ?? 0),
+      actualBudgetAmount: Number(item.actualBudgetAmount ?? 0),
+      borrowedFromBudgetCode: String(item.borrowedFromBudgetCode || "").trim(),
+      borrowedAmount: Number(item.borrowedAmount ?? 0),
+      transferDate: String(item.transferDate || ""),
+      borrowPurpose: String(item.borrowPurpose || ""),
+      borrowRemark: String(item.borrowRemark || ""),
       stages: Object.fromEntries(
         EDIT_STAGE_OPTIONS.map((stage) => [
           stage,
@@ -294,6 +349,71 @@ function loadStoredOperationalItems() {
   }
 }
 
+function buildOperationalBudgetCatalog(rows = []) {
+  const grouped = new Map();
+
+  rows.forEach((row) => {
+    const budgetCode = String(row?.budgetCode || "").trim();
+    const itemName = String(row?.itemName || "").trim();
+    if (!budgetCode) return;
+
+    const current = grouped.get(budgetCode) || {
+      budgetCode,
+      subject: "",
+      budgetYear: "",
+      budgetPlanAmount: 0,
+      items: [],
+    };
+
+    const subject = String(row?.reason || row?.accDesc || row?.itemName || "").trim();
+    const monthlyPlanTotal = MONTH_LABELS.reduce((sum, _, monthIndex) => {
+      const monthKey = ["jan", "feb", "mar", "apr", "may", "jun", "jul", "aug", "sep", "oct", "nov", "dec"][monthIndex];
+      return sum + Number(row?.[`${monthKey}Plan`] || 0);
+    }, 0);
+    const itemBudgetAmount = Number(row?.initialBudgetPlan || monthlyPlanTotal || 0);
+    const budgetYear = String(
+      row?.budgetYear ??
+      row?.budget_year ??
+      detectOperationalBudgetYear({ budgetCode, subject })
+    ).trim();
+
+    if (!current.subject && subject) current.subject = subject;
+    if (!current.budgetYear && budgetYear) current.budgetYear = budgetYear;
+    current.budgetPlanAmount += itemBudgetAmount;
+
+    if (itemName) {
+      const existingItem = current.items.find((item) => item.itemName === itemName);
+      if (!existingItem) {
+        current.items.push({
+          itemName,
+          subject: subject || itemName,
+          budgetPlanAmount: itemBudgetAmount,
+        });
+      }
+    }
+
+    grouped.set(budgetCode, current);
+  });
+
+  return Array.from(grouped.values()).sort((left, right) => left.budgetCode.localeCompare(right.budgetCode));
+}
+
+function loadOperationalBudgetCatalog() {
+  if (typeof window === "undefined") return [];
+
+  try {
+    const raw = window.localStorage.getItem(OPERATIONAL_BUDGET_STORAGE_KEY);
+    if (!raw) return [];
+
+    const parsed = JSON.parse(raw);
+    if (!Array.isArray(parsed)) return [];
+
+    return buildOperationalBudgetCatalog(parsed);
+  } catch {
+    return [];
+  }
+}
+
 export default function OperationalBudgetSchedulePage() {
   const [year, setYear] = useState("2026");
   const [searchText, setSearchText] = useState("");
@@ -307,8 +427,29 @@ export default function OperationalBudgetSchedulePage() {
   const [itemModalMode, setItemModalMode] = useState("add");
   const [itemEditingKey, setItemEditingKey] = useState("");
   const [itemForm] = Form.useForm();
+  const [operationalBudgetCatalog, setOperationalBudgetCatalog] = useState(() => loadOperationalBudgetCatalog());
+  const selectedBudgetCode = Form.useWatch("budgetCode", itemForm);
+  const selectedBudgetYear = Form.useWatch("budgetYear", itemForm);
 
   const monthGroups = useMemo(() => buildMonthGroups(year), [year]);
+  const operationalBudgetCatalogMap = useMemo(
+    () => Object.fromEntries(operationalBudgetCatalog.map((entry) => [entry.budgetCode, entry])),
+    [operationalBudgetCatalog]
+  );
+  const budgetCodeOptions = useMemo(
+    () =>
+      operationalBudgetCatalog
+        .filter((entry) => !selectedBudgetYear || String(entry.budgetYear || "") === String(selectedBudgetYear))
+        .map((entry) => ({
+          label: entry.budgetCode,
+          value: entry.budgetCode,
+        })),
+    [operationalBudgetCatalog, selectedBudgetYear]
+  );
+  const selectedBudgetCatalog = useMemo(
+    () => operationalBudgetCatalogMap[selectedBudgetCode] || null,
+    [operationalBudgetCatalogMap, selectedBudgetCode]
+  );
 
   const yearWeekKeys = useMemo(
     () =>
@@ -332,28 +473,254 @@ export default function OperationalBudgetSchedulePage() {
     () => items.find((item) => item.key === itemEditingKey) || null,
     [items, itemEditingKey]
   );
+  const borrowedIncomingTotalsByCode = useMemo(
+    () =>
+      items.reduce((acc, item) => {
+        const budgetCode = String(item.budgetCode || "").trim();
+        if (!budgetCode) return acc;
+        acc[budgetCode] = Number(acc[budgetCode] || 0) + Number(item.borrowedAmount || 0);
+        return acc;
+      }, {}),
+    [items]
+  );
+  const borrowedOutgoingTotalsByCode = useMemo(
+    () =>
+      items.reduce((acc, item) => {
+        const sourceBudgetCode = String(item.borrowedFromBudgetCode || "").trim();
+        if (!sourceBudgetCode) return acc;
+        acc[sourceBudgetCode] = Number(acc[sourceBudgetCode] || 0) + Number(item.borrowedAmount || 0);
+        return acc;
+      }, {}),
+    [items]
+  );
+  const outgoingTransferDetailsByCode = useMemo(
+    () =>
+      items.reduce((acc, item) => {
+        const sourceBudgetCode = String(item.borrowedFromBudgetCode || "").trim();
+        if (!sourceBudgetCode || Number(item.borrowedAmount || 0) <= 0) return acc;
+
+        if (!acc[sourceBudgetCode]) acc[sourceBudgetCode] = [];
+        acc[sourceBudgetCode].push({
+          targetBudgetCode: String(item.budgetCode || "").trim(),
+          amount: Number(item.borrowedAmount || 0),
+          transferDate: item.transferDate || "",
+          remark: item.borrowRemark || "",
+        });
+        return acc;
+      }, {}),
+    [items]
+  );
+  const actualBudgetTotalsByCode = useMemo(
+    () =>
+      items.reduce((acc, item) => {
+        const budgetCode = String(item.budgetCode || "").trim();
+        if (!budgetCode) return acc;
+        acc[budgetCode] = Number(acc[budgetCode] || 0) + getEffectiveActualAmount(item);
+        return acc;
+      }, {}),
+    [items]
+  );
+  const borrowSourceOptions = useMemo(
+    () =>
+      operationalBudgetCatalog
+        .filter((entry) => entry.budgetCode !== editingItem?.budgetCode)
+        .map((entry) => ({
+          label: entry.budgetCode,
+          value: entry.budgetCode,
+        })),
+    [editingItem, operationalBudgetCatalog]
+  );
+  const getBudgetPlanAmountByCode = useCallback(
+    (budgetCode, fallbackAmount = 0) =>
+      Number(operationalBudgetCatalogMap[budgetCode]?.budgetPlanAmount ?? fallbackAmount ?? 0),
+    [operationalBudgetCatalogMap]
+  );
+  const getBudgetBalanceByCode = useCallback(
+    (budgetCode, fallbackAmount = 0) =>
+      getBudgetPlanAmountByCode(budgetCode, fallbackAmount) +
+      Number(borrowedIncomingTotalsByCode[budgetCode] || 0) -
+      Number(actualBudgetTotalsByCode[budgetCode] || 0) -
+      Number(borrowedOutgoingTotalsByCode[budgetCode] || 0),
+    [actualBudgetTotalsByCode, borrowedIncomingTotalsByCode, borrowedOutgoingTotalsByCode, getBudgetPlanAmountByCode]
+  );
+
+  const buildBudgetUsageMapsExcludingItem = (excludedItemKey = "") =>
+    items.reduce(
+      (acc, item) => {
+        if (item.key === excludedItemKey) return acc;
+
+        const budgetCode = String(item.budgetCode || "").trim();
+        const sourceBudgetCode = String(item.borrowedFromBudgetCode || "").trim();
+
+        if (budgetCode) {
+          acc.actual[budgetCode] = Number(acc.actual[budgetCode] || 0) + Number(item.actualBudgetAmount || 0);
+          acc.incoming[budgetCode] = Number(acc.incoming[budgetCode] || 0) + Number(item.borrowedAmount || 0);
+        }
+
+        if (sourceBudgetCode) {
+          acc.outgoing[sourceBudgetCode] = Number(acc.outgoing[sourceBudgetCode] || 0) + Number(item.borrowedAmount || 0);
+        }
+
+        return acc;
+      },
+      { actual: {}, incoming: {}, outgoing: {} }
+    );
+
+  const validateActualBudgetChange = ({
+    itemKey,
+    targetBudgetCode,
+    targetFallbackPlanAmount,
+    nextActualAmount,
+    requestedFromBudgetCode,
+    requestedAmount,
+  }) => {
+    const usageMaps = buildBudgetUsageMapsExcludingItem(itemKey);
+    const normalizedTargetBudgetCode = String(targetBudgetCode || "").trim();
+    const normalizedSourceBudgetCode = String(requestedFromBudgetCode || "").trim();
+    const normalizedRequestedAmount = Number(requestedAmount || 0);
+    const normalizedActualAmount = Number(nextActualAmount || 0);
+    const normalizedEffectiveActualAmount = normalizedActualAmount + normalizedRequestedAmount;
+    const targetPlanAmount = getBudgetPlanAmountByCode(normalizedTargetBudgetCode, targetFallbackPlanAmount);
+
+    const targetBalanceAfter =
+      targetPlanAmount +
+      Number(usageMaps.incoming[normalizedTargetBudgetCode] || 0) +
+      normalizedRequestedAmount -
+      Number(usageMaps.actual[normalizedTargetBudgetCode] || 0) -
+      normalizedEffectiveActualAmount -
+      Number(usageMaps.outgoing[normalizedTargetBudgetCode] || 0);
+
+    if (targetBalanceAfter < 0) {
+      return {
+        ok: false,
+        message: "Budget tidak cukup. Actual hanya bisa disimpan jika saldo cukup atau ada TF / minta budget dari budget lain.",
+      };
+    }
+
+    if (normalizedRequestedAmount > 0) {
+      const sourcePlanAmount = getBudgetPlanAmountByCode(normalizedSourceBudgetCode, 0);
+      const sourceBalanceAfter =
+        sourcePlanAmount +
+        Number(usageMaps.incoming[normalizedSourceBudgetCode] || 0) -
+        Number(usageMaps.actual[normalizedSourceBudgetCode] || 0) -
+        Number(usageMaps.outgoing[normalizedSourceBudgetCode] || 0) -
+        normalizedRequestedAmount;
+
+      if (sourceBalanceAfter < 0) {
+        return {
+          ok: false,
+          message: `Budget sumber ${normalizedSourceBudgetCode} tidak cukup untuk TF / permintaan budget ini.`,
+        };
+      }
+    }
+
+    return { ok: true };
+  };
 
   const filteredItems = useMemo(() => {
     const query = searchText.trim().toLowerCase();
-    return items.filter((item) => {
-      const matchesYear = item.budgetYear === year;
-      const matchesQuery =
-        !query ||
-        [item.budgetCode, item.subject, item.itemName].some((field) =>
-          String(field).toLowerCase().includes(query)
-        );
-      return matchesYear && matchesQuery;
-    });
+    return items
+      .map((item, originalIndex) => ({ item, originalIndex }))
+      .filter(({ item }) => {
+        const matchesYear = item.budgetYear === year;
+        const matchesQuery =
+          !query ||
+          [item.budgetCode, item.subject, item.itemName].some((field) =>
+            String(field).toLowerCase().includes(query)
+          );
+        return matchesYear && matchesQuery;
+      })
+      .sort((left, right) => {
+        const budgetCodeCompare = String(left.item.budgetCode || "").localeCompare(String(right.item.budgetCode || ""), undefined, {
+          numeric: true,
+          sensitivity: "base",
+        });
+
+        if (budgetCodeCompare !== 0) return budgetCodeCompare;
+        return left.originalIndex - right.originalIndex;
+      })
+      .map(({ item }) => item);
   }, [items, searchText, year]);
 
-  const tableRows = useMemo(
-    () =>
-      filteredItems.flatMap((item) => [
+  const templateCatalogRows = useMemo(() => {
+    const query = searchText.trim().toLowerCase();
+    return operationalBudgetCatalog
+      .filter((entry) => String(entry.budgetYear || "") === String(year))
+      .filter((entry) => {
+        if (!query) return true;
+        return [entry.budgetCode, entry.subject].some((field) =>
+          String(field || "").toLowerCase().includes(query)
+        );
+      })
+      .map((entry, index) => ({
+        key: `template-${entry.budgetCode}`,
+        no: index + 1,
+        budgetCode: entry.budgetCode,
+        subject: entry.subject,
+        itemName: "",
+        poTime: "",
+        allocation: "",
+        budgetYear: "",
+        currentStage: "All",
+        budgetPlanAmount: 0,
+        actualBudgetAmount: 0,
+        balanceAmount: 0,
+        borrowedFromBudgetCode: "",
+        borrowedAmount: 0,
+        transferDate: "",
+        borrowPurpose: "",
+        borrowRemark: "",
+        rowType: "plan",
+        isTemplateRow: true,
+        stages: {},
+      }));
+  }, [operationalBudgetCatalog, searchText, year]);
+
+  const tableRows = useMemo(() => {
+    if (filteredItems.length === 0) {
+      return templateCatalogRows.flatMap((item) => [
         { ...item, rowType: "plan", rowKey: `${item.key}-plan` },
         { ...item, rowType: "actual", rowKey: `${item.key}-actual` },
-      ]),
-    [filteredItems]
-  );
+      ]);
+    }
+
+    return filteredItems.flatMap((item) => [
+      { ...item, rowType: "plan", rowKey: `${item.key}-plan` },
+      { ...item, rowType: "actual", rowKey: `${item.key}-actual` },
+    ]);
+  }, [filteredItems, templateCatalogRows]);
+
+  const budgetGroupMeta = useMemo(() => {
+    const meta = {};
+    let groupNumber = 0;
+
+    for (let index = 0; index < tableRows.length; index += 1) {
+      const currentRow = tableRows[index];
+      const previousRow = tableRows[index - 1];
+      if (currentRow?.isSummaryRow) continue;
+
+      const isGroupStart =
+        index === 0 ||
+        previousRow?.isSummaryRow ||
+        previousRow?.budgetCode !== currentRow?.budgetCode;
+
+      if (!isGroupStart) continue;
+
+      groupNumber += 1;
+      let rowSpan = 1;
+      for (let cursor = index + 1; cursor < tableRows.length; cursor += 1) {
+        if (tableRows[cursor]?.isSummaryRow || tableRows[cursor]?.budgetCode !== currentRow?.budgetCode) break;
+        rowSpan += 1;
+      }
+
+      meta[currentRow.rowKey] = {
+        rowSpan,
+        groupNumber,
+      };
+    }
+
+    return meta;
+  }, [tableRows]);
 
   useEffect(() => {
     if (typeof window === "undefined") return;
@@ -369,6 +736,30 @@ export default function OperationalBudgetSchedulePage() {
   }, [items]);
 
   useEffect(() => {
+    if (!selectedBudgetCatalog) return;
+
+    itemForm.setFieldsValue({
+      subject: selectedBudgetCatalog.subject || "",
+      budgetPlanAmount: selectedBudgetCatalog.budgetPlanAmount || 0,
+    });
+  }, [itemForm, selectedBudgetCatalog]);
+
+  useEffect(() => {
+    const currentBudgetCode = itemForm.getFieldValue("budgetCode");
+    if (!currentBudgetCode) return;
+
+    const matchedBudget = operationalBudgetCatalog.find((entry) => entry.budgetCode === currentBudgetCode);
+    if (!matchedBudget || String(matchedBudget.budgetYear || "") === String(selectedBudgetYear || "")) return;
+
+    itemForm.setFieldsValue({
+      budgetCode: undefined,
+      subject: "",
+      itemName: "",
+      budgetPlanAmount: 0,
+    });
+  }, [itemForm, operationalBudgetCatalog, selectedBudgetYear]);
+
+  useEffect(() => {
     if (!editingItem) return;
     const stageData = editingItem.stages?.[editingStage] || { plan: {}, actual: {} };
     const planStart = parseWeekKey(stageData.plan?.start);
@@ -378,7 +769,13 @@ export default function OperationalBudgetSchedulePage() {
 
     form.setFieldsValue({
       budgetYear: editingItem.budgetYear,
-      budgetAmount: editingItem.budgetAmount,
+      planBudgetAmount: editingItem.budgetPlanAmount,
+      actualBudgetAmount: editingItem.actualBudgetAmount,
+      borrowedFromBudgetCode: editingItem.borrowedFromBudgetCode || undefined,
+      borrowedAmount: editingItem.borrowedAmount || 0,
+      transferDate: editingItem.transferDate || "",
+      borrowPurpose: editingItem.borrowPurpose || "",
+      borrowRemark: editingItem.borrowRemark || "",
       currentStage: editingItem.currentStage,
       stageToEdit: editingStage,
       planStartMonth:
@@ -412,6 +809,7 @@ export default function OperationalBudgetSchedulePage() {
   };
 
   const openItemModal = (mode, item = null) => {
+    setOperationalBudgetCatalog(loadOperationalBudgetCatalog());
     setItemModalMode(mode);
     setItemEditingKey(item?.key || "");
     setIsItemModalOpen(true);
@@ -421,7 +819,7 @@ export default function OperationalBudgetSchedulePage() {
         budgetCode: item.budgetCode,
         subject: item.subject,
         itemName: item.itemName,
-        budgetAmount: item.budgetAmount,
+        budgetPlanAmount: item.budgetPlanAmount,
         poTime: normalizePoTimeValue(item.poTime) ? dayjs(`${normalizePoTimeValue(item.poTime)}-01`) : null,
         allocation: item.allocation,
         budgetYear: item.budgetYear,
@@ -431,13 +829,13 @@ export default function OperationalBudgetSchedulePage() {
     }
 
     itemForm.setFieldsValue({
-      budgetCode: "",
-      subject: "",
+      budgetCode: item?.budgetCode || "",
+      subject: item?.subject || "",
       itemName: "",
-      budgetAmount: 0,
+      budgetPlanAmount: 0,
       poTime: dayjs(`${year}-01-01`),
       allocation: "Normal",
-      budgetYear: year,
+      budgetYear: item?.budgetYear || year,
       currentStage: "All",
     });
   };
@@ -448,14 +846,24 @@ export default function OperationalBudgetSchedulePage() {
     itemForm.resetFields();
   };
 
-  const handleStageViewChange = (itemKey, stage) => {
-    setItems((current) =>
-      current.map((item) => (item.key === itemKey ? { ...item, currentStage: stage } : item))
-    );
-  };
-
   const handleUpdateSave = async () => {
     const values = await form.validateFields();
+
+    if (editingRowType === "actual" && editingItem) {
+      const validation = validateActualBudgetChange({
+        itemKey: editingItem.key,
+        targetBudgetCode: editingItem.budgetCode,
+        targetFallbackPlanAmount: editingItem.budgetPlanAmount,
+        nextActualAmount: values.actualBudgetAmount,
+        requestedFromBudgetCode: values.borrowedFromBudgetCode,
+        requestedAmount: values.borrowedAmount,
+      });
+
+      if (!validation.ok) {
+        message.error(validation.message);
+        return;
+      }
+    }
 
     setItems((current) =>
       current.map((item) => {
@@ -464,7 +872,30 @@ export default function OperationalBudgetSchedulePage() {
         return {
           ...item,
           budgetYear: values.budgetYear,
-          budgetAmount: values.budgetAmount,
+          actualBudgetAmount:
+            editingRowType === "actual"
+              ? Number(values.actualBudgetAmount || 0)
+              : item.actualBudgetAmount,
+          borrowedFromBudgetCode:
+            editingRowType === "actual"
+              ? String(values.borrowedFromBudgetCode || "").trim()
+              : item.borrowedFromBudgetCode,
+          borrowedAmount:
+            editingRowType === "actual"
+              ? Number(values.borrowedAmount || 0)
+              : item.borrowedAmount,
+          transferDate:
+            editingRowType === "actual"
+              ? (Number(values.borrowedAmount || 0) > 0 ? dayjs().format("DD/MM/YYYY") : "")
+              : item.transferDate,
+          borrowPurpose:
+            editingRowType === "actual"
+              ? String(values.borrowPurpose || "")
+              : item.borrowPurpose,
+          borrowRemark:
+            editingRowType === "actual"
+              ? String(values.borrowRemark || "")
+              : item.borrowRemark,
           currentStage: values.currentStage,
           stages: {
             ...item.stages,
@@ -493,6 +924,30 @@ export default function OperationalBudgetSchedulePage() {
 
         return {
           ...item,
+          actualBudgetAmount:
+            editingRowType === "actual"
+              ? 0
+              : item.actualBudgetAmount,
+          borrowedFromBudgetCode:
+            editingRowType === "actual"
+              ? ""
+              : item.borrowedFromBudgetCode,
+          borrowedAmount:
+            editingRowType === "actual"
+              ? 0
+              : item.borrowedAmount,
+          transferDate:
+            editingRowType === "actual"
+              ? ""
+              : item.transferDate,
+          borrowPurpose:
+            editingRowType === "actual"
+              ? ""
+              : item.borrowPurpose,
+          borrowRemark:
+            editingRowType === "actual"
+              ? ""
+              : item.borrowRemark,
           stages: {
             ...item.stages,
             [editingStage]: {
@@ -514,6 +969,9 @@ export default function OperationalBudgetSchedulePage() {
     const values = await itemForm.validateFields();
     const normalizedPoTime = values.poTime ? dayjs(values.poTime).format("YYYY-MM") : "";
     const automaticStages = buildAutomaticStages(normalizedPoTime);
+    const budgetMeta = operationalBudgetCatalogMap[values.budgetCode] || null;
+    const resolvedSubject = budgetMeta?.subject || values.subject;
+    const resolvedBudgetPlanAmount = Number(budgetMeta?.budgetPlanAmount ?? values.budgetPlanAmount ?? 0);
 
     if (itemModalMode === "edit" && itemEditing) {
       setItems((current) =>
@@ -522,13 +980,19 @@ export default function OperationalBudgetSchedulePage() {
             ? {
                 ...item,
                 budgetCode: values.budgetCode,
-                subject: values.subject,
+                subject: resolvedSubject,
                 itemName: values.itemName,
-                budgetAmount: values.budgetAmount,
+                budgetPlanAmount: resolvedBudgetPlanAmount,
                 poTime: normalizedPoTime,
                 allocation: values.allocation,
                 budgetYear: values.budgetYear,
                 currentStage: "All",
+                actualBudgetAmount: item.actualBudgetAmount,
+                borrowedFromBudgetCode: item.borrowedFromBudgetCode || "",
+                borrowedAmount: Number(item.borrowedAmount || 0),
+                transferDate: item.transferDate || "",
+                borrowPurpose: item.borrowPurpose || "",
+                borrowRemark: item.borrowRemark || "",
                 stages: {
                   ...automaticStages,
                   ...Object.fromEntries(
@@ -552,9 +1016,15 @@ export default function OperationalBudgetSchedulePage() {
           key: String(Date.now()),
           no: current.length + 1,
           budgetCode: values.budgetCode,
-          subject: values.subject,
+          subject: resolvedSubject,
           itemName: values.itemName,
-          budgetAmount: values.budgetAmount,
+          budgetPlanAmount: resolvedBudgetPlanAmount,
+          actualBudgetAmount: 0,
+          borrowedFromBudgetCode: "",
+          borrowedAmount: 0,
+          transferDate: "",
+          borrowPurpose: "",
+          borrowRemark: "",
           poTime: normalizedPoTime,
           allocation: values.allocation,
           budgetYear: values.budgetYear,
@@ -663,13 +1133,103 @@ export default function OperationalBudgetSchedulePage() {
   };
 
   const renderMergedText = (value, className = "") => (
-    <div className={`budget-monitoring__cell-text ${className}`.trim()}>{value || ""}</div>
+    <div className={`budget-monitoring__cell-text budget-monitoring__cell-text--merged ${className}`.trim()}>{value || ""}</div>
   );
 
-  const mergeTopOnly = (value, row, index, className = "") => ({
-    children: index % 2 === 0 ? renderMergedText(value, className) : "",
-    props: { rowSpan: index % 2 === 0 ? 2 : 0 },
-  });
+  const renderSummaryAmount = (label, value) => (
+    <div className="budget-monitoring__summary-line">
+      <span>{label}</span>
+      <strong>{formatCurrency(value)}</strong>
+    </div>
+  );
+
+  const mergeTopOnly = (value, row, index, className = "") => {
+    if (row.isSummaryRow) {
+      return {
+        children: <div className={`budget-monitoring__cell-text budget-monitoring__summary-text ${className}`.trim()}>{value || ""}</div>,
+        props: { rowSpan: 1 },
+      };
+    }
+
+    return {
+      children: index % 2 === 0 ? renderMergedText(value, className) : "",
+      props: { rowSpan: index % 2 === 0 ? 2 : 0 },
+    };
+  };
+
+  const mergeBudgetGroupCell = (record, value, className = "") => {
+    if (record.isSummaryRow) {
+      return {
+        children: <div className={`budget-monitoring__cell-text budget-monitoring__summary-text ${className}`.trim()}>{value || ""}</div>,
+        props: { rowSpan: 1 },
+      };
+    }
+
+    const meta = budgetGroupMeta[record.rowKey];
+    if (!meta) {
+      return {
+        children: "",
+        props: { rowSpan: 0 },
+      };
+    }
+
+    return {
+      children: renderMergedText(value, className),
+      props: { rowSpan: meta.rowSpan },
+    };
+  };
+
+  const renderTransferBudgetInfo = (record) => {
+    if (!(Number(record.borrowedAmount || 0) > 0)) return null;
+
+    return (
+      <Popover
+        trigger={["hover", "click"]}
+        placement="topRight"
+        content={(
+          <div className="budget-monitoring__transfer-popover">
+            <div><strong>TF/Minta dari:</strong> {record.borrowedFromBudgetCode || "-"}</div>
+            <div><strong>Nominal:</strong> {formatCurrency(record.borrowedAmount)}</div>
+            <div><strong>Tanggal:</strong> {record.transferDate || "-"}</div>
+            <div><strong>Untuk:</strong> {record.borrowPurpose || "-"}</div>
+            <div><strong>Remark:</strong> {record.borrowRemark || "-"}</div>
+          </div>
+        )}
+      >
+        <button type="button" className="budget-monitoring__transfer-trigger" aria-label="Lihat detail transfer budget">
+          <InfoCircleOutlined />
+        </button>
+      </Popover>
+    );
+  };
+
+  const renderSourceTransferInfo = (budgetCode) => {
+    const transferDetails = outgoingTransferDetailsByCode[budgetCode] || [];
+    if (!transferDetails.length) return null;
+
+    return (
+      <Popover
+        trigger={["hover", "click"]}
+        placement="topRight"
+        content={(
+          <div className="budget-monitoring__transfer-popover">
+            {transferDetails.map((detail, index) => (
+              <div key={`${detail.targetBudgetCode}-${detail.amount}-${index}`} className="budget-monitoring__transfer-popover-item">
+                <div><strong>Diambil/TF ke:</strong> {detail.targetBudgetCode || "-"}</div>
+                <div><strong>Nominal:</strong> {formatCurrency(detail.amount)}</div>
+                <div><strong>Tanggal:</strong> {detail.transferDate || "-"}</div>
+                <div><strong>Remark:</strong> {detail.remark || "-"}</div>
+              </div>
+            ))}
+          </div>
+        )}
+      >
+        <button type="button" className="budget-monitoring__transfer-trigger" aria-label="Lihat riwayat transfer budget">
+          <InfoCircleOutlined />
+        </button>
+      </Popover>
+    );
+  };
 
   const columns = [
     {
@@ -679,18 +1239,25 @@ export default function OperationalBudgetSchedulePage() {
       width: 58,
       fixed: "left",
       align: "center",
-      render: (value, row, index) => ({
-        children: index % 2 === 0 ? value : "",
-        props: { rowSpan: index % 2 === 0 ? 2 : 0 },
-      }),
+      render: (_, record) =>
+        mergeBudgetGroupCell(
+          record,
+          record.isSummaryRow ? "" : budgetGroupMeta[record.rowKey]?.groupNumber || "",
+          "budget-monitoring__cell-text--center"
+        ),
     },
     {
-      title: "Num Budget",
+      title: "No Budget",
       dataIndex: "budgetCode",
       key: "budgetCode",
       width: 110,
       fixed: "left",
-      render: (value, row, index) => mergeTopOnly(value, row, index, "budget-monitoring__cell-text--nowrap"),
+      render: (value, record) =>
+        mergeBudgetGroupCell(
+          record,
+          record.isSummaryRow ? (record.isGrandTotalRow ? "GRAND TOTAL" : `TOTAL ${value}`) : value,
+          "budget-monitoring__cell-text--nowrap"
+        ),
     },
     {
       title: "Subject",
@@ -698,32 +1265,29 @@ export default function OperationalBudgetSchedulePage() {
       key: "subject",
       width: 150,
       fixed: "left",
-      render: mergeTopOnly,
+      render: (value, record) => mergeBudgetGroupCell(record, record.isSummaryRow ? "" : value),
     },
     {
-      title: "Nama Item",
+      title: "Items",
       dataIndex: "itemName",
       key: "itemName",
       width: 260,
       fixed: "left",
       render: (value, row, index) => ({
-        children: index % 2 === 0 ? <div className="budget-monitoring__item">{value || ""}</div> : "",
-        props: { rowSpan: index % 2 === 0 ? 2 : 0 },
+        children:
+          row.isSummaryRow ? (
+            <div className="budget-monitoring__item budget-monitoring__summary-text">
+              {row.isGrandTotalRow ? "Total keseluruhan seluruh No Budget" : `Subtotal ${row.budgetCode}`}
+            </div>
+          ) : index % 2 === 0 ? (
+            <div className="budget-monitoring__item budget-monitoring__item--merged">
+              {row.isTemplateRow ? "" : value || ""}
+            </div>
+          ) : "",
+        props: { rowSpan: row.isSummaryRow ? 1 : index % 2 === 0 ? 2 : 0 },
       }),
     },
-    {
-      title: "Budget",
-      dataIndex: "budgetAmount",
-      key: "budgetAmount",
-      width: 130,
-      fixed: "left",
-      align: "right",
-      onHeaderCell: () => ({ style: { textAlign: "center" } }),
-      render: (value, row, index) => ({
-        children: index % 2 === 0 ? <span className="budget-monitoring__money">{formatCurrency(value)}</span> : "",
-        props: { rowSpan: index % 2 === 0 ? 2 : 0 },
-      }),
-    },
+
     {
       title: "PO Time",
       dataIndex: "poTime",
@@ -731,39 +1295,7 @@ export default function OperationalBudgetSchedulePage() {
       width: 92,
       fixed: "left",
       align: "center",
-      render: (value, row, index) => mergeTopOnly(formatPoTime(value), row, index, "budget-monitoring__cell-text--nowrap"),
-    },
-    {
-      title: "Stage",
-      dataIndex: "currentStage",
-      key: "currentStage",
-      width: 150,
-      fixed: "left",
-      align: "center",
-      render: (value, record, index) => ({
-        children:
-          index % 2 === 0 ? (
-            <Select
-              size="small"
-              value={value}
-              className="budget-monitoring__stage-select"
-              onChange={(nextStage) => handleStageViewChange(record.key, nextStage)}
-              options={STAGE_OPTIONS.map((stage) => ({ label: stage, value: stage }))}
-            />
-          ) : (
-            ""
-          ),
-        props: { rowSpan: index % 2 === 0 ? 2 : 0 },
-      }),
-    },
-    {
-      title: "Type",
-      dataIndex: "rowType",
-      key: "rowType",
-      width: 80,
-      fixed: "left",
-      align: "center",
-      render: (value) => <span className={`budget-monitoring__type budget-monitoring__type--${value}`}>{value.toUpperCase()}</span>,
+      render: (value, row, index) => mergeTopOnly(row.isTemplateRow ? "" : formatPoTime(value), row, index, "budget-monitoring__cell-text--nowrap"),
     },
     {
       title: "Alokasi",
@@ -772,7 +1304,7 @@ export default function OperationalBudgetSchedulePage() {
       width: 90,
       fixed: "left",
       align: "center",
-      render: (value, row, index) => mergeTopOnly(value, row, index, "budget-monitoring__cell-text--nowrap"),
+      render: (value, row, index) => mergeTopOnly(row.isTemplateRow ? "" : value, row, index, "budget-monitoring__cell-text--nowrap"),
     },
     {
       title: "Status",
@@ -781,8 +1313,13 @@ export default function OperationalBudgetSchedulePage() {
       fixed: "left",
       align: "center",
       render: (_, record, index) => ({
-        children: index % 2 === 0 ? <span className="budget-monitoring__status">{getAutomaticStatus(record)}</span> : "",
-        props: { rowSpan: index % 2 === 0 ? 2 : 0 },
+        children:
+          record.isSummaryRow
+            ? ""
+            : index % 2 === 0 && !record.isTemplateRow
+              ? <span className="budget-monitoring__status">{getAutomaticStatus(record)}</span>
+              : "",
+        props: { rowSpan: record.isSummaryRow ? 1 : index % 2 === 0 ? 2 : 0 },
       }),
     },
     {
@@ -792,39 +1329,72 @@ export default function OperationalBudgetSchedulePage() {
       width: 100,
       fixed: "left",
       align: "center",
-      render: (value, row, index) => mergeTopOnly(value, row, index, "budget-monitoring__cell-text--nowrap"),
+      render: (value, record) =>
+        mergeBudgetGroupCell(record, record.isTemplateRow || record.isSummaryRow ? "" : value, "budget-monitoring__cell-text--nowrap"),
     },
     {
-      title: "Action",
-      key: "action",
+      title: "Type",
+      dataIndex: "rowType",
+      key: "rowType",
+      width: 80,
       fixed: "left",
-      width: 96,
       align: "center",
-      render: (_, record, index) => ({
+      render: (value, record) =>
+        record.isTemplateRow ? "" : <span className={`budget-monitoring__type budget-monitoring__type--${value}`}>{record.isSummaryRow ? "TOTAL" : value.toUpperCase()}</span>,
+    },
+        {
+      title: "Budget",
+      dataIndex: "budgetPlanAmount",
+      key: "budgetAmount",
+      width: 130,
+      fixed: "left",
+      align: "right",
+      onHeaderCell: () => ({ style: { textAlign: "center" } }),
+      render: (_, record) => {
+        if (record.isTemplateRow) return "";
+        if (record.isSummaryRow) {
+          return (
+            <div className="budget-monitoring__summary-stack">
+              {renderSummaryAmount("Plan", record.budgetPlanAmount)}
+              {renderSummaryAmount("Actual", record.actualBudgetAmount)}
+            </div>
+          );
+        }
+        const amount =
+          record.rowType === "plan"
+            ? getBudgetPlanAmountByCode(record.budgetCode, record.budgetPlanAmount)
+            : getEffectiveActualAmount(record);
+        return (
+          <span className="budget-monitoring__money">
+            {formatCurrency(amount)}
+            {record.rowType === "actual" ? renderTransferBudgetInfo(record) : null}
+          </span>
+        );
+      },
+    },
+    {
+      title: "Balance",
+      key: "balanceAmount",
+      width: 130,
+      fixed: "left",
+      align: "right",
+      onHeaderCell: () => ({ style: { textAlign: "center" } }),
+      render: (_, record) => ({
         children:
-          index % 2 === 0 ? (
-            <Space size={8}>
-              <Button
-                type="text"
-                size="small"
-                icon={<EditOutlined />}
-                onClick={() => openItemModal("edit", record)}
-              />
-              <Popconfirm
-                title="Hapus item ini?"
-                okText="Hapus"
-                cancelText="Batal"
-                onConfirm={() => handleDeleteItem(record.key)}
-              >
-                <Button type="text" size="small" danger icon={<DeleteOutlined />} />
-              </Popconfirm>
-            </Space>
-          ) : (
-            ""
-          ),
-        props: { rowSpan: index % 2 === 0 ? 2 : 0 },
+          record.isSummaryRow ? (
+            <div className="budget-monitoring__summary-stack">
+              {renderSummaryAmount("Balance", record.balanceAmount)}
+            </div>
+          ) : budgetGroupMeta[record.rowKey] && !record.isTemplateRow ? (
+            <span className="budget-monitoring__money budget-monitoring__money--merged">
+              {formatCurrency(getBudgetBalanceByCode(record.budgetCode, record.budgetPlanAmount))}
+              {renderSourceTransferInfo(record.budgetCode)}
+            </span>
+          ) : "",
+        props: { rowSpan: record.isSummaryRow ? 1 : budgetGroupMeta[record.rowKey]?.rowSpan || 0 },
       }),
     },
+    
     ...monthGroups.map((group) => ({
       title: group.label,
       children: group.weeks.map((week) => {
@@ -836,10 +1406,47 @@ export default function OperationalBudgetSchedulePage() {
           width: 50,
           align: "center",
           className: "budget-monitoring__week-col",
-          render: (_, record) => renderTimelineCell(record, cellKey),
+          render: (_, record) => (record.isTemplateRow || record.isSummaryRow) ? <div className="budget-monitoring__week-cell" /> : renderTimelineCell(record, cellKey),
         };
       }),
     })),
+    {
+      title: "Action",
+      key: "action",
+      fixed: "right",
+      width: 120,
+      align: "center",
+      className: "budget-monitoring__action-col",
+      render: (_, record, index) => ({
+        children:
+          record.isSummaryRow ? (
+            ""
+          ) : index % 2 === 0 ? (
+            <Space size={4} className="budget-monitoring__action-space">
+              {record.isTemplateRow ? (
+                <Button size="small" type="primary" icon={<PlusOutlined />} onClick={() => openItemModal("add", record)}>
+                  Add
+                </Button>
+              ) : (
+                <>
+                  <Button size="small" icon={<EditOutlined />} onClick={() => openItemModal("edit", record)} />
+                  <Popconfirm
+                    title="Hapus item ini?"
+                    okText="Hapus"
+                    cancelText="Batal"
+                    onConfirm={() => handleDeleteItem(record.key)}
+                  >
+                    <Button size="small" danger icon={<DeleteOutlined />} />
+                  </Popconfirm>
+                </>
+              )}
+            </Space>
+          ) : (
+            ""
+          ),
+        props: { rowSpan: record.isSummaryRow ? 1 : index % 2 === 0 ? 2 : 0 },
+      }),
+    },
   ];
 
   return (
@@ -867,6 +1474,9 @@ export default function OperationalBudgetSchedulePage() {
             <Option value="2025">2025</Option>
             <Option value="2026">2026</Option>
             <Option value="2027">2027</Option>
+            <Option value="2028">2028</Option>
+            <Option value="2029">2029</Option>
+            <Option value="2030">2030</Option>
           </Select>
           <Button icon={<PlusOutlined />} onClick={() => openItemModal("add")}>Add</Button>
           <Button icon={<FilterOutlined />}>Filter</Button>
@@ -893,50 +1503,61 @@ export default function OperationalBudgetSchedulePage() {
         title={itemModalMode === "edit" ? "Edit Budget Item" : "Add Budget Item"}
         onCancel={closeItemModal}
         onOk={handleItemSave}
-        okText={itemModalMode === "edit" ? "Update" : "Add"}
-        destroyOnClose
+        okText="Simpan"
+        cancelText="Batal"
+        destroyOnHidden
+        width={760}
       >
         <Form form={itemForm} layout="vertical">
-          <Form.Item name="budgetYear" label="Budget Year" rules={[{ required: true }]}>
-            <Select
-              options={[
-                { label: "2025", value: "2025" },
-                { label: "2026", value: "2026" },
-                { label: "2027", value: "2027" },
-              ]}
-            />
-          </Form.Item>
-          <Form.Item name="budgetCode" label="Num Budget" rules={[{ required: true }]}>
-            <Input />
-          </Form.Item>
-          <Form.Item name="subject" label="Subject" rules={[{ required: true }]}>
-            <Input />
-          </Form.Item>
-          <Form.Item name="itemName" label="Nama Item" rules={[{ required: true }]}>
-            <Input />
-          </Form.Item>
-          <Form.Item name="budgetAmount" label="Budget (IDR)" rules={[{ required: true }]}>
-            <InputNumber style={{ width: "100%" }} min={0} />
-          </Form.Item>
-          <Form.Item name="poTime" label="PO Time" rules={[{ required: true }]}>
-            <DatePicker
-              picker="month"
-              format={MONTH_PICKER_FORMAT}
-              style={{ width: "100%" }}
-              allowClear={false}
-            />
-          </Form.Item>
-          <Form.Item name="allocation" label="Alokasi" rules={[{ required: true }]}>
-            <Select
-              options={[
-                { label: "Normal", value: "Normal" },
-                { label: "Urgent", value: "Urgent" },
-              ]}
-            />
-          </Form.Item>
-          <Form.Item name="currentStage" label="Stage Default" rules={[{ required: true }]}>
-            <Select disabled options={[{ label: "All", value: "All" }]} />
-          </Form.Item>
+          <div className="budget-monitoring__form-grid">
+            <Form.Item name="budgetCode" label="No Budget" rules={[{ required: true, message: "Wajib isi no budget" }]}>
+              <Select
+                showSearch
+                placeholder="Pilih budget code dari operational budget"
+                optionFilterProp="label"
+                options={budgetCodeOptions}
+              />
+            </Form.Item>
+            <Form.Item name="budgetYear" label="Budget Year" rules={[{ required: true, message: "Wajib isi budget year" }]}>
+              <Select
+                options={["2025", "2026", "2027", "2028", "2029", "2030"].map((option) => ({ label: option, value: option }))}
+              />
+            </Form.Item>
+            <Form.Item name="subject" label="Subject" rules={[{ required: true, message: "Wajib isi subject" }]}>
+              <Input disabled />
+            </Form.Item>
+            <Form.Item name="itemName" label="Items" rules={[{ required: true, message: "Wajib isi items" }]}>
+              <Input
+                placeholder={
+                  selectedBudgetCatalog?.items?.length
+                    ? `Contoh item budget operasional: ${selectedBudgetCatalog.items.slice(0, 2).map((entry) => entry.itemName).join(", ")}`
+                    : ""
+                }
+              />
+            </Form.Item>
+            <Form.Item name="budgetPlanAmount" label="Budget Plan (IDR)" rules={[{ required: true, message: "Wajib isi budget plan" }]}>
+              <InputNumber style={{ width: "100%" }} min={0} disabled />
+            </Form.Item>
+            <Form.Item name="poTime" label="PO Time" rules={[{ required: true, message: "Wajib isi PO time" }]}>
+              <DatePicker
+                picker="month"
+                format={MONTH_PICKER_FORMAT}
+                style={{ width: "100%" }}
+                allowClear={false}
+              />
+            </Form.Item>
+            <Form.Item name="allocation" label="Alokasi" rules={[{ required: true, message: "Wajib isi alokasi" }]}>
+              <Select
+                options={[
+                  { label: "Normal", value: "Normal" },
+                  { label: "Urgent", value: "Urgent" },
+                ]}
+              />
+            </Form.Item>
+            <Form.Item name="currentStage" label="Stage Default" rules={[{ required: true, message: "Pilih stage" }]}>
+              <Select disabled options={[{ label: "All", value: "All" }]} />
+            </Form.Item>
+          </div>
         </Form>
       </Modal>
 
@@ -946,84 +1567,125 @@ export default function OperationalBudgetSchedulePage() {
         onCancel={closeUpdateModal}
         onOk={handleUpdateSave}
         okText="Simpan"
-        destroyOnClose
-        footer={(_, { OkBtn, CancelBtn }) => (
-          <Space>
+        cancelText="Batal"
+        destroyOnHidden
+        width={760}
+        footer={(
+          <>
             <Button danger onClick={handleDeleteStageBlock}>
               Delete {editingRowType.toUpperCase()}
             </Button>
-            <CancelBtn />
-            <OkBtn />
-          </Space>
+            <Button onClick={closeUpdateModal}>Batal</Button>
+            <Button type="primary" onClick={handleUpdateSave}>Simpan</Button>
+          </>
         )}
       >
         <Form form={form} layout="vertical">
-          <Space style={{ width: "100%" }} size={16} align="start">
-            <Form.Item name="budgetYear" label="Budget Year" rules={[{ required: true }]} style={{ flex: 1 }}>
-              <Select
-                options={[
-                  { label: "2025", value: "2025" },
-                  { label: "2026", value: "2026" },
-                  { label: "2027", value: "2027" },
-                ]}
-              />
+          <div className="budget-monitoring__form-grid">
+            <Form.Item name="budgetYear" label="Budget Year" rules={[{ required: true, message: "Wajib isi tahun budget" }]}>
+              <Select options={["2025", "2026", "2027", "2028", "2029", "2030"].map((option) => ({ label: option, value: option }))} />
             </Form.Item>
-            <Form.Item name="budgetAmount" label="Budget (IDR)" rules={[{ required: true }]} style={{ flex: 1 }}>
-              <InputNumber style={{ width: "100%" }} min={0} />
-            </Form.Item>
-          </Space>
-
-          <Space style={{ width: "100%" }} size={16} align="start">
-            <Form.Item name="currentStage" label="Stage Yang Ditampilkan" rules={[{ required: true }]} style={{ flex: 1 }}>
+            {editingRowType === "actual" ? (
+              <Form.Item name="actualBudgetAmount" label="Budget Actual (IDR)" rules={[{ required: true, message: "Wajib isi budget actual" }]}>
+                <InputNumber style={{ width: "100%" }} min={0} />
+              </Form.Item>
+            ) : (
+              <Form.Item name="planBudgetAmount" label="Budget Plan (IDR)">
+                <InputNumber style={{ width: "100%" }} min={0} disabled />
+              </Form.Item>
+            )}
+            <Form.Item name="currentStage" label="Stage Yang Ditampilkan" rules={[{ required: true, message: "Pilih stage" }]}>
               <Select options={STAGE_OPTIONS.map((stage) => ({ label: stage, value: stage }))} />
             </Form.Item>
-            <Form.Item name="stageToEdit" label="Stage Yang Diupdate" rules={[{ required: true }]} style={{ flex: 1 }}>
+            <Form.Item name="stageToEdit" label="Stage Yang Diupdate" rules={[{ required: true, message: "Pilih stage update" }]}>
               <Select options={EDIT_STAGE_OPTIONS.map((stage) => ({ label: stage, value: stage }))} />
             </Form.Item>
-          </Space>
+          </div>
 
           {editingRowType !== "actual" && (
-            <>
-              <Text strong>Plan</Text>
-              <Space style={{ width: "100%", marginTop: 12 }} size={16} align="start">
-                <Form.Item name="planStartMonth" label="Start Month" style={{ flex: 1 }}>
+            <div className="budget-monitoring__form-section">
+              <h4>Plan</h4>
+              <div className="budget-monitoring__form-grid">
+                <Form.Item name="planStartMonth" label="Start Month" rules={[{ required: true, message: "Wajib isi start month plan" }]}>
                   <Select options={monthGroups.map((group) => ({ label: group.label, value: `${group.year}-${String(group.monthNumber).padStart(2, "0")}` }))} />
                 </Form.Item>
-                <Form.Item name="planStartWeek" label="Start Week" style={{ flex: 1 }}>
+                <Form.Item name="planStartWeek" label="Start Week" rules={[{ required: true, message: "Wajib isi start week plan" }]}>
                   <Select options={["W1", "W2", "W3", "W4"].map((week) => ({ label: week, value: week }))} />
                 </Form.Item>
-              </Space>
-              <Space style={{ width: "100%" }} size={16} align="start">
-                <Form.Item name="planEndMonth" label="End Month" style={{ flex: 1 }}>
+                <Form.Item name="planEndMonth" label="End Month" rules={[{ required: true, message: "Wajib isi end month plan" }]}>
                   <Select options={monthGroups.map((group) => ({ label: group.label, value: `${group.year}-${String(group.monthNumber).padStart(2, "0")}` }))} />
                 </Form.Item>
-                <Form.Item name="planEndWeek" label="End Week" style={{ flex: 1 }}>
+                <Form.Item name="planEndWeek" label="End Week" rules={[{ required: true, message: "Wajib isi end week plan" }]}>
                   <Select options={["W1", "W2", "W3", "W4"].map((week) => ({ label: week, value: week }))} />
                 </Form.Item>
-              </Space>
-            </>
+              </div>
+            </div>
           )}
 
           {editingRowType !== "plan" && (
-            <>
-              <Text strong>Actual</Text>
-              <Space style={{ width: "100%", marginTop: 12 }} size={16} align="start">
-                <Form.Item name="actualStartMonth" label="Start Month" style={{ flex: 1 }}>
-                  <Select options={monthGroups.map((group) => ({ label: group.label, value: `${group.year}-${String(group.monthNumber).padStart(2, "0")}` }))} />
+            <div className="budget-monitoring__form-section">
+              <h4>Actual</h4>
+              <div className="budget-monitoring__form-grid">
+                <Form.Item name="actualStartMonth" label="Start Month">
+                  <Select allowClear options={monthGroups.map((group) => ({ label: group.label, value: `${group.year}-${String(group.monthNumber).padStart(2, "0")}` }))} />
                 </Form.Item>
-                <Form.Item name="actualStartWeek" label="Start Week" style={{ flex: 1 }}>
-                  <Select options={["W1", "W2", "W3", "W4"].map((week) => ({ label: week, value: week }))} />
+                <Form.Item name="actualStartWeek" label="Start Week">
+                  <Select allowClear options={["W1", "W2", "W3", "W4"].map((week) => ({ label: week, value: week }))} />
                 </Form.Item>
-              </Space>
-              <Space style={{ width: "100%" }} size={16} align="start">
-                <Form.Item name="actualEndMonth" label="End Month" style={{ flex: 1 }}>
-                  <Select options={monthGroups.map((group) => ({ label: group.label, value: `${group.year}-${String(group.monthNumber).padStart(2, "0")}` }))} />
+                <Form.Item name="actualEndMonth" label="End Month">
+                  <Select allowClear options={monthGroups.map((group) => ({ label: group.label, value: `${group.year}-${String(group.monthNumber).padStart(2, "0")}` }))} />
                 </Form.Item>
-                <Form.Item name="actualEndWeek" label="End Week" style={{ flex: 1 }}>
-                  <Select options={["W1", "W2", "W3", "W4"].map((week) => ({ label: week, value: week }))} />
+                <Form.Item name="actualEndWeek" label="End Week">
+                  <Select allowClear options={["W1", "W2", "W3", "W4"].map((week) => ({ label: week, value: week }))} />
                 </Form.Item>
-              </Space>
-            </>
+                <Form.Item
+                  name="borrowedFromBudgetCode"
+                  label="Minta Dari Budget"
+                  rules={[
+                    ({ getFieldValue }) => ({
+                      validator(_, value) {
+                        const borrowedAmount = Number(getFieldValue("borrowedAmount") || 0);
+                        if (borrowedAmount > 0 && !value) {
+                          return Promise.reject(new Error("Pilih budget sumber"));
+                        }
+                        return Promise.resolve();
+                      },
+                    }),
+                  ]}
+                >
+                  <Select
+                    allowClear
+                    showSearch
+                    placeholder="Opsional jika actual minta dari budget lain"
+                    optionFilterProp="label"
+                    options={borrowSourceOptions}
+                  />
+                </Form.Item>
+                <Form.Item name="borrowedAmount" label="Nominal Minta Budget (IDR)">
+                  <InputNumber style={{ width: "100%" }} min={0} />
+                </Form.Item>
+                <Form.Item
+                  name="borrowPurpose"
+                  label="Dipakai Untuk"
+                  rules={[
+                    ({ getFieldValue }) => ({
+                      validator(_, value) {
+                        const borrowedAmount = Number(getFieldValue("borrowedAmount") || 0);
+                        if (borrowedAmount > 0 && !String(value || "").trim()) {
+                          return Promise.reject(new Error("Isi tujuan penggunaan budget"));
+                        }
+                        return Promise.resolve();
+                      },
+                    }),
+                  ]}
+                >
+                  <Input placeholder="Contoh: kekurangan budget item operational" />
+                </Form.Item>
+                <Form.Item name="borrowRemark" label="Remark Permintaan Budget">
+                  <Input.TextArea rows={2} placeholder="Catatan tambahan permintaan budget" />
+                </Form.Item>
+              </div>
+            </div>
           )}
         </Form>
       </Modal>

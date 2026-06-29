@@ -5,5 +5,6 @@ const router = express.Router();
 
 router.get("/", controller.getAssetBudgets);
 router.post("/import", controller.importAssetBudgets);
+router.delete("/", controller.deleteAllAssetBudgets);
 
 export default router;
