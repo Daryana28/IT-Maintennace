@@ -36,11 +36,20 @@ export const parsePeriodik = (periodik) => {
 };
 
 /**
- * Gets all holidays as a Set of YYYY-MM-DD strings
+ * Cache per-year holidays to avoid repeated DB queries
+ */
+const holidayCache = new Map();
+
+/**
+ * Gets all holidays as a Set of YYYY-MM-DD strings (cached per year)
  * @param {number} year 
  * @returns {Promise<Set<string>>}
  */
 const getHolidaysSet = async (year) => {
+  if (holidayCache.has(year)) {
+    return holidayCache.get(year);
+  }
+
   const start = `${year}-01-01`;
   const end = `${year}-12-31`;
   
@@ -55,11 +64,26 @@ const getHolidaysSet = async (year) => {
 
   const set = new Set();
   holidayRows.forEach(h => {
-    // Standardize to YYYY-MM-DD
     const dateStr = dayjs(h.holiday_date).format("YYYY-MM-DD");
     set.add(dateStr);
   });
+
+  holidayCache.set(year, set);
   return set;
+};
+
+/**
+ * Pre-load holidays for a year (call once before batch processing)
+ */
+export const warmHolidayCache = async (year) => {
+  await getHolidaysSet(year);
+};
+
+/**
+ * Clear holiday cache (call after mutations)
+ */
+export const clearHolidayCache = () => {
+  holidayCache.clear();
 };
 
 /**

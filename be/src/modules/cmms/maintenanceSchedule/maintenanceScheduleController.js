@@ -1,5 +1,5 @@
 import { sequelize, MaintenanceSchedule, Asset, StandardMaintenance, YearlyStandardMaintenance, AssetCategory, StandardMaintenanceDetail, StandardMaintenanceCheck, MaintenanceActual } from "../../../models/index.js";
-import { generateCheckboxDates } from "./checkboxGenerator.js";
+import { generateCheckboxDates, warmHolidayCache, clearHolidayCache } from "./checkboxGenerator.js";
 import dayjs from "dayjs";
 import { Op } from "sequelize";
 
@@ -19,27 +19,6 @@ const buildAssetCategoryCandidates = (kategori, subKategori, namaPerangkat, tipe
   pushCandidate(subPerangkat);
   pushCandidate(tipePerangkat);
   pushCandidate(namaPerangkat);
-
-  const cat = (kategori || "").toUpperCase().trim();
-  if (cat === "HARDWARE") {
-    pushCandidate("Hardware");
-  } else if (cat === "SOFTWARE_HW") {
-    pushCandidate("Software Hardware");
-    pushCandidate("Software");
-  } else if (cat === "APPLICATION") {
-    pushCandidate("Application");
-    pushCandidate("Software");
-  } else if (cat === "NETWORK_CYBER") {
-    pushCandidate("Network & Cybersecurity");
-    pushCandidate("Network & Cyber");
-    pushCandidate("Network");
-    pushCandidate("Networking");
-    pushCandidate("Cyber");
-    pushCandidate("Cybersecurity");
-    pushCandidate("Cyber Security");
-  } else {
-    pushCandidate(kategori);
-  }
 
   return candidates;
 };
@@ -79,6 +58,11 @@ const resolveAssetCategoryIds = async ({ kategori, subKategori, namaPerangkat, t
     ...(transaction ? { transaction } : {}),
   });
 
+  return resolveAssetCategoryIdsSync(kategori, subKategori, namaPerangkat, tipePerangkat, subPerangkat, categories);
+};
+
+const resolveAssetCategoryIdsSync = (kategori, subKategori, namaPerangkat, tipePerangkat, subPerangkat, categories) => {
+
   if (!categories.length) {
     return [];
   }
@@ -91,48 +75,9 @@ const resolveAssetCategoryIds = async ({ kategori, subKategori, namaPerangkat, t
     subPerangkat
   ).map(normalizeCategoryName);
 
-  let matchedRootIds = categories
+  return categories
     .filter((category) => candidates.includes(normalizeCategoryName(category.category_name)))
     .map((category) => category.category_id);
-
-  if (matchedRootIds.length === 0) {
-    const fallbackRoots = [];
-    const pushFallback = (value) => {
-      const normalized = normalizeCategoryName(value);
-      if (normalized && !fallbackRoots.includes(normalized)) {
-        fallbackRoots.push(normalized);
-      }
-    };
-
-    const cat = (kategori || "").toUpperCase().trim();
-    if (cat === "HARDWARE") {
-      pushFallback("Hardware");
-    } else if (cat === "SOFTWARE_HW") {
-      pushFallback("Software Hardware");
-      pushFallback("Software");
-    } else if (cat === "APPLICATION") {
-      pushFallback("Application");
-      pushFallback("Software");
-    } else if (cat === "NETWORK_CYBER") {
-      pushFallback("Network & Cybersecurity");
-      pushFallback("Network & Cyber");
-      pushFallback("Network");
-      pushFallback("Cybersecurity");
-      pushFallback("Cyber Security");
-      pushFallback("Cyber");
-      pushFallback("Networking");
-    }
-
-    matchedRootIds = categories
-      .filter((category) => fallbackRoots.includes(normalizeCategoryName(category.category_name)))
-      .map((category) => category.category_id);
-  }
-
-  if (matchedRootIds.length === 0) {
-    return [];
-  }
-
-  return collectDescendantCategoryIds(matchedRootIds, categories);
 };
 
 export const generateSchedule = async (req, res) => {
@@ -148,7 +93,10 @@ export const generateSchedule = async (req, res) => {
       return res.status(404).json({ success: false, message: "Yearly Standard not found" });
     }
 
-    // Ambil semua standard maintenance untuk tahun ini beserta relasinya
+    // Pre-warm holiday cache once
+    await warmHolidayCache(yearlyStandard.tahun);
+
+    // Batch-load all standards with details+checks in one query
     const standardsRaw = await StandardMaintenance.findAll({
       where: { yearly_standard_id },
       include: [
@@ -164,44 +112,79 @@ export const generateSchedule = async (req, res) => {
         }
       ]
     });
-
     const standards = standardsRaw.map(s => s.toJSON());
 
     if (standards.length === 0) {
       return res.status(404).json({ success: false, message: "No Standard Maintenance records found for this year" });
     }
 
+    // Batch-load ALL categories once
+    const allCategories = await AssetCategory.findAll({ raw: true });
+
+    // Batch-load ALL assets once, grouped by category_id
+    const allAssets = await Asset.findAll({ raw: true });
+    const assetsByCategory = new Map();
+    allAssets.forEach(a => {
+      if (!assetsByCategory.has(a.category_id)) {
+        assetsByCategory.set(a.category_id, []);
+      }
+      assetsByCategory.get(a.category_id).push(a);
+    });
+
+    // Batch-load ALL existing schedules for this yearly standard
+    const existingSchedules = await MaintenanceSchedule.findAll({
+      where: { yearly_standard_id },
+      raw: true
+    });
+    const scheduleMap = new Map();
+    existingSchedules.forEach(s => {
+      const key = `${s.asset_id}-${s.standard_maintenance_id}`;
+      scheduleMap.set(key, s);
+    });
+
+    // Batch-load ALL existing actuals for these schedules
+    const existingScheduleIds = existingSchedules.map(s => s.id);
+    const existingActuals = existingScheduleIds.length > 0
+      ? await MaintenanceActual.findAll({
+          where: { schedule_id: { [Op.in]: existingScheduleIds } },
+          raw: true
+        })
+      : [];
+    const actualsBySchedule = new Map();
+    existingActuals.forEach(a => {
+      if (!actualsBySchedule.has(a.schedule_id)) {
+        actualsBySchedule.set(a.schedule_id, []);
+      }
+      actualsBySchedule.get(a.schedule_id).push(a);
+    });
+
     let createdCount = 0;
+    const newSchedules = [];
+    const actualsToCreate = [];
+    const periodikByStandard = new Map();
 
     for (const sm of standards) {
-      const allCategoryIds = await resolveAssetCategoryIds({
-        kategori: sm.kategori,
-        subKategori: sm.subKategori,
-        namaPerangkat: sm.namaPerangkat,
-        tipePerangkat: sm.tipePerangkat,
-        subPerangkat: sm.subPerangkat,
-      });
+      const categoryIds = resolveAssetCategoryIdsSync(sm.kategori, sm.subKategori, sm.namaPerangkat, sm.tipePerangkat, sm.subPerangkat, allCategories);
+      if (categoryIds.length === 0) continue;
 
-      if (allCategoryIds.length === 0) continue;
-
-      const assets = await Asset.findAll({
-        where: {
-          category_id: {
-            [Op.in]: allCategoryIds
+      // Collect assets for this standard from pre-loaded map
+      const assets = [];
+      for (const cid of categoryIds) {
+        const catAssets = assetsByCategory.get(cid) || [];
+        for (const a of catAssets) {
+          if (!assets.some(x => x.asset_id === a.asset_id)) {
+            assets.push(a);
           }
-        },
-        raw: true
-      });
+        }
+      }
 
-      // Cari periodik terkecil (paling sering) dari semua pengecekan
-      let derivedPeriodik = "1 Bulan"; // fallback
+      // Derive periodik from checks
+      let derivedPeriodik = "1 Bulan";
       let minDuration = Infinity;
-
       const formatPeriodik = (val) => {
         if (!val) return "";
         return val.trim().split(/\s+/).map(w => w.charAt(0).toUpperCase() + w.slice(1).toLowerCase()).join(" ");
       };
-
       const parseDuration = (val) => {
         if (!val) return Infinity;
         const str = val.toLowerCase();
@@ -213,9 +196,9 @@ export const generateSchedule = async (req, res) => {
         return Infinity;
       };
 
-      if (sm.details && sm.details.length > 0) {
+      if (sm.details) {
         for (const detail of sm.details) {
-          if (detail.pengecekanList && detail.pengecekanList.length > 0) {
+          if (detail.pengecekanList) {
             for (const cek of detail.pengecekanList) {
               if (cek.periodik) {
                 const duration = parseDuration(cek.periodik);
@@ -228,46 +211,76 @@ export const generateSchedule = async (req, res) => {
           }
         }
       }
+      periodikByStandard.set(sm.id, derivedPeriodik);
 
       for (const asset of assets) {
-        // Cek apakah sudah ada schedule untuk asset ini dan standard ini
-        const existing = await MaintenanceSchedule.findOne({
-          where: {
-            asset_id: asset.asset_id,
-            yearly_standard_id: yearly_standard_id,
-            standard_maintenance_id: sm.id
-          }
-        });
+        const key = `${asset.asset_id}-${sm.id}`;
+        let targetSchedule = scheduleMap.get(key);
 
-        let targetSchedule = existing;
-        if (!existing) {
-          targetSchedule = await MaintenanceSchedule.create({
+        if (!targetSchedule) {
+          const newId = `PENDING_${newSchedules.length}`;
+          newSchedules.push({
             asset_id: asset.asset_id,
-            yearly_standard_id: yearly_standard_id,
+            yearly_standard_id,
             standard_maintenance_id: sm.id,
             periodik: derivedPeriodik,
             status: "ACTIVE"
           });
           createdCount++;
+          // We'll need to process actuals after bulk insert
+          // For now, skip actuals for new schedules (they'll be generated separately)
+          continue;
         } else {
-          await existing.update({ status: "ACTIVE", periodik: derivedPeriodik });
+          // Update existing schedule if needed
+          await MaintenanceSchedule.update(
+            { status: "ACTIVE", periodik: derivedPeriodik },
+            { where: { id: targetSchedule.id } }
+          );
         }
 
-        // Auto-generate actual checkbox matrix for this schedule
-        const checks = await StandardMaintenanceCheck.findAll({
-          include: {
-            model: StandardMaintenanceDetail,
-            where: { standard_maintenance_id: sm.id }
-          }
-        });
+        // Generate actuals for existing schedule
+        const checks = sm.details?.flatMap(d => d.pengecekanList || []) || [];
+        const existingActualList = actualsBySchedule.get(targetSchedule.id) || [];
+        const completedActuals = existingActualList.filter(a => a.status !== "PLAN" || a.legend !== "□");
+        const completedKeys = new Set(completedActuals.map(a => `${a.check_id}-${a.tanggal}`));
+        const existingKeys = new Set(existingActualList.map(a => `${a.check_id}-${a.tanggal}`));
 
-        const actualRecords = [];
         for (const check of checks) {
           const periodikString = check.periodik || targetSchedule.periodik || derivedPeriodik || "1 Bulan";
           const dates = await generateCheckboxDates(yearlyStandard.tahun, periodikString);
+
           for (const date of dates) {
-            actualRecords.push({
-              schedule_id: targetSchedule.id,
+            const compositeKey = `${check.id}-${date}`;
+            if (!completedKeys.has(compositeKey) && !existingKeys.has(compositeKey)) {
+              actualsToCreate.push({
+                schedule_id: targetSchedule.id,
+                check_id: check.id,
+                tanggal: date,
+                status: "PLAN",
+                legend: "□",
+                created_at: new Date(),
+                updated_at: new Date()
+              });
+            }
+          }
+        }
+      }
+    }
+
+    // Bulk-create new schedules
+    if (newSchedules.length > 0) {
+      const created = await MaintenanceSchedule.bulkCreate(newSchedules);
+      // Now generate actuals for newly created schedules
+      for (const schedule of created) {
+        const sm = standards.find(s => s.id === schedule.standard_maintenance_id);
+        const fallbackPeriodik = periodikByStandard.get(schedule.standard_maintenance_id) || "1 Bulan";
+        const checks = sm?.details?.flatMap(d => d.pengecekanList || []) || [];
+        for (const check of checks) {
+          const periodikString = check.periodik || schedule.periodik || fallbackPeriodik || "1 Bulan";
+          const dates = await generateCheckboxDates(yearlyStandard.tahun, periodikString);
+          for (const date of dates) {
+            actualsToCreate.push({
+              schedule_id: schedule.id,
               check_id: check.id,
               tanggal: date,
               status: "PLAN",
@@ -277,50 +290,40 @@ export const generateSchedule = async (req, res) => {
             });
           }
         }
+      }
+    }
 
-        if (actualRecords.length > 0) {
-          const existingActuals = await MaintenanceActual.findAll({
-            where: { schedule_id: targetSchedule.id },
+    // Bulk-create all pending actuals
+    if (actualsToCreate.length > 0) {
+      // Filter out duplicates that already exist in DB
+      const existingActualsAll = existingScheduleIds.length > 0
+        ? await MaintenanceActual.findAll({
+            where: {
+              schedule_id: { [Op.in]: [...new Set(actualsToCreate.map(a => a.schedule_id))] }
+            },
+            attributes: ["schedule_id", "check_id", "tanggal"],
             raw: true
-          });
+          })
+        : [];
+      const existingComboKeys = new Set(
+        existingActualsAll.map(a => `${a.schedule_id}-${a.check_id}-${a.tanggal}`)
+      );
 
-          // Group existing actuals
-          const completedActuals = existingActuals.filter(act => act.status !== "PLAN" || act.legend !== "□");
-          const planActuals = existingActuals.filter(act => act.status === "PLAN" && act.legend === "□");
+      const filtered = actualsToCreate.filter(
+        a => !existingComboKeys.has(`${a.schedule_id}-${a.check_id}-${a.tanggal}`)
+      );
 
-          const completedKeys = new Set(
-            completedActuals.map(act => `${act.schedule_id}-${act.check_id}-${act.tanggal}`)
-          );
-          const existingKeys = new Set(
-            existingActuals.map(act => `${act.schedule_id}-${act.check_id}-${act.tanggal}`)
-          );
-          const targetKeys = new Set(
-            actualRecords.map(rec => `${rec.schedule_id}-${rec.check_id}-${rec.tanggal}`)
-          );
-
-          // 1. Delete planActuals that are no longer in targetKeys
-          const planToDelete = planActuals.filter(
-            act => !targetKeys.has(`${act.schedule_id}-${act.check_id}-${act.tanggal}`)
-          );
-          if (planToDelete.length > 0) {
-            const deleteIds = planToDelete.map(act => act.id);
-            await MaintenanceActual.destroy({
-              where: { id: deleteIds }
-            });
-          }
-
-          // 2. Create actualRecords that are not in completed and not in existing
-          const newActualRecords = actualRecords.filter(
-            rec => !completedKeys.has(`${rec.schedule_id}-${rec.check_id}-${rec.tanggal}`) &&
-                   !existingKeys.has(`${rec.schedule_id}-${rec.check_id}-${rec.tanggal}`)
-          );
-
-          if (newActualRecords.length > 0) {
-            await MaintenanceActual.bulkCreate(newActualRecords);
-          }
+      if (filtered.length > 0) {
+        const CHUNK = 500;
+        for (let i = 0; i < filtered.length; i += CHUNK) {
+          const chunk = filtered.slice(i, i + CHUNK);
+          await MaintenanceActual.bulkCreate(chunk);
         }
       }
     }
+
+    // Clear holiday cache after mutations
+    clearHolidayCache();
 
     res.status(200).json({
       success: true,
@@ -707,9 +710,6 @@ export const getMonthlyScheduleMatrix = async (req, res) => {
       return res.status(400).json({ success: false, message: "Year and Month parameters are required" });
     }
 
-    const yearNum = parseInt(year);
-    const monthNum = parseInt(month);
-
     let yearlyStandard = null;
 
     if (yearly_standard_id) {
@@ -718,16 +718,15 @@ export const getMonthlyScheduleMatrix = async (req, res) => {
 
     if (!yearlyStandard) {
       yearlyStandard = await YearlyStandardMaintenance.findOne({
-        where: { tahun: yearNum }
+        where: { tahun: parseInt(year) }
       });
     }
 
     if (!yearlyStandard) {
-      return res.status(404).json({ success: false, message: `Yearly Standard for ${yearNum} not found` });
+      return res.status(404).json({ success: false, message: `Yearly Standard for ${year} not found` });
     }
 
-    const scheduleWhere = { yearly_standard_id: yearlyStandard.id };
-    const standardWhere = {};
+    const standardWhere = { yearly_standard_id: yearlyStandard.id };
     if (category) {
       const catMap = {
         "hardware": ["HARDWARE", "Hardware"],
@@ -738,90 +737,45 @@ export const getMonthlyScheduleMatrix = async (req, res) => {
         "networking": ["NETWORK_CYBER", "Networking"],
         "cyber": ["NETWORK_CYBER", "Cyber"]
       };
-      
       const mappedCats = catMap[category.toLowerCase()] || [category];
-      standardWhere.kategori = {
-        [Op.in]: mappedCats
-      };
+      standardWhere.kategori = { [Op.in]: mappedCats };
     }
 
-    const schedules = await MaintenanceSchedule.findAll({
-      where: scheduleWhere,
+    const standards = await StandardMaintenance.findAll({
+      where: standardWhere,
       include: [
         {
-          model: Asset,
-          as: "asset",
-          include: ["location"]
-        },
-        {
-          model: StandardMaintenance,
-          as: "StandardMaintenance",
-          where: standardWhere,
+          model: StandardMaintenanceDetail,
+          as: "details",
           include: [
             {
-              model: StandardMaintenanceDetail,
-              as: "details",
-              include: [
-                {
-                  model: StandardMaintenanceCheck,
-                  as: "pengecekanList"
-                }
-              ]
+              model: StandardMaintenanceCheck,
+              as: "pengecekanList"
             }
           ]
         }
-      ]
+      ],
+      order: [["id", "ASC"]]
     });
 
     const matrixData = [];
 
-    for (const schedule of schedules) {
-      const sm = schedule.StandardMaintenance;
-      if (!sm || !sm.details) continue;
+    // Collect all check IDs to batch-load actuals
+    const checkIdToMeta = [];
 
+    for (const sm of standards) {
+      if (!sm.details) continue;
       for (const detail of sm.details) {
         if (!detail.pengecekanList) continue;
-
         for (const check of detail.pengecekanList) {
-          const actuals = await MaintenanceActual.findAll({
-            where: {
-              schedule_id: schedule.id,
-              check_id: check.id,
-              [Op.and]: [
-                sequelize.where(sequelize.fn("YEAR", sequelize.col("tanggal")), yearNum),
-                sequelize.where(sequelize.fn("MONTH", sequelize.col("tanggal")), monthNum)
-              ]
-            },
-            include: [
-              {
-                model: MaintenanceActual.sequelize.models.MaintenanceAbnormalLog,
-                as: "abnormalLogs"
-              }
-            ],
-            order: [["tanggal", "ASC"]]
+          checkIdToMeta.push({
+            sm,
+            detail,
+            check
           });
-
-          const checkboxes = actuals.map(act => {
-            const actJSON = act.toJSON();
-            const abnormal = actJSON.abnormalLogs && actJSON.abnormalLogs.length > 0 ? actJSON.abnormalLogs[0] : null;
-            return {
-              actual_id: actJSON.id,
-              date: actJSON.tanggal,
-              week: dayjs(actJSON.tanggal).isoWeek(),
-              status: actJSON.status,
-              legend: actJSON.legend,
-              abnormal: abnormal ? {
-                id: abnormal.id,
-                deskripsi_kerusakan: abnormal.deskripsi_kerusakan,
-                tindakan: abnormal.tindakan,
-                status: abnormal.status_temuan
-              } : null
-            };
-          });
-
           matrixData.push({
-            schedule_id: schedule.id,
-            asset: schedule.asset,
+            schedule_id: null,
+            asset: null,
             kategori: sm.kategori,
             subKategori: sm.subKategori,
             namaPerangkat: sm.namaPerangkat,
@@ -833,11 +787,67 @@ export const getMonthlyScheduleMatrix = async (req, res) => {
             check_id: check.id,
             pengecekan: check.pengecekan,
             standard: check.standard,
-            periodik: check.periodik || schedule.periodik,
-            checkboxes
+            periodik: check.periodik,
+            checkboxes: []
           });
         }
       }
+    }
+
+    // Batch-load existing actuals for all checks in the target month
+    const allCheckIds = checkIdToMeta.map(c => c.check.id);
+    const monthStr = String(month).padStart(2, "0");
+    const monthStart = `${year}-${monthStr}-01`;
+    const lastDayOfMonth = dayjs(monthStart).endOf("month").format("YYYY-MM-DD");
+
+    const existingActuals = allCheckIds.length > 0
+      ? await MaintenanceActual.findAll({
+          where: {
+            check_id: { [Op.in]: allCheckIds },
+            tanggal: {
+              [Op.between]: [monthStart, lastDayOfMonth]
+            }
+          },
+          raw: true
+        })
+      : [];
+
+    const actualsByCheckId = new Map();
+    existingActuals.forEach(a => {
+      if (!actualsByCheckId.has(a.check_id)) {
+        actualsByCheckId.set(a.check_id, new Map());
+      }
+      actualsByCheckId.get(a.check_id).set(a.tanggal, a);
+    });
+
+    // Generate virtual checkboxes for each matrix entry
+    const numYear = parseInt(year);
+    for (const item of matrixData) {
+      const checkActuals = actualsByCheckId.get(item.check_id) || new Map();
+      const allDates = await generateCheckboxDates(numYear, item.periodik);
+
+      // Filter to requested month
+      const monthDates = allDates.filter(d => d.startsWith(`${year}-${monthStr}`));
+
+      item.checkboxes = monthDates.map(date => {
+        const existing = checkActuals.get(date);
+        if (existing) {
+          return {
+            actual_id: existing.id,
+            check_id: existing.check_id,
+            date: existing.tanggal,
+            status: existing.status,
+            legend: existing.legend,
+          };
+        }
+        return {
+          actual_id: null,
+          check_id: item.check_id,
+          date: date,
+          status: "PLAN",
+          legend: "□",
+        };
+      });
     }
 
     res.status(200).json({

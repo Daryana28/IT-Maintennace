@@ -65,27 +65,6 @@ const buildAssetCategoryCandidates = (kategori, subKategori, namaPerangkat, tipe
   pushCandidate(tipePerangkat);
   pushCandidate(namaPerangkat);
 
-  const cat = (kategori || "").toUpperCase().trim();
-  if (cat === "HARDWARE") {
-    pushCandidate("Hardware");
-  } else if (cat === "SOFTWARE_HW") {
-    pushCandidate("Software Hardware");
-    pushCandidate("Software");
-  } else if (cat === "APPLICATION") {
-    pushCandidate("Application");
-    pushCandidate("Software");
-  } else if (cat === "NETWORK_CYBER") {
-    pushCandidate("Network & Cybersecurity");
-    pushCandidate("Network & Cyber");
-    pushCandidate("Network");
-    pushCandidate("Networking");
-    pushCandidate("Cyber");
-    pushCandidate("Cybersecurity");
-    pushCandidate("Cyber Security");
-  } else {
-    pushCandidate(kategori);
-  }
-
   return candidates;
 };
 
@@ -136,48 +115,9 @@ const resolveAssetCategoryIds = async ({ kategori, subKategori, namaPerangkat, t
     subPerangkat
   ).map(normalizeCategoryName);
 
-  let matchedRootIds = categories
+  return categories
     .filter((category) => candidates.includes(normalizeCategoryName(category.category_name)))
     .map((category) => category.category_id);
-
-  if (matchedRootIds.length === 0) {
-    const fallbackRoots = [];
-    const pushFallback = (value) => {
-      const normalized = normalizeCategoryName(value);
-      if (normalized && !fallbackRoots.includes(normalized)) {
-        fallbackRoots.push(normalized);
-      }
-    };
-
-    const cat = (kategori || "").toUpperCase().trim();
-    if (cat === "HARDWARE") {
-      pushFallback("Hardware");
-    } else if (cat === "SOFTWARE_HW") {
-      pushFallback("Software Hardware");
-      pushFallback("Software");
-    } else if (cat === "APPLICATION") {
-      pushFallback("Application");
-      pushFallback("Software");
-    } else if (cat === "NETWORK_CYBER") {
-      pushFallback("Network & Cybersecurity");
-      pushFallback("Network & Cyber");
-      pushFallback("Network");
-      pushFallback("Cybersecurity");
-      pushFallback("Cyber Security");
-      pushFallback("Cyber");
-      pushFallback("Networking");
-    }
-
-    matchedRootIds = categories
-      .filter((category) => fallbackRoots.includes(normalizeCategoryName(category.category_name)))
-      .map((category) => category.category_id);
-  }
-
-  if (matchedRootIds.length === 0) {
-    return [];
-  }
-
-  return collectDescendantCategoryIds(matchedRootIds, categories);
 };
 
 const normalizeDateKey = (value) => {
@@ -727,7 +667,7 @@ export const importStandardMaintenance = async (req, res) => {
         continue;
       }
 
-      // We extract checks from any of the 4 sub-category columns that are populated
+      // Extract check group from columns 8-11 (single group per category template)
       const checkGroups = [];
 
       const extractGroup = (baseC) => {
@@ -741,15 +681,19 @@ export const importStandardMaintenance = async (req, res) => {
         return null;
       };
 
-      const gHw = extractGroup(8);
-      const gInfra = extractGroup(12);
-      const gSw = extractGroup(16);
-      const gCyber = extractGroup(20);
-
-      if (gHw) checkGroups.push(gHw);
-      if (gInfra) checkGroups.push(gInfra);
-      if (gSw) checkGroups.push(gSw);
-      if (gCyber) checkGroups.push(gCyber);
+      // New template: only one check group at columns 8-11
+      const gMain = extractGroup(8);
+      if (gMain) {
+        checkGroups.push(gMain);
+      } else {
+        // Fallback for old templates with multiple groups
+        const gInfra = extractGroup(12);
+        const gSw = extractGroup(16);
+        const gCyber = extractGroup(20);
+        if (gInfra) checkGroups.push(gInfra);
+        if (gSw) checkGroups.push(gSw);
+        if (gCyber) checkGroups.push(gCyber);
+      }
 
       // If no normal check details found, push a default empty check so we still register the item
       if (checkGroups.length === 0) {
@@ -986,123 +930,12 @@ export const saveAndGenerateSchedule = async (req, res) => {
       }
     }
 
-    // 5. Generate and sync schedules
-    currentStage = "loading updated standard maintenance";
-    const updatedSms = await StandardMaintenance.findAll({
-      where: { yearly_standard_id, kategori: kategori.toUpperCase() },
-      include: [
-        {
-          model: StandardMaintenanceDetail,
-          as: "details",
-          include: [{ model: StandardMaintenanceCheck, as: "pengecekanList" }]
-        }
-      ],
-      transaction
-    });
-
     await transaction.commit();
-
-    let schedulesSynced = 0;
-
-    for (const sm of updatedSms) {
-      currentStage = `syncing schedules for ${sm.namaPerangkat || sm.subKategori || sm.kategori}`;
-      const allCategoryIds = await resolveAssetCategoryIds({
-        kategori: sm.kategori,
-        subKategori: sm.subKategori,
-        namaPerangkat: sm.namaPerangkat,
-        tipePerangkat: sm.tipePerangkat,
-        subPerangkat: sm.subPerangkat,
-      });
-
-      if (allCategoryIds.length === 0) continue;
-
-      const assets = await Asset.findAll({
-        where: {
-          category_id: {
-            [Op.in]: allCategoryIds
-          }
-        }
-      });
-
-      let derivedPeriodik = "1 Bulan";
-      if (sm.details && sm.details.length > 0 && sm.details[0].pengecekanList && sm.details[0].pengecekanList.length > 0) {
-        derivedPeriodik = sm.details[0].pengecekanList[0].periodik || "1 Bulan";
-      }
-
-      for (const asset of assets) {
-        currentStage = `syncing asset ${asset.asset_id} for ${sm.namaPerangkat || sm.subKategori || sm.kategori}`;
-        let [schedule] = await MaintenanceSchedule.findOrCreate({
-          where: {
-            asset_id: asset.asset_id,
-            yearly_standard_id,
-            standard_maintenance_id: sm.id
-          },
-          defaults: {
-            periodik: derivedPeriodik,
-            status: "ACTIVE"
-          }
-        });
-
-        await schedule.update({ status: "ACTIVE", periodik: derivedPeriodik });
-        schedulesSynced++;
-
-        if (sm.details) {
-          for (const detail of sm.details) {
-            if (detail.pengecekanList) {
-              for (const check of detail.pengecekanList) {
-                currentStage = `syncing actuals for check ${check.id} on asset ${asset.asset_id}`;
-                const targetDates = checkPlanMap.get(check.id) || [];
-
-                const existingActuals = await MaintenanceActual.findAll({
-                  where: { schedule_id: schedule.id, check_id: check.id }
-                });
-
-                const completedActuals = existingActuals.filter(a => a.status !== "PLAN" || a.legend !== "□");
-                const planActuals = existingActuals.filter(a => a.status === "PLAN" && a.legend === "□");
-
-                const targetDatesSet = new Set(targetDates.map(normalizeDateKey));
-
-                // Delete planned actuals that are not in target dates list
-                const toDelete = planActuals.filter(
-                  (a) => !targetDatesSet.has(normalizeDateKey(a.tanggal))
-                );
-                if (toDelete.length > 0) {
-                  await MaintenanceActual.destroy({
-                    where: { id: toDelete.map(a => a.id) }
-                  });
-                }
-
-                // Insert new planned actuals
-                const existingDates = new Set(
-                  existingActuals.map((a) => normalizeDateKey(a.tanggal))
-                );
-                const toInsert = targetDates.filter(
-                  (d) => !existingDates.has(normalizeDateKey(d))
-                );
-
-                if (toInsert.length > 0) {
-                  const bulkData = toInsert.map(d => ({
-                    schedule_id: schedule.id,
-                    check_id: check.id,
-                    tanggal: d,
-                    status: "PLAN",
-                    legend: "□",
-                    created_at: new Date(),
-                    updated_at: new Date()
-                  }));
-                  await MaintenanceActual.bulkCreate(bulkData);
-                }
-              }
-            }
-          }
-        }
-      }
-    }
 
     return res.status(200).json({
       success: true,
-      message: `Berhasil men-generate schedule untuk ${schedulesSynced} perangkat.`,
-      data: { schedules_synced: schedulesSynced }
+      message: `Berhasil menyimpan standard maintenance (${savedSmIds.length} SM).`,
+      data: { saved_sm_ids: savedSmIds }
     });
 
   } catch (error) {

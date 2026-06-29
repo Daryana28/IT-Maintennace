@@ -95,13 +95,57 @@ export default function ScheduleWithCheckboxView({ overrideCategory, overrideYea
   }, [selectedYear, selectedMonth]);
 
   // Handle cell status updates
-  const handleUpdateStatus = async (actualId, newStatus) => {
+  const handleUpdateStatus = async (actualId, newStatus, record, dayNum) => {
     try {
       setLoading(true);
-      await maintenanceScheduleService.updateActualStatus(actualId, newStatus);
+      let targetActualId = actualId;
+
+      if (!targetActualId) {
+        const checkbox = (record.checkboxes || []).find(cb => dayjs(cb.date).date() === dayNum);
+        if (checkbox) {
+          const result = await maintenanceScheduleService.upsertActualEntry({
+            check_id: checkbox.check_id,
+            tanggal: checkbox.date,
+            status: newStatus
+          });
+          targetActualId = result.data?.id || result.id;
+        }
+      } else {
+        await maintenanceScheduleService.updateActualStatus(targetActualId, newStatus);
+      }
+
       loadMatrixData();
     } catch (err) {
       console.error("Gagal update status checkbox", err);
+    } finally {
+      setLoading(false);
+    }
+  };
+
+  // Handle abnormal click - ensure actual exists first
+  const handleAbnormalClick = async (record, checkbox) => {
+    try {
+      setLoading(true);
+      let actualId = checkbox.actual_id;
+
+      if (!actualId) {
+        const result = await maintenanceScheduleService.createActualEntry({
+          check_id: checkbox.check_id,
+          tanggal: checkbox.date
+        });
+        actualId = result.data?.id || result.id;
+      }
+
+      setSelectedCellData({
+        ...record,
+        actual_id: actualId,
+        date: checkbox.date,
+        abnormal: checkbox.abnormal,
+        pengecekan: record.pengecekan
+      });
+      setAbnormalModalOpen(true);
+    } catch (err) {
+      console.error("Gagal menyiapkan data abnormal", err);
     } finally {
       setLoading(false);
     }
@@ -169,26 +213,17 @@ export default function ScheduleWithCheckboxView({ overrideCategory, overrideYea
       {
         key: "actual",
         label: "Set Selesai (✓)",
-        onClick: () => handleUpdateStatus(actual_id, "ACTUAL")
+        onClick: () => handleUpdateStatus(actual_id, "ACTUAL", record, dayNum)
       },
       {
         key: "plan",
         label: "Set Plan / Belum Selesai (□)",
-        onClick: () => handleUpdateStatus(actual_id, "PLAN")
+        onClick: () => handleUpdateStatus(actual_id, "PLAN", record, dayNum)
       },
       {
         key: "abnormal",
         label: "⚠️ Laporkan Kerusakan (✗)",
-        onClick: () => {
-          setSelectedCellData({
-            ...record,
-            actual_id,
-            date,
-            abnormal,
-            pengecekan: record.pengecekan
-          });
-          setAbnormalModalOpen(true);
-        }
+        onClick: () => handleAbnormalClick(record, checkbox)
       }
     ];
 
@@ -409,7 +444,7 @@ export default function ScheduleWithCheckboxView({ overrideCategory, overrideYea
           loading={loading}
           columns={columns}
           dataSource={matrixData}
-          rowKey={(record) => `matrix-${record.schedule_id}-${record.check_id}`}
+          rowKey={(record) => `matrix-${record.check_id}-${record.subKategori}-${record.namaPerangkat}`}
           bordered
           size="middle"
           pagination={{ pageSize: 25 }}

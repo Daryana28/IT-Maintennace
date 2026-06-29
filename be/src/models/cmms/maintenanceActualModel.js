@@ -11,7 +11,7 @@ export default (sequelize) => {
       },
       schedule_id: {
         type: DataTypes.BIGINT,
-        allowNull: false,
+        allowNull: true,
       },
       check_id: {
         type: DataTypes.BIGINT,

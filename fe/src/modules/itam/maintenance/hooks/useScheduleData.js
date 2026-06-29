@@ -3,7 +3,6 @@ import dayjs from "dayjs";
 import isBetween from "dayjs/plugin/isBetween";
 import { message } from "antd";
 
-import maintenanceScheduleService from "../services/maintenanceScheduleService";
 import holidayService from "../services/holidayService";
 
 dayjs.extend(isBetween);
@@ -102,7 +101,7 @@ export default function useScheduleData(viewMode) {
             const years = await standardService.getYears();
 
             if (!years || years.length === 0) {
-                setSchedules([]);
+                    setSchedules([]);
                 setLoading(false);
                 return;
             }
@@ -113,12 +112,9 @@ export default function useScheduleData(viewMode) {
                 "../../assetManagement/services/assetService"
             );
 
-            const [standardsRes, schedulesRes, catData] =
+            const [standardsRes, catData] =
                 await Promise.all([
                     standardService.getAll(activeYearIdVal),
-                    maintenanceScheduleService.getSchedules(
-                        activeYearIdVal
-                    ),
                     assetService
                         .getCategories({ all: true })
                         .catch(() => []),
@@ -130,118 +126,90 @@ export default function useScheduleData(viewMode) {
             const result = [];
             let rowIdx = 1;
 
-            // Group schedules by standard_maintenance_id
-            const scheduleMap = {};
-            schedulesRes.forEach((sch) => {
-                if (sch.status === "CANCELLED") return;
-                const smId =
-                    sch.standard_maintenance_id ||
-                    sch.StandardMaintenance?.id;
-                if (smId) {
-                    if (!scheduleMap[smId]) scheduleMap[smId] = [];
-                    scheduleMap[smId].push(sch);
-                }
-            });
-
             standardsRes.forEach((sm, index) => {
                 const randomOffset = index % 5;
-                const baseDate = Array.isArray(currentDate) ? currentDate[0] : currentDate;
 
-                const pushItemRows = (schedulesArr, isSchedule) => {
-                    if (
-                        sm.details &&
-                        sm.details.length > 0
-                    ) {
-                        sm.details.forEach((detail) => {
-                            if (
-                                detail.pengecekanList &&
-                                detail.pengecekanList.length > 0
-                            ) {
-                                detail.pengecekanList.forEach(
-                                    (cek) => {
-                                        result.push({
-                                            key: `sm-${sm.id}-det-${detail.id}-cek-${cek.id}`,
-                                            no: rowIdx++,
-                                            kategori:
-                                                sm.kategori ||
-                                                "-",
-                                            subKategori:
-                                                sm.subKategori ||
-                                                "-",
-                                            perangkat:
-                                                sm.namaPerangkat ||
-                                                "-",
-                                            jenis:
-                                                sm.subPerangkat ||
-                                                sm.tipePerangkat ||
-                                                "-",
-                                            fungsi:
-                                                detail.fungsi ||
-                                                "-",
-                                            deskripsi:
-                                                detail.deskripsi ||
-                                                "-",
-                                            pengecekan:
-                                                cek.pengecekan ||
-                                                "-",
-                                            standard:
-                                                cek.standard ||
-                                                "-",
-                                            bagian:
-                                                cek.bagian ||
-                                                "-",
-                                            metode:
-                                                cek.metode ||
-                                                "-",
-                                            alat:
-                                                cek.alat || "-",
-                                            periodik:
-                                                cek.periodik
-                                                    ? cek.periodik
-                                                        .trim()
-                                                        .split(/\s+/)
-                                                        .map(
-                                                            (w) =>
-                                                                w
-                                                                    .charAt(0)
-                                                                    .toUpperCase() +
-                                                                w
-                                                                    .slice(1)
-                                                                    .toLowerCase()
-                                                        )
-                                                        .join(" ")
-                                                    : "-",
-                                            span: 1,
-                                            task: cek.pengecekan,
-                                            color: colorKeys[
-                                                rowIdx %
-                                                colorKeys.length
-                                            ],
-                                            sm_id: sm.id,
-                                            sm_periodik:
-                                                cek.periodik,
-                                            yearly_standard_id:
-                                                sm.yearly_standard_id ||
-                                                activeYearIdVal,
-                                            schedules: isSchedule
-                                                ? schedulesArr
-                                                : [],
-                                        });
-                                    }
-                                );
-                            }
-                        });
-                    }
-                };
-
-                const relatedSchedules = scheduleMap[sm.id];
                 if (
-                    relatedSchedules &&
-                    relatedSchedules.length > 0
+                    sm.details &&
+                    sm.details.length > 0
                 ) {
-                    pushItemRows(relatedSchedules, true);
-                } else {
-                    pushItemRows([], false);
+                    sm.details.forEach((detail) => {
+                        if (
+                            detail.pengecekanList &&
+                            detail.pengecekanList.length > 0
+                        ) {
+                            detail.pengecekanList.forEach(
+                                (cek) => {
+                                    result.push({
+                                        key: `sm-${sm.id}-det-${detail.id}-cek-${cek.id}`,
+                                        no: rowIdx++,
+                                        kategori:
+                                            sm.kategori ||
+                                            "-",
+                                        subKategori:
+                                            sm.subKategori ||
+                                            "-",
+                                        perangkat:
+                                            sm.namaPerangkat ||
+                                            "-",
+                                        jenis:
+                                            sm.subPerangkat ||
+                                            sm.tipePerangkat ||
+                                            "-",
+                                        fungsi:
+                                            detail.fungsi ||
+                                            "-",
+                                        deskripsi:
+                                            detail.deskripsi ||
+                                            "-",
+                                        pengecekan:
+                                            cek.pengecekan ||
+                                            "-",
+                                        standard:
+                                            cek.standard ||
+                                            "-",
+                                        bagian:
+                                            cek.bagian ||
+                                            "-",
+                                        metode:
+                                            cek.metode ||
+                                            "-",
+                                        alat:
+                                            cek.alat || "-",
+                                        periodik:
+                                            cek.periodik
+                                                ? cek.periodik
+                                                    .trim()
+                                                    .split(/\s+/)
+                                                    .map(
+                                                        (w) =>
+                                                            w
+                                                                .charAt(0)
+                                                                .toUpperCase() +
+                                                            w
+                                                                .slice(1)
+                                                                .toLowerCase()
+                                                    )
+                                                    .join(" ")
+                                                : "-",
+                                        span: 1,
+                                        task: cek.pengecekan,
+                                        color: colorKeys[
+                                            rowIdx %
+                                            colorKeys.length
+                                        ],
+                                        sm_id: sm.id,
+                                        sm_periodik:
+                                            cek.periodik,
+                                        yearly_standard_id:
+                                            sm.yearly_standard_id ||
+                                            activeYearIdVal,
+                                        schedules: [],
+                                    });
+                                }
+                            );
+                        }
+                    });
                 }
             });
 

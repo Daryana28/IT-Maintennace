@@ -124,53 +124,65 @@ export const getAllAbnormalLogs = async (req, res) => {
       // To keep it simple, we can filter standard checks
     }
 
-    const logs = await MaintenanceAbnormalLog.findAll({
-      where: whereClause,
+    const actualInclude = {
+      model: MaintenanceActual,
+      as: "actual",
       include: [
         {
-          model: MaintenanceActual,
-          as: "actual",
-          where: actualIncludeWhere,
+          model: MaintenanceSchedule,
+          as: "schedule",
+          required: false,
           include: [
             {
-              model: MaintenanceSchedule,
-              as: "schedule",
+              model: Asset,
+              as: "asset",
+              required: false,
               include: [
                 {
-                  model: Asset,
-                  as: "asset",
+                  model: AssetCategory,
+                  as: "category",
+                  required: false,
                   include: [
                     {
                       model: AssetCategory,
-                      as: "category",
-                      include: [
-                        {
-                          model: AssetCategory,
-                          as: "parent"
-                        }
-                      ]
-                    }
-                  ]
-                }
-              ]
-            },
-            {
-              model: StandardMaintenanceCheck,
-              as: "check",
-              include: [
-                {
-                  model: StandardMaintenanceDetail,
-                  include: [
-                    {
-                      model: StandardMaintenance
+                      as: "parent",
+                      required: false
                     }
                   ]
                 }
               ]
             }
           ]
+        },
+        {
+          model: StandardMaintenanceCheck,
+          as: "check",
+          required: false,
+          include: [
+            {
+              model: StandardMaintenanceDetail,
+              as: "standard_maintenance_detail",
+              required: false,
+              include: [
+                {
+                  model: StandardMaintenance,
+                  as: "standard_maintenance",
+                  required: false
+                }
+              ]
+            }
+          ]
         }
-      ],
+      ]
+    };
+
+    if (Object.keys(actualIncludeWhere).length > 0) {
+      actualInclude.where = actualIncludeWhere;
+    }
+
+    const logs = await MaintenanceAbnormalLog.findAll({
+      where: whereClause,
+      include: [actualInclude],
       order: [["created_at", "DESC"]]
     });
 
