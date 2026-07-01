@@ -10,6 +10,9 @@
 *None*
 
 ## 🟢 Done
+- `T-045` Refactor Standard Maintenance Periodic logic & add frontend auto-mapping generator
+- `T-044` Connect Summary Center template to dynamic backend statistics
+- `T-043` Dashboard connection & database seed adjustment
 - `T-042` Cleanup debug scripts and console.logs
 - `T-041` Fix model association aliases for log sheet display
 - `T-040` Fix getAllAbnormalLogs query for null schedule_id

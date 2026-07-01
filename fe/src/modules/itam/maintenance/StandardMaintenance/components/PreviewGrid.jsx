@@ -19,13 +19,90 @@ dayjs.extend(isLeapYear);
 const { Title, Text } = Typography;
 
 const PERIODIK_OPTIONS = [
-  { value: "1X/W", label: "1X / Minggu (Weekly)" },
-  { value: "2X/W", label: "2X / Minggu" },
-  { value: "1X/M", label: "1X / Bulan (Monthly)" },
-  { value: "3 Bulan", label: "3 Bulan (Quarterly)" },
-  { value: "6 Bulan", label: "6 Bulan (Half Yearly)" },
-  { value: "1 Tahun", label: "1 Tahun (Yearly)" },
+  { value: "DAILY", label: "Daily" },
+  { value: "1X/MINGGU", label: "1X/Minggu" },
+  { value: "2X/MINGGU", label: "2X/Minggu" },
+  { value: "1X/BULAN", label: "1X/Bulan" },
+  { value: "3X/BULAN", label: "3X/Bulan" },
+  { value: "6X/BULAN", label: "6X/Bulan" },
+  { value: "1X/TAHUN", label: "1X/Tahun" },
 ];
+
+const generatePreviewDates = (year, periodik) => {
+  const dates = [];
+  const type = String(periodik).toUpperCase();
+  const startOfYear = dayjs(`${year}-01-01`);
+  const endOfYear = dayjs(`${year}-12-31`);
+
+  const isWeekday = (dateObj) => {
+    const d = dateObj.day();
+    return d !== 0 && d !== 6;
+  };
+
+  const findWeekday = (startObj, maxDays = 15) => {
+    let curr = startObj;
+    for (let i = 0; i < maxDays; i++) {
+      if (curr.year() === year && isWeekday(curr)) {
+        return curr;
+      }
+      curr = curr.add(1, 'day');
+    }
+    return startObj;
+  };
+
+  if (type === "DAILY") {
+    let curr = startOfYear;
+    while (curr.isBefore(endOfYear) || curr.isSame(endOfYear, 'day')) {
+      if (isWeekday(curr)) {
+        dates.push(curr.format("YYYY-MM-DD"));
+      }
+      curr = curr.add(1, 'day');
+    }
+  } else if (type === "1X/MINGGU" || type === "1X/W" || type === "2X/MINGGU" || type === "2X/W") {
+    const totalIsoWeeks = dayjs(`${year}-12-28`).isoWeek();
+    const step = type.includes("2X") ? 2 : 1;
+    for (let w = 1; w <= totalIsoWeeks; w += step) {
+      let current = dayjs(`${year}-01-04`).isoWeek(w).startOf('isoWeek');
+      let found = false;
+      for (let i = 0; i < 5; i++) {
+        let testDay = current.add(i, 'day');
+        if (testDay.year() === year && isWeekday(testDay)) {
+          dates.push(testDay.format("YYYY-MM-DD"));
+          found = true;
+          break;
+        }
+      }
+      if (!found) {
+        let testDay = current.add(3, 'day');
+        if (testDay.year() === year) {
+          dates.push(testDay.format("YYYY-MM-DD"));
+        } else {
+          dates.push(testDay.year() < year ? `${year}-01-01` : `${year}-12-31`);
+        }
+      }
+    }
+  } else if (type === "1X/BULAN" || type === "1X/M") {
+    for (let m = 0; m < 12; m++) {
+      let curr = dayjs().year(year).month(m).startOf('month');
+      dates.push(findWeekday(curr).format("YYYY-MM-DD"));
+    }
+  } else if (type === "3X/BULAN" || type.includes("3 BULAN")) {
+    [0, 3, 6, 9].forEach(m => {
+      let curr = dayjs().year(year).month(m).startOf('month');
+      dates.push(findWeekday(curr).format("YYYY-MM-DD"));
+    });
+  } else if (type === "6X/BULAN" || type.includes("6 BULAN")) {
+    [0, 6].forEach(m => {
+      let curr = dayjs().year(year).month(m).startOf('month');
+      dates.push(findWeekday(curr).format("YYYY-MM-DD"));
+    });
+  } else if (type === "1X/TAHUN" || type.includes("TAHUN")) {
+    let curr = dayjs().year(year).month(0).startOf('month');
+    dates.push(findWeekday(curr).format("YYYY-MM-DD"));
+  }
+
+  return dates;
+};
 
 const GridRow = React.memo(function GridRow({
   row,
@@ -119,8 +196,10 @@ export default function PreviewGrid({ initialChecks, year, categoryName, loading
               bagian: cek.bagian || "",
               metode: cek.metode || "",
               alat: cek.alat || "",
-              periodik: cek.periodik || "1X/M",
-              planned_dates: Array.isArray(cek.planned_dates) ? cek.planned_dates : []
+              periodik: cek.periodik || "1X/BULAN",
+              planned_dates: (Array.isArray(cek.planned_dates) && cek.planned_dates.length > 0)
+                ? cek.planned_dates 
+                : generatePreviewDates(targetYear, cek.periodik || "1X/BULAN")
             });
           });
         });
@@ -128,17 +207,20 @@ export default function PreviewGrid({ initialChecks, year, categoryName, loading
       // If flat is empty but we have flat list directly
       if (flat.length === 0 && Array.isArray(initialChecks)) {
         // checks might already be flat if parsed from excel
-        setChecks(initialChecks.map(item => ({
-          ...item,
-          planned_dates: Array.isArray(item.planned_dates) ? item.planned_dates : []
-        })));
+        setChecks(initialChecks.map(item => {
+          let planned = Array.isArray(item.planned_dates) ? item.planned_dates : [];
+          if (planned.length === 0 && item.periodik) {
+            planned = generatePreviewDates(targetYear, item.periodik);
+          }
+          return { ...item, planned_dates: planned };
+        }));
       } else {
         setChecks(flat);
       }
     } else {
       setChecks([]);
     }
-  }, [initialChecks]);
+  }, [initialChecks, targetYear]);
 
   // Generate all dates in targetYear
   const calendarDates = useMemo(() => {
@@ -202,11 +284,12 @@ export default function PreviewGrid({ initialChecks, year, categoryName, loading
       const updated = [...prev];
       updated[rowIdx] = {
         ...updated[rowIdx],
-        periodik: val
+        periodik: val,
+        planned_dates: generatePreviewDates(targetYear, val)
       };
       return updated;
     });
-  }, []);
+  }, [targetYear]);
 
   // Delete row
   const handleDeleteRow = useCallback((rowIdx) => {
@@ -238,8 +321,8 @@ export default function PreviewGrid({ initialChecks, year, categoryName, loading
       bagian: values.bagian || "",
       metode: values.metode || "",
       alat: values.alat || "",
-      periodik: values.periodik || "1X/M",
-      planned_dates: []
+      periodik: values.periodik || "1X/BULAN",
+      planned_dates: generatePreviewDates(targetYear, values.periodik || "1X/BULAN")
     };
     setChecks([...checks, newRow]);
     setModalOpen(false);
@@ -259,7 +342,12 @@ export default function PreviewGrid({ initialChecks, year, categoryName, loading
       const planned = item.planned_dates || [];
       const periodik = (item.periodik || "").toUpperCase();
 
-      if (periodik === "1X/W" || periodik === "1X/MINGGU") {
+      if (periodik === "DAILY") {
+        if (planned.length < 200) {
+          errors.push(`${label}: Wajib memiliki plan harian (minimal 200 hari kerja di tahun berjalan).`);
+        }
+      }
+      else if (periodik === "1X/MINGGU" || periodik === "1X/W") {
         // Validate at least 1 plan per ISO week of targetYear
         const weekMap = new Set();
         planned.forEach(d => {
@@ -278,27 +366,29 @@ export default function PreviewGrid({ initialChecks, year, categoryName, loading
           errors.push(`${label}: Wajib memiliki minimal 1 plan di setiap minggu. Minggu yang kurang: ${missingWeeks.join(", ")}`);
         }
       } 
-      else if (periodik === "2X/W" || periodik === "2X/MINGGU") {
-        // Validate at least 2 plans per ISO week of targetYear
-        const weekCounts = {};
+      else if (periodik === "2X/MINGGU" || periodik === "2X/W") {
+        // Validate at least 1 plan per 2 weeks (biweekly)
+        const blockMap = new Set();
         planned.forEach(d => {
           const dateObj = dayjs(d);
           if (dateObj.year() === targetYear) {
             const w = dateObj.isoWeek();
-            weekCounts[w] = (weekCounts[w] || 0) + 1;
+            const block = Math.ceil(w / 2);
+            blockMap.add(block);
           }
         });
-        const missingWeeks = [];
-        for (let w = 1; w <= totalIsoWeeks; w++) {
-          if ((weekCounts[w] || 0) < 2) {
-            missingWeeks.push(w);
+        const totalBlocks = Math.ceil(totalIsoWeeks / 2);
+        const missingBlocks = [];
+        for (let b = 1; b <= totalBlocks; b++) {
+          if (!blockMap.has(b)) {
+            missingBlocks.push(b);
           }
         }
-        if (missingWeeks.length > 0) {
-          errors.push(`${label}: Wajib memiliki minimal 2 plan di setiap minggu. Minggu yang kurang: ${missingWeeks.join(", ")}`);
+        if (missingBlocks.length > 0) {
+          errors.push(`${label}: Wajib memiliki minimal 1 plan setiap 2 minggu. Blok 2-mingguan yang kurang: ${missingBlocks.join(", ")}`);
         }
       } 
-      else if (periodik === "1X/M" || periodik === "1X/BULAN" || periodik === "1 BULAN") {
+      else if (periodik === "1X/BULAN" || periodik === "1X/M") {
         // Validate at least 1 plan per calendar month (0-11)
         const monthMap = new Set();
         planned.forEach(d => {
@@ -318,7 +408,7 @@ export default function PreviewGrid({ initialChecks, year, categoryName, loading
           errors.push(`${label}: Wajib memiliki minimal 1 plan di setiap bulan. Bulan yang kurang: ${missingMonths.join(", ")}`);
         }
       } 
-      else if (periodik === "3 BULAN" || periodik === "3MONTH" || periodik === "QUARTERLY") {
+      else if (periodik === "3X/BULAN" || periodik === "3 BULAN") {
         // Validate at least 1 plan per quarter
         // Q1: 0,1,2 | Q2: 3,4,5 | Q3: 6,7,8 | Q4: 9,10,11
         const quarters = [false, false, false, false];
@@ -337,7 +427,7 @@ export default function PreviewGrid({ initialChecks, year, categoryName, loading
           errors.push(`${label}: Wajib memiliki minimal 1 plan di setiap triwulan (Quarter). Kuartal yang kurang: ${missingQuarters.join(", ")}`);
         }
       } 
-      else if (periodik === "6 BULAN" || periodik === "6MONTH" || periodik === "HALF YEARLY") {
+      else if (periodik === "6X/BULAN" || periodik === "6 BULAN") {
         // Validate at least 1 plan per half-year (H1: Jan-Jun, H2: Jul-Dec)
         const halfs = [false, false];
         planned.forEach(d => {
@@ -354,7 +444,7 @@ export default function PreviewGrid({ initialChecks, year, categoryName, loading
           errors.push(`${label}: Wajib memiliki minimal 1 plan di setiap semester. Semester yang kurang: ${missing.join(", ")}`);
         }
       } 
-      else if (periodik === "1 TAHUN" || periodik === "TAHUN" || periodik === "YEARLY") {
+      else if (periodik === "1X/TAHUN" || periodik === "1 TAHUN") {
         // Validate at least 1 plan in the whole year
         if (planned.length === 0) {
           errors.push(`${label}: Wajib memiliki minimal 1 plan di tahun berjalan.`);
@@ -522,7 +612,7 @@ export default function PreviewGrid({ initialChecks, year, categoryName, loading
           <Form.Item name="alat" label="Alat">
             <Input placeholder="Contoh: Obeng / Tidak ada" />
           </Form.Item>
-          <Form.Item name="periodik" label="Periodik" initialValue="1X/M" rules={[{ required: true }]}>
+          <Form.Item name="periodik" label="Periodik" initialValue="1X/BULAN" rules={[{ required: true }]}>
             <Select options={PERIODIK_OPTIONS} />
           </Form.Item>
         </Form>

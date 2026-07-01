@@ -1,4 +1,4 @@
-import React, { useState } from 'react';
+import React, { useState, useEffect } from 'react';
 import { Card, Typography, Tabs, Row, Col, Statistic, Table, Divider } from 'antd';
 import {
   DatabaseOutlined,
@@ -10,6 +10,7 @@ import {
   CheckCircleOutlined,
   DollarOutlined,
 } from '@ant-design/icons';
+import http from '@/shared/services/apiClient';
 
 const { Title, Text } = Typography;
 
@@ -19,27 +20,47 @@ export default function SummaryPage() {
   const [activeBudgetTab, setActiveBudgetTab] = useState('progress');
   const [activeMaintenanceTab, setActiveMaintenanceTab] = useState('logsheet');
 
+  const [summaryData, setSummaryData] = useState(null);
+  const [loading, setLoading] = useState(false);
+
+  useEffect(() => {
+    const fetchData = async () => {
+      try {
+        setLoading(true);
+        const res = await http.get('/dashboard/full-summary');
+        if (res.data.success) {
+          setSummaryData(res.data.data);
+        }
+      } catch (err) {
+        console.error(err);
+      } finally {
+        setLoading(false);
+      }
+    };
+    fetchData();
+  }, []);
+
   const assetTotalSummary = (
     <div style={{ padding: '12px 0' }}>
       <Row gutter={16}>
         <Col span={6}>
-          <Card variant="borderless" style={{ background: '#f8fafc' }}>
-            <Statistic title="Total Asset" value={452} prefix={<DatabaseOutlined style={{ color: '#1677ff' }} />} />
+          <Card variant="borderless" style={{ background: '#f8fafc' }} loading={loading}>
+            <Statistic title="Total Asset" value={summaryData?.asset?.total ?? 0} prefix={<DatabaseOutlined style={{ color: '#1677ff' }} />} />
           </Card>
         </Col>
         <Col span={6}>
-          <Card variant="borderless" style={{ background: '#f8fafc' }}>
-            <Statistic title="Aset Aktif" value={410} styles={{ content: { color: '#52c41a' } }} />
+          <Card variant="borderless" style={{ background: '#f8fafc' }} loading={loading}>
+            <Statistic title="Aset Aktif" value={summaryData?.asset?.active ?? 0} styles={{ content: { color: '#52c41a' } }} />
           </Card>
         </Col>
         <Col span={6}>
-          <Card variant="borderless" style={{ background: '#f8fafc' }}>
-            <Statistic title="Aset Rusak/Disposal" value={20} styles={{ content: { color: '#ff4d4f' } }} />
+          <Card variant="borderless" style={{ background: '#f8fafc' }} loading={loading}>
+            <Statistic title="Aset Rusak/Disposal" value={summaryData?.asset?.damaged ?? 0} styles={{ content: { color: '#ff4d4f' } }} />
           </Card>
         </Col>
         <Col span={6}>
-          <Card variant="borderless" style={{ background: '#f8fafc' }}>
-            <Statistic title="Aset di-Service" value={24} styles={{ content: { color: '#fa8c16' } }} />
+          <Card variant="borderless" style={{ background: '#f8fafc' }} loading={loading}>
+            <Statistic title="Aset di-Service" value={summaryData?.asset?.inService ?? 0} styles={{ content: { color: '#fa8c16' } }} />
           </Card>
         </Col>
       </Row>
@@ -130,18 +151,18 @@ export default function SummaryPage() {
     <div style={{ padding: '12px 0' }}>
       <Row gutter={16}>
         <Col span={8}>
-          <Card variant="borderless" style={{ background: '#f8fafc' }}>
-            <Statistic title="Total Budget Progress" value={171} prefix={<DollarOutlined style={{ color: '#1677ff' }} />} />
+          <Card variant="borderless" style={{ background: '#f8fafc' }} loading={loading}>
+            <Statistic title="Total Budget Progress" value={summaryData?.budget?.total ?? 0} prefix={<DollarOutlined style={{ color: '#1677ff' }} />} />
           </Card>
         </Col>
         <Col span={8}>
-          <Card variant="borderless" style={{ background: '#f8fafc' }}>
-            <Statistic title="On Progress" value={94} styles={{ content: { color: '#1677ff' } }} />
+          <Card variant="borderless" style={{ background: '#f8fafc' }} loading={loading}>
+            <Statistic title="On Progress" value={summaryData?.budget?.progress ?? 0} styles={{ content: { color: '#1677ff' } }} />
           </Card>
         </Col>
         <Col span={8}>
-          <Card variant="borderless" style={{ background: '#f8fafc' }}>
-            <Statistic title="Completed" value={77} styles={{ content: { color: '#52c41a' } }} />
+          <Card variant="borderless" style={{ background: '#f8fafc' }} loading={loading}>
+            <Statistic title="Completed" value={summaryData?.budget?.completed ?? 0} styles={{ content: { color: '#52c41a' } }} />
           </Card>
         </Col>
       </Row>
@@ -158,8 +179,8 @@ export default function SummaryPage() {
           { title: 'Completed', dataIndex: 'completed', key: 'completed' },
         ]}
         dataSource={[
-          { key: '1', category: 'Asset Budget', total: 96, progress: 58, completed: 38 },
-          { key: '2', category: 'Operational Budget', total: 75, progress: 36, completed: 39 },
+          { key: '1', category: 'Asset Budget', total: summaryData?.budget?.total ?? 0, progress: summaryData?.budget?.progress ?? 0, completed: summaryData?.budget?.completed ?? 0 },
+          { key: '2', category: 'Operational Budget', total: 0, progress: 0, completed: 0 },
         ]}
       />
     </div>
@@ -229,19 +250,9 @@ export default function SummaryPage() {
   const maintenanceLogsheetSummary = (
     <div style={{ padding: '12px 0' }}>
       <Row gutter={16}>
-        <Col span={8}>
-          <Card variant="borderless" style={{ background: '#f8fafc' }}>
-            <Statistic title="Total Logsheet" value={145} prefix={<FormOutlined style={{ color: '#1677ff' }} />} />
-          </Card>
-        </Col>
-        <Col span={8}>
-          <Card variant="borderless" style={{ background: '#f8fafc' }}>
-            <Statistic title="Disetujui" value={120} styles={{ content: { color: '#52c41a' } }} prefix={<CheckCircleOutlined />} />
-          </Card>
-        </Col>
-        <Col span={8}>
-          <Card variant="borderless" style={{ background: '#f8fafc' }}>
-            <Statistic title="Menunggu Approval" value={25} styles={{ content: { color: '#fa8c16' } }} />
+        <Col span={24}>
+          <Card variant="borderless" style={{ background: '#f8fafc' }} loading={loading}>
+            <Statistic title="Total Logsheet" value={summaryData?.maintenance?.logsheets?.total ?? 0} prefix={<FormOutlined style={{ color: '#1677ff' }} />} />
           </Card>
         </Col>
       </Row>
@@ -255,13 +266,8 @@ export default function SummaryPage() {
           { title: 'No. Logsheet', dataIndex: 'logNo', key: 'logNo' },
           { title: 'Aset', dataIndex: 'asset', key: 'asset' },
           { title: 'Tanggal', dataIndex: 'date', key: 'date' },
-          { title: 'Status', dataIndex: 'status', key: 'status', render: (s) => <Text style={{ color: s === 'Disetujui' ? '#52c41a' : '#fa8c16' }}>{s}</Text> },
         ]}
-        dataSource={[
-          { key: '1', logNo: 'LOG-2024-001', asset: 'Genset Utama', date: '18 Jun 2024', status: 'Menunggu Approval' },
-          { key: '2', logNo: 'LOG-2024-002', asset: 'Server Room AC', date: '17 Jun 2024', status: 'Disetujui' },
-          { key: '3', logNo: 'LOG-2024-003', asset: 'UPS Data Center', date: '16 Jun 2024', status: 'Disetujui' },
-        ]}
+        dataSource={summaryData?.maintenance?.logsheets?.latest || []}
       />
     </div>
   );
@@ -270,18 +276,18 @@ export default function SummaryPage() {
     <div style={{ padding: '12px 0' }}>
       <Row gutter={16}>
         <Col span={8}>
-          <Card variant="borderless" style={{ background: '#f8fafc' }}>
-            <Statistic title="Total Progress Monthly" value={184} prefix={<ToolOutlined style={{ color: '#722ed1' }} />} />
+          <Card variant="borderless" style={{ background: '#f8fafc' }} loading={loading}>
+            <Statistic title="Total Checkbox Actuals" value={summaryData?.maintenance?.actuals?.total ?? 0} prefix={<ToolOutlined style={{ color: '#722ed1' }} />} />
           </Card>
         </Col>
         <Col span={8}>
-          <Card variant="borderless" style={{ background: '#f8fafc' }}>
-            <Statistic title="Selesai Bulan Ini" value={152} styles={{ content: { color: '#52c41a' } }} />
+          <Card variant="borderless" style={{ background: '#f8fafc' }} loading={loading}>
+            <Statistic title="Selesai (Actual)" value={summaryData?.maintenance?.actuals?.done ?? 0} styles={{ content: { color: '#52c41a' } }} />
           </Card>
         </Col>
         <Col span={8}>
-          <Card variant="borderless" style={{ background: '#f8fafc' }}>
-            <Statistic title="Pending Bulan Ini" value={32} styles={{ content: { color: '#ff4d4f' } }} />
+          <Card variant="borderless" style={{ background: '#f8fafc' }} loading={loading}>
+            <Statistic title="Pending (Plan)" value={summaryData?.maintenance?.actuals?.pending ?? 0} styles={{ content: { color: '#ff4d4f' } }} />
           </Card>
         </Col>
       </Row>

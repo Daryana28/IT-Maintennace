@@ -1,5 +1,5 @@
-import { useState } from "react";
-import { Row, Col, Card, Typography, Table, Tag, Button, Progress, Avatar, Space, Modal } from "antd";
+import { useState, useEffect } from "react";
+import { Row, Col, Card, Typography, Table, Tag, Button, Progress, Avatar, Space, Modal, message } from "antd";
 import { PieChart, Pie, Cell, Tooltip as RechartsTooltip, ResponsiveContainer, BarChart, Bar, XAxis, YAxis, CartesianGrid, Legend } from "recharts";
 import {
   PieChartOutlined,
@@ -11,6 +11,7 @@ import {
   UserOutlined,
   MoreOutlined
 } from "@ant-design/icons";
+import http from "@/shared/services/apiClient";
 import "./DashboardPage.css";
 
 const { Title, Text } = Typography;
@@ -31,15 +32,7 @@ const SectionHeader = ({ icon, title, subtitle }) => {
 // --- MOCK DATA ---
 
 // Budget
-const mockAsset = [
-  { key: "1", poDate: "2026-07-15", budgetCode: "BDG-2026-004", itemName: "UPS APC 1000VA", initialBudget: "Rp 15.000.000", status: "Plan" },
-  { key: "2", poDate: "2026-08-10", budgetCode: "BDG-2026-005", itemName: "Switch Hub 24 Port", initialBudget: "Rp 8.500.000", status: "PV" },
-  { key: "3", poDate: "2026-09-05", budgetCode: "BDG-2026-006", itemName: "MacBook Pro M3", initialBudget: "Rp 45.000.000", status: "PO" },
-  { key: "4", poDate: "2026-09-10", budgetCode: "BDG-2026-007", itemName: "Server Rack", initialBudget: "Rp 120.000.000", status: "Delivery" },
-  { key: "5", poDate: "2026-09-15", budgetCode: "BDG-2026-008", itemName: "Access Point", initialBudget: "Rp 12.000.000", status: "Installation" },
-  { key: "6", poDate: "2026-09-20", budgetCode: "BDG-2026-009", itemName: "CCTV Camera", initialBudget: "Rp 25.000.000", status: "Invoice" },
-  { key: "7", poDate: "2026-09-25", budgetCode: "BDG-2026-010", itemName: "Laptop Managerial", initialBudget: "Rp 75.000.000", status: "Closed" },
-];
+// Budget
 
 const budgetColumns = [
   { title: "PO DATE", dataIndex: "poDate", key: "poDate" },
@@ -127,17 +120,34 @@ const opBudgetColumns = [
 ];
 
 // Maintenance Logsheet
-const mockMaintLogs = [
-  { key: "1", date: "Monday, Oct 14", code: "Server Rack 1", personnel: "Sarius Sopmon" },
-  { key: "2", date: "Monday, Oct 14", code: "CCTV Warehouse", personnel: "Danii Achert" },
-  { key: "3", date: "Sunday, Oct 13", code: "Genset Building A", personnel: "John Smith" },
-  { key: "4", date: "Saturday, Oct 12", code: "CCTV Rack1", personnel: "John Rovh" },
-  { key: "5", date: "Friday, Oct 11", code: "Server Rack", personnel: "John Rovh" },
-];
 
 export default function Dashboard() {
   const [isModalVisible, setIsModalVisible] = useState(false);
   const [selectedLog, setSelectedLog] = useState(null);
+  
+  const [assetBudgets, setAssetBudgets] = useState([]);
+  const [maintLogs, setMaintLogs] = useState([]);
+  const [loading, setLoading] = useState(false);
+
+  const fetchDashboardData = async () => {
+    try {
+      setLoading(true);
+      const res = await http.get('/dashboard/summary');
+      if (res.data.success) {
+        setAssetBudgets(res.data.data.assetBudgets || []);
+        setMaintLogs(res.data.data.maintenanceLogs || []);
+      }
+    } catch (error) {
+      console.error(error);
+      message.error("Failed to load dashboard data");
+    } finally {
+      setLoading(false);
+    }
+  };
+
+  useEffect(() => {
+    fetchDashboardData();
+  }, []);
 
   const handleViewLog = (record) => {
     setSelectedLog(record);
@@ -186,7 +196,7 @@ export default function Dashboard() {
             System Operational
           </div>
 
-          <Button type="default" icon={<ReloadOutlined />} className="dashboard-refresh-btn">
+          <Button type="default" icon={<ReloadOutlined />} onClick={fetchDashboardData} loading={loading} className="dashboard-refresh-btn">
             Refresh Data
           </Button>
         </div>
@@ -197,7 +207,7 @@ export default function Dashboard() {
         <Row gutter={[24, 24]}>
           <Col xs={24} xl={12}>
             <Card title="Asset Budget (BA)" hoverable variant="borderless" className="table-card" style={{ height: '380px' }}>
-              <Table dataSource={mockAsset} columns={budgetColumns} {...tableProps} />
+              <Table dataSource={assetBudgets} columns={budgetColumns} loading={loading} {...tableProps} />
             </Card>
           </Col>
           <Col xs={24} xl={12}>
@@ -217,7 +227,7 @@ export default function Dashboard() {
             subtitle="Riwayat aktivitas pemeliharaan aset dan infrastruktur IT yang telah dilakukan."
           />
           <Card title="Maintenance Activity Log" hoverable variant="borderless" className="table-card" style={{ height: '380px' }}>
-            <Table dataSource={mockMaintLogs} columns={maintLogColumns} {...tableProps} />
+            <Table dataSource={maintLogs} columns={maintLogColumns} loading={loading} {...tableProps} />
           </Card>
         </Col>
       </Row>
