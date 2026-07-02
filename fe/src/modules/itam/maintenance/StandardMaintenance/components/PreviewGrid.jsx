@@ -1,5 +1,5 @@
 import React, { useState, useMemo, useEffect, useCallback } from "react";
-import { Card, Typography, Select, Button, Space, Modal, Alert, Input, Form, message, Spin } from "antd";
+import { Card, Typography, Select, Button, Space, Modal, Alert, Input, Form, message, Spin, Checkbox, Pagination } from "antd";
 import { 
   PlusOutlined, 
   DeleteOutlined, 
@@ -17,6 +17,7 @@ dayjs.extend(customParseFormat);
 dayjs.extend(isLeapYear);
 
 const { Title, Text } = Typography;
+const DEFAULT_PAGE_SIZE = 25;
 
 const PERIODIK_OPTIONS = [
   { value: "DAILY", label: "Daily" },
@@ -108,6 +109,8 @@ const GridRow = React.memo(function GridRow({
   row,
   rowIdx,
   calendarDates,
+  selected,
+  onSelectRow,
   onToggleCell,
   onPeriodikChange,
   onDeleteRow
@@ -116,19 +119,22 @@ const GridRow = React.memo(function GridRow({
 
   return (
     <tr className="excel-tr">
+      <td className="excel-td sticky-col selector-col" style={{ left: 0 }}>
+        <Checkbox checked={selected} onChange={(e) => onSelectRow(rowIdx, e.target.checked)} />
+      </td>
       {/* Perangkat details (Sticky) */}
-      <td className="excel-td sticky-col" style={{ left: 0 }}>
+      <td className="excel-td sticky-col" style={{ left: 48 }}>
         <div style={{ fontWeight: "bold" }}>{row.namaPerangkat}</div>
         <div style={{ fontSize: "11px", color: "gray" }}>{row.subPerangkat !== "-" ? row.subPerangkat : ""}</div>
         <div style={{ fontSize: "10px", color: "#389e0d" }}>{row.subKategori}</div>
       </td>
       {/* Pengecekan details (Sticky) */}
-      <td className="excel-td sticky-col" style={{ left: 140 }}>
+      <td className="excel-td sticky-col" style={{ left: 188 }}>
         <div style={{ fontWeight: 500 }}>{row.pengecekan}</div>
         <div style={{ fontSize: "11px", color: "gray", fontStyle: "italic" }}>{row.standard}</div>
       </td>
       {/* Periodik selection dropdown (Sticky) */}
-      <td className="excel-td sticky-col" style={{ left: 340 }}>
+      <td className="excel-td sticky-col" style={{ left: 388 }}>
         <Select
           size="small"
           value={row.periodik}
@@ -170,12 +176,24 @@ export default function PreviewGrid({ initialChecks, year, categoryName, loading
   const targetYear = parseInt(year) || new Date().getFullYear();
 
   const [checks, setChecks] = useState([]);
+  const [selectedRowKeys, setSelectedRowKeys] = useState([]);
+  const [bulkPeriodik, setBulkPeriodik] = useState("1X/BULAN");
+  const [page, setPage] = useState(1);
+  const [pageSize, setPageSize] = useState(DEFAULT_PAGE_SIZE);
   const [modalOpen, setModalOpen] = useState(false);
   const [form] = Form.useForm();
 
   // Load initial data
   useEffect(() => {
     if (initialChecks && initialChecks.length > 0) {
+      const dateCache = new Map();
+      const getPreviewDates = (periodik) => {
+        const key = periodik || "1X/BULAN";
+        if (!dateCache.has(key)) {
+          dateCache.set(key, generatePreviewDates(targetYear, key));
+        }
+        return dateCache.get(key);
+      };
       // Flatten nested structure if input is structured DB format
       const flat = [];
       initialChecks.forEach((sm) => {
@@ -199,7 +217,7 @@ export default function PreviewGrid({ initialChecks, year, categoryName, loading
               periodik: cek.periodik || "1X/BULAN",
               planned_dates: (Array.isArray(cek.planned_dates) && cek.planned_dates.length > 0)
                 ? cek.planned_dates 
-                : generatePreviewDates(targetYear, cek.periodik || "1X/BULAN")
+                : getPreviewDates(cek.periodik || "1X/BULAN")
             });
           });
         });
@@ -210,7 +228,7 @@ export default function PreviewGrid({ initialChecks, year, categoryName, loading
         setChecks(initialChecks.map(item => {
           let planned = Array.isArray(item.planned_dates) ? item.planned_dates : [];
           if (planned.length === 0 && item.periodik) {
-            planned = generatePreviewDates(targetYear, item.periodik);
+            planned = getPreviewDates(item.periodik);
           }
           return { ...item, planned_dates: planned };
         }));
@@ -220,7 +238,20 @@ export default function PreviewGrid({ initialChecks, year, categoryName, loading
     } else {
       setChecks([]);
     }
+    setSelectedRowKeys([]);
+    setPage(1);
   }, [initialChecks, targetYear]);
+
+  const visibleStartIndex = (page - 1) * pageSize;
+  const visibleChecks = useMemo(
+    () => checks.slice(visibleStartIndex, visibleStartIndex + pageSize),
+    [checks, visibleStartIndex, pageSize]
+  );
+  const visibleIndexes = useMemo(
+    () => visibleChecks.map((_, index) => visibleStartIndex + index),
+    [visibleChecks, visibleStartIndex]
+  );
+  const allVisibleSelected = visibleIndexes.length > 0 && visibleIndexes.every((idx) => selectedRowKeys.includes(idx));
 
   // Generate all dates in targetYear
   const calendarDates = useMemo(() => {
@@ -278,6 +309,37 @@ export default function PreviewGrid({ initialChecks, year, categoryName, loading
     });
   }, []);
 
+  const handleSelectRow = useCallback((rowIdx, checked) => {
+    setSelectedRowKeys((prev) => {
+      if (checked) return prev.includes(rowIdx) ? prev : [...prev, rowIdx];
+      return prev.filter((idx) => idx !== rowIdx);
+    });
+  }, []);
+
+  const handleSelectVisible = useCallback((checked) => {
+    setSelectedRowKeys((prev) => {
+      if (!checked) return prev.filter((idx) => !visibleIndexes.includes(idx));
+      const merged = new Set([...prev, ...visibleIndexes]);
+      return Array.from(merged);
+    });
+  }, [visibleIndexes]);
+
+  const handleApplyBulkPeriodik = useCallback(() => {
+    if (selectedRowKeys.length === 0) {
+      message.warning("Pilih minimal satu baris untuk set periodik masal");
+      return;
+    }
+
+    setChecks((prev) => {
+      const selected = new Set(selectedRowKeys);
+      return prev.map((row, idx) => selected.has(idx)
+        ? { ...row, periodik: bulkPeriodik, planned_dates: generatePreviewDates(targetYear, bulkPeriodik) }
+        : row
+      );
+    });
+    message.success(`${selectedRowKeys.length} baris berhasil diset ke ${bulkPeriodik}`);
+  }, [bulkPeriodik, selectedRowKeys, targetYear]);
+
   // Change periodik dropdown
   const handlePeriodikChange = useCallback((rowIdx, val) => {
     setChecks(prev => {
@@ -299,10 +361,11 @@ export default function PreviewGrid({ initialChecks, year, categoryName, loading
       okText: "Hapus",
       okType: "danger",
       cancelText: "Batal",
-      onOk: () => {
-        setChecks(prev => prev.filter((_, idx) => idx !== rowIdx));
-        message.success("Baris pengecekan dihapus");
-      }
+        onOk: () => {
+          setChecks(prev => prev.filter((_, idx) => idx !== rowIdx));
+          setSelectedRowKeys([]);
+          message.success("Baris pengecekan dihapus");
+        }
     });
   }, []);
 
@@ -325,6 +388,7 @@ export default function PreviewGrid({ initialChecks, year, categoryName, loading
       planned_dates: generatePreviewDates(targetYear, values.periodik || "1X/BULAN")
     };
     setChecks([...checks, newRow]);
+    setPage(Math.ceil((checks.length + 1) / pageSize));
     setModalOpen(false);
     form.resetFields();
     message.success("Item pengecekan baru ditambahkan");
@@ -469,9 +533,9 @@ export default function PreviewGrid({ initialChecks, year, categoryName, loading
         width: 600,
         content: (
           <div style={{ maxHeight: 300, overflowY: "auto", marginTop: 12 }}>
-            <p>Rencana penempatan plan tidak memenuhi target periodik wajib. Silakan lengkapi:</p>
+            <p>Rencana penempatan plan tidak memenuhi target periodik wajib. Menampilkan maksimal 50 error pertama:</p>
             <ul style={{ paddingLeft: 20 }}>
-              {validationErrors.map((err, i) => (
+              {validationErrors.slice(0, 50).map((err, i) => (
                 <li key={i} style={{ color: "#d9363e", marginBottom: 6 }}>{err}</li>
               ))}
             </ul>
@@ -509,11 +573,18 @@ export default function PreviewGrid({ initialChecks, year, categoryName, loading
 
       <Alert
         message="Petunjuk Pemetaan Plan"
-        description="Klik pada sel kalender di baris pengecekan untuk menaruh Legend Plan (□). Pastikan jumlah plan memenuhi periodic yang Anda tetapkan (misal: jika 1X/W maka minimal ada 1 kotak di setiap kolom minggu)."
+        description="Klik pada sel kalender di baris pengecekan untuk menaruh Legend Plan (□). Preview dirender per halaman agar tetap ringan saat import banyak row. Gunakan checkbox untuk set periodik masal."
         type="info"
         showIcon
         style={{ marginBottom: 16 }}
       />
+
+      <Space wrap style={{ marginBottom: 12 }}>
+        <Text strong>{checks.length} row preview</Text>
+        <Text type="secondary">{selectedRowKeys.length} dipilih</Text>
+        <Select size="small" value={bulkPeriodik} onChange={setBulkPeriodik} options={PERIODIK_OPTIONS} style={{ width: 150 }} />
+        <Button size="small" onClick={handleApplyBulkPeriodik} disabled={loading || selectedRowKeys.length === 0}>Set Periodik Masal</Button>
+      </Space>
 
       <div className="grid-freeze-container">
         <div className="grid-scroll-wrapper">
@@ -521,9 +592,12 @@ export default function PreviewGrid({ initialChecks, year, categoryName, loading
             <thead>
               {/* Month Header Row */}
               <tr>
-                <th className="excel-th sticky-col" style={{ left: 0, minWidth: 140, zIndex: 10 }} rowSpan={2}>Perangkat</th>
-                <th className="excel-th sticky-col" style={{ left: 140, minWidth: 200, zIndex: 10 }} rowSpan={2}>Pengecekan & Standar</th>
-                <th className="excel-th sticky-col" style={{ left: 340, minWidth: 100, zIndex: 10 }} rowSpan={2}>Periodik</th>
+                <th className="excel-th sticky-col selector-col" style={{ left: 0, zIndex: 10 }} rowSpan={2}>
+                  <Checkbox checked={allVisibleSelected} onChange={(e) => handleSelectVisible(e.target.checked)} />
+                </th>
+                <th className="excel-th sticky-col" style={{ left: 48, minWidth: 140, zIndex: 10 }} rowSpan={2}>Perangkat</th>
+                <th className="excel-th sticky-col" style={{ left: 188, minWidth: 200, zIndex: 10 }} rowSpan={2}>Pengecekan & Standar</th>
+                <th className="excel-th sticky-col" style={{ left: 388, minWidth: 100, zIndex: 10 }} rowSpan={2}>Periodik</th>
                 {monthsHeaders.map((m, idx) => (
                   <th key={idx} className="excel-th month-header" colSpan={m.count}>{m.name}</th>
                 ))}
@@ -546,20 +620,25 @@ export default function PreviewGrid({ initialChecks, year, categoryName, loading
               </tr>
             </thead>
             <tbody>
-              {checks.map((row, rowIdx) => (
+              {visibleChecks.map((row, visibleIdx) => {
+                const rowIdx = visibleStartIndex + visibleIdx;
+                return (
                 <GridRow
                   key={rowIdx}
                   row={row}
                   rowIdx={rowIdx}
                   calendarDates={calendarDates}
+                  selected={selectedRowKeys.includes(rowIdx)}
+                  onSelectRow={handleSelectRow}
                   onToggleCell={handleToggleCell}
                   onPeriodikChange={handlePeriodikChange}
                   onDeleteRow={handleDeleteRow}
                 />
-              ))}
+                );
+              })}
               {checks.length === 0 && (
                 <tr>
-                  <td colSpan={3 + calendarDates.length + 1} style={{ textAlign: "center", padding: 24, color: "gray" }}>
+                  <td colSpan={4 + calendarDates.length + 1} style={{ textAlign: "center", padding: 24, color: "gray" }}>
                     Tidak ada baris pengecekan. Silakan upload file Excel atau klik "Tambah Item" secara manual.
                   </td>
                 </tr>
@@ -567,6 +646,21 @@ export default function PreviewGrid({ initialChecks, year, categoryName, loading
             </tbody>
           </table>
         </div>
+      </div>
+
+      <div style={{ marginTop: 12, display: "flex", justifyContent: "flex-end" }}>
+        <Pagination
+          current={page}
+          pageSize={pageSize}
+          total={checks.length}
+          showSizeChanger
+          pageSizeOptions={["10", "25", "50", "100"]}
+          onChange={(nextPage, nextPageSize) => {
+            setPage(nextPage);
+            setPageSize(nextPageSize);
+          }}
+          showTotal={(total, range) => `${range[0]}-${range[1]} dari ${total} row`}
+        />
       </div>
 
       {/* MODAL TAMBAH ITEM */}

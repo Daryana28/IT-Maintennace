@@ -2,6 +2,7 @@ import React, { useState, useEffect } from 'react';
 import { Card, Row, Col, Typography, Input, Button, Form, Upload, Tag, Space, Alert, message } from 'antd';
 import { UserOutlined, PhoneOutlined, MailOutlined, KeyOutlined, UploadOutlined, SafetyCertificateOutlined } from '@ant-design/icons';
 import profileService from '../services/profileService';
+import { useAuthStore } from '@/modules/auth/store/authStore';
 
 const { Title, Text } = Typography;
 
@@ -13,6 +14,9 @@ export default function ProfilePage() {
   
   const [profileForm] = Form.useForm();
   const [passwordForm] = Form.useForm();
+
+  const user = useAuthStore((s) => s.user);
+  const setUser = useAuthStore((s) => s.setUser);
 
   const loadProfile = async () => {
     setLoading(true);
@@ -87,7 +91,12 @@ export default function ProfilePage() {
       const res = await profileService.updatePicture(formData);
       if (res.success) {
         message.success("Foto profil berhasil diperbarui");
-        setProfile(prev => ({ ...prev, profile_picture: res.data.profile_picture }));
+        const newPicture = res.data.profile_picture;
+        setProfile(prev => ({ ...prev, profile_picture: newPicture }));
+        const currentUser = useAuthStore.getState().user;
+        if (currentUser) {
+          setUser({ ...currentUser, profile_picture: newPicture });
+        }
       }
     } catch (err) {
       message.error(err.response?.data?.message || "Gagal mengunggah foto profil");

@@ -12,8 +12,7 @@ import ImportTab from "./components/ImportTab";
 const { Title } = Typography;
 
 import standardMaintenanceService from "../services/standardMaintenanceService";
-import maintenanceScheduleService from "../services/maintenanceScheduleService";
-import { message, Button } from "antd";
+import { message } from "antd";
 import { useSearchParams } from "react-router-dom";
 
 const CATEGORY_MAP = {
@@ -38,7 +37,6 @@ export default function StandardMaintenancePage({ overrideCategory, overrideYear
   const [activeTab, setActiveTab] = useState("list");
   const [categories, setCategories] = useState([]);
   const [maintenanceData, setMaintenanceData] = useState([]);
-  const [generatingSchedule, setGeneratingSchedule] = useState(false);
 
   const loadData = React.useCallback(async () => {
     try {
@@ -174,25 +172,6 @@ export default function StandardMaintenancePage({ overrideCategory, overrideYear
             <div className="header-breadcrumb">
               Maintenance &gt; Yearly Standard Configuration &gt; Detail
             </div>
-          </Col>
-          <Col>
-            <Button 
-              type="primary" 
-              loading={generatingSchedule}
-              onClick={async () => {
-                setGeneratingSchedule(true);
-                try {
-                  const res = await maintenanceScheduleService.generateSchedule(yearlyStandardId);
-                  message.success(res.message || "Berhasil generate schedule");
-                } catch (e) {
-                  message.error(e?.message || e?.response?.data?.message || "Gagal generate schedule");
-                } finally {
-                  setGeneratingSchedule(false);
-                }
-              }}
-            >
-              Generate Schedule
-            </Button>
           </Col>
         </Row>
       </div>

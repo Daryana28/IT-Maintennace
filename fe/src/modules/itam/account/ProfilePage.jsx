@@ -101,7 +101,12 @@ export default function ProfilePage() {
       const res = await profileService.updatePicture(formData);
       if (res.success) {
         message.success("Foto profil berhasil diperbarui");
-        setProfile(prev => ({ ...prev, profile_picture: res.data.profile_picture }));
+        const newPicture = res.data.profile_picture;
+        setProfile(prev => ({ ...prev, profile_picture: newPicture }));
+        const currentUser = useAuthStore.getState().user;
+        if (currentUser) {
+          setUser({ ...currentUser, profile_picture: newPicture });
+        }
       }
     } catch (err) {
       message.error(err.response?.data?.message || "Gagal mengunggah foto profil");

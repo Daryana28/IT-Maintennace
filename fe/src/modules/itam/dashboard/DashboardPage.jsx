@@ -9,7 +9,8 @@ import {
   CalendarOutlined,
   FundProjectionScreenOutlined,
   UserOutlined,
-  MoreOutlined
+  MoreOutlined,
+  CheckCircleOutlined,
 } from "@ant-design/icons";
 import http from "@/shared/services/apiClient";
 import "./DashboardPage.css";
@@ -65,16 +66,15 @@ const budgetColumns = [
   }
 ];
 
-const mockOpBudget = [
-  { key: "1", budgetCode: "OP-2026-001", itemName: "Microsoft 365", status: "Invoice", julPlan: 10000000, julActual: 10000000, augPlan: 10000000, augActual: 10000000, sepPlan: 10000000, sepActual: 10000000 },
-  { key: "2", budgetCode: "OP-2026-002", itemName: "AWS Hosting", status: "PO", julPlan: 5000000, julActual: 4900000, augPlan: 5000000, augActual: 5000000, sepPlan: 5000000, sepActual: 4800000 },
-  { key: "3", budgetCode: "OP-2026-003", itemName: "Internet ISP", status: "Closed", julPlan: 3000000, julActual: 3000000, augPlan: 3000000, augActual: 3000000, sepPlan: 3000000, sepActual: 3000000 }
-];
+const nextThreeMonths = Array.from({ length: 3 }, (_, index) => {
+  const date = new Date(new Date().getFullYear(), new Date().getMonth() + index, 1);
+  return date.toLocaleString("en-US", { month: "short" });
+});
 
 const opBudgetColumns = [
   { title: "BUDGET CODE", dataIndex: "budgetCode", key: "budgetCode", width: 120 },
   { title: "ITEM NAME", dataIndex: "itemName", key: "itemName", width: 140 },
-  ...["Jul", "Aug", "Sep"].map(m => ({
+  ...nextThreeMonths.map(m => ({
     title: m.toUpperCase(),
     key: m.toLowerCase(),
     width: 110,
@@ -126,7 +126,10 @@ export default function Dashboard() {
   const [selectedLog, setSelectedLog] = useState(null);
   
   const [assetBudgets, setAssetBudgets] = useState([]);
+  const [operationalBudgets, setOperationalBudgets] = useState([]);
   const [maintLogs, setMaintLogs] = useState([]);
+  const [maintActuals, setMaintActuals] = useState({ total: 0, done: 0, pending: 0, rows: [] });
+  const [maintAbnormals, setMaintAbnormals] = useState({ total: 0, open: 0, resolved: 0, rows: [] });
   const [loading, setLoading] = useState(false);
 
   const fetchDashboardData = async () => {
@@ -135,7 +138,10 @@ export default function Dashboard() {
       const res = await http.get('/dashboard/summary');
       if (res.data.success) {
         setAssetBudgets(res.data.data.assetBudgets || []);
+        setOperationalBudgets(res.data.data.operationalBudgets || []);
         setMaintLogs(res.data.data.maintenanceLogs || []);
+        setMaintActuals(res.data.data.maintenanceActuals || { total: 0, done: 0, pending: 0, rows: [] });
+        setMaintAbnormals(res.data.data.maintenanceAbnormals || { total: 0, open: 0, resolved: 0, rows: [] });
       }
     } catch (error) {
       console.error(error);
@@ -181,6 +187,43 @@ export default function Dashboard() {
     },
   ];
 
+  const actualColumns = [
+    { title: "TANGGAL", dataIndex: "tanggal", key: "tanggal", render: (text) => <strong>{text}</strong> },
+    { title: "ASSET", dataIndex: "asset", key: "asset" },
+    {
+      title: "STATUS",
+      dataIndex: "status",
+      key: "status",
+      render: (status) => <Tag color={status === 'ACTUAL' ? 'green' : 'orange'}>{status}</Tag>,
+    },
+    { title: "LEGEND", dataIndex: "legend", key: "legend" },
+    {
+      title: "PERSONNEL",
+      dataIndex: "personnel",
+      key: "personnel",
+      render: (name) => (
+        <Space>
+          <Avatar size="small" icon={<UserOutlined />} />
+          <span>{name}</span>
+        </Space>
+      )
+    },
+  ];
+
+  const abnormalColumns = [
+    { title: "ASSET", dataIndex: "asset", key: "asset" },
+    { title: "DESKRIPSI", dataIndex: "deskripsi", key: "deskripsi", ellipsis: true },
+    { title: "TINDAKAN", dataIndex: "tindakan", key: "tindakan", ellipsis: true },
+    {
+      title: "STATUS",
+      dataIndex: "status",
+      key: "status",
+      render: (status) => <Tag color={status === 'RESOLVED' ? 'green' : 'red'}>{status}</Tag>,
+    },
+    { title: "RESOLVED BY", dataIndex: "resolvedBy", key: "resolvedBy" },
+    { title: "RESOLVED AT", dataIndex: "resolvedAt", key: "resolvedAt" },
+  ];
+
   return (
     <div className="dashboard-page">
       {/* PAGE HEADER */}
@@ -212,7 +255,7 @@ export default function Dashboard() {
           </Col>
           <Col xs={24} xl={12}>
             <Card title="Operational Budget (Next 3 Months)" hoverable variant="borderless" className="table-card" style={{ height: '380px' }}>
-              <Table dataSource={mockOpBudget} columns={opBudgetColumns} {...tableProps} />
+              <Table dataSource={operationalBudgets} columns={opBudgetColumns} loading={loading} {...tableProps} />
             </Card>
           </Col>
         </Row>
@@ -228,6 +271,34 @@ export default function Dashboard() {
           />
           <Card title="Maintenance Activity Log" hoverable variant="borderless" className="table-card" style={{ height: '380px' }}>
             <Table dataSource={maintLogs} columns={maintLogColumns} loading={loading} {...tableProps} />
+          </Card>
+        </Col>
+      </Row>
+
+      {/* MAINTENANCE ACTUALS SECTION */}
+      <Row gutter={[24, 24]} style={{ marginTop: 24 }}>
+        <Col xs={24} xl={24}>
+          <SectionHeader
+            icon={<CheckCircleOutlined />}
+            title="Maintenance Actuals"
+            subtitle={`Total: ${maintActuals.total} | Done: ${maintActuals.done} | Pending: ${maintActuals.pending}`}
+          />
+          <Card title="Actual Maintenance Entries" hoverable variant="borderless" className="table-card" style={{ height: '380px' }}>
+            <Table dataSource={maintActuals.rows} columns={actualColumns} loading={loading} {...tableProps} />
+          </Card>
+        </Col>
+      </Row>
+
+      {/* MAINTENANCE ABNORMAL LOGS SECTION */}
+      <Row gutter={[24, 24]} style={{ marginTop: 24 }}>
+        <Col xs={24} xl={24}>
+          <SectionHeader
+            icon={<ToolOutlined />}
+            title="Maintenance Abnormal Logs"
+            subtitle={`Total: ${maintAbnormals.total} | Open: ${maintAbnormals.open} | Resolved: ${maintAbnormals.resolved}`}
+          />
+          <Card title="Abnormal Findings" hoverable variant="borderless" className="table-card" style={{ height: '380px' }}>
+            <Table dataSource={maintAbnormals.rows} columns={abnormalColumns} loading={loading} {...tableProps} />
           </Card>
         </Col>
       </Row>

@@ -14,6 +14,8 @@ import http from '@/shared/services/apiClient';
 
 const { Title, Text } = Typography;
 
+const formatCurrency = (value) => `Rp ${Number(value || 0).toLocaleString('id-ID')}`;
+
 export default function SummaryPage() {
   const [activeTab, setActiveTab] = useState('asset');
   const [activeAssetTab, setActiveAssetTab] = useState('total');
@@ -75,13 +77,7 @@ export default function SummaryPage() {
           { title: 'Jumlah', dataIndex: 'count', key: 'count' },
           { title: 'Persentase', dataIndex: 'percent', key: 'percent' },
         ]}
-        dataSource={[
-          { key: '1', category: 'Laptop / PC', count: 210, percent: '46.4%' },
-          { key: '2', category: 'Server', count: 32, percent: '7.1%' },
-          { key: '3', category: 'Network Devices', count: 48, percent: '10.6%' },
-          { key: '4', category: 'Printer / Scanner', count: 62, percent: '13.7%' },
-          { key: '5', category: 'Lain-lain', count: 100, percent: '22.2%' },
-        ]}
+        dataSource={summaryData?.asset?.categories || []}
       />
     </div>
   );
@@ -91,17 +87,17 @@ export default function SummaryPage() {
       <Row gutter={16}>
         <Col span={8}>
           <Card variant="borderless" style={{ background: '#f8fafc' }}>
-            <Statistic title="Nilai Perolehan" value="Rp 4.520.000.000" prefix={<DollarOutlined style={{ color: '#1677ff' }} />} />
+            <Statistic title="Nilai Perolehan" value={formatCurrency(summaryData?.asset?.value?.acquisition)} prefix={<DollarOutlined style={{ color: '#1677ff' }} />} />
           </Card>
         </Col>
         <Col span={8}>
           <Card variant="borderless" style={{ background: '#f8fafc' }}>
-            <Statistic title="Akumulasi Penyusutan" value="Rp 1.890.000.000" styles={{ content: { color: '#ff4d4f' } }} prefix={<ArrowDownOutlined />} />
+            <Statistic title="Akumulasi Penyusutan" value={formatCurrency(summaryData?.asset?.value?.depreciation)} styles={{ content: { color: '#ff4d4f' } }} prefix={<ArrowDownOutlined />} />
           </Card>
         </Col>
         <Col span={8}>
           <Card variant="borderless" style={{ background: '#f8fafc' }}>
-            <Statistic title="Nilai Buku" value="Rp 2.630.000.000" styles={{ content: { color: '#52c41a' } }} prefix={<ArrowUpOutlined />} />
+            <Statistic title="Nilai Buku" value={formatCurrency(summaryData?.asset?.value?.book)} styles={{ content: { color: '#52c41a' } }} prefix={<ArrowUpOutlined />} />
           </Card>
         </Col>
       </Row>
@@ -116,13 +112,7 @@ export default function SummaryPage() {
           { title: 'Nilai Perolehan', dataIndex: 'acquisitionValue', key: 'acquisitionValue' },
           { title: 'Nilai Buku', dataIndex: 'bookValue', key: 'bookValue' },
         ]}
-        dataSource={[
-          { key: '1', category: 'Laptop / PC', acquisitionValue: 'Rp 1.250.000.000', bookValue: 'Rp 780.000.000' },
-          { key: '2', category: 'Server', acquisitionValue: 'Rp 980.000.000', bookValue: 'Rp 620.000.000' },
-          { key: '3', category: 'Network Devices', acquisitionValue: 'Rp 760.000.000', bookValue: 'Rp 490.000.000' },
-          { key: '4', category: 'Printer / Scanner', acquisitionValue: 'Rp 430.000.000', bookValue: 'Rp 280.000.000' },
-          { key: '5', category: 'Lain-lain', acquisitionValue: 'Rp 1.100.000.000', bookValue: 'Rp 460.000.000' },
-        ]}
+        dataSource={summaryData?.asset?.value?.byCategory || []}
       />
     </div>
   );
@@ -178,10 +168,7 @@ export default function SummaryPage() {
           { title: 'On Progress', dataIndex: 'progress', key: 'progress' },
           { title: 'Completed', dataIndex: 'completed', key: 'completed' },
         ]}
-        dataSource={[
-          { key: '1', category: 'Asset Budget', total: summaryData?.budget?.total ?? 0, progress: summaryData?.budget?.progress ?? 0, completed: summaryData?.budget?.completed ?? 0 },
-          { key: '2', category: 'Operational Budget', total: 0, progress: 0, completed: 0 },
-        ]}
+        dataSource={summaryData?.budget?.overview || []}
       />
     </div>
   );
@@ -191,17 +178,17 @@ export default function SummaryPage() {
       <Row gutter={16}>
         <Col span={8}>
           <Card variant="borderless" style={{ background: '#f8fafc' }}>
-            <Statistic title="Total Pending Budget" value={28} prefix={<ArrowDownOutlined style={{ color: '#fa8c16' }} />} />
+            <Statistic title="Total Pending Budget" value={summaryData?.budget?.pending ?? 0} prefix={<ArrowDownOutlined style={{ color: '#fa8c16' }} />} />
           </Card>
         </Col>
         <Col span={8}>
           <Card variant="borderless" style={{ background: '#f8fafc' }}>
-            <Statistic title="Asset Pending" value={15} styles={{ content: { color: '#ff4d4f' } }} />
+            <Statistic title="Asset Pending" value={summaryData?.budget?.pending ?? 0} styles={{ content: { color: '#ff4d4f' } }} />
           </Card>
         </Col>
         <Col span={8}>
           <Card variant="borderless" style={{ background: '#f8fafc' }}>
-            <Statistic title="Operational Pending" value={13} styles={{ content: { color: '#fa8c16' } }} />
+            <Statistic title="Operational Pending" value={0} styles={{ content: { color: '#fa8c16' } }} />
           </Card>
         </Col>
       </Row>
@@ -217,12 +204,7 @@ export default function SummaryPage() {
           { title: 'Item', dataIndex: 'item', key: 'item' },
           { title: 'Status Pending', dataIndex: 'status', key: 'status' },
         ]}
-        dataSource={[
-          { key: '1', code: 'BA-2026-014', category: 'Asset', item: 'Laptop Manager', status: 'Waiting Approval' },
-          { key: '2', code: 'BA-2026-018', category: 'Asset', item: 'Switch Core', status: 'Waiting PO' },
-          { key: '3', code: 'OP-2026-022', category: 'Operational', item: 'Cloud Service', status: 'Waiting Review' },
-          { key: '4', code: 'OP-2026-024', category: 'Operational', item: 'Internet ISP', status: 'Waiting Payment' },
-        ]}
+        dataSource={summaryData?.budget?.pendingRows || []}
       />
     </div>
   );
@@ -272,12 +254,12 @@ export default function SummaryPage() {
     </div>
   );
 
-  const maintenanceProgressSummary = (
+  const maintenanceActualsSummary = (
     <div style={{ padding: '12px 0' }}>
       <Row gutter={16}>
         <Col span={8}>
           <Card variant="borderless" style={{ background: '#f8fafc' }} loading={loading}>
-            <Statistic title="Total Checkbox Actuals" value={summaryData?.maintenance?.actuals?.total ?? 0} prefix={<ToolOutlined style={{ color: '#722ed1' }} />} />
+            <Statistic title="Total Actuals" value={summaryData?.maintenance?.actuals?.total ?? 0} prefix={<ToolOutlined style={{ color: '#722ed1' }} />} />
           </Card>
         </Col>
         <Col span={8}>
@@ -303,12 +285,58 @@ export default function SummaryPage() {
           { title: 'Selesai', dataIndex: 'done', key: 'done' },
           { title: 'Pending', dataIndex: 'pending', key: 'pending' },
         ]}
-        dataSource={[
-          { key: '1', type: 'Daily Check', total: 120, done: 101, pending: 19 },
-          { key: '2', type: 'Weekly Preventive', total: 48, done: 39, pending: 9 },
-          { key: '3', type: 'Monthly Maintenance', total: 12, done: 10, pending: 2 },
-          { key: '4', type: 'Corrective / Repair', total: 4, done: 2, pending: 2 },
+        dataSource={summaryData?.maintenance?.actuals?.progressRows || []}
+      />
+
+      <Divider />
+      <Title level={5}>Recent Actual Entries</Title>
+      <Table
+        pagination={false}
+        size="small"
+        columns={[
+          { title: 'Tanggal', dataIndex: 'tanggal', key: 'tanggal' },
+          { title: 'Aset', dataIndex: 'asset', key: 'asset' },
+          { title: 'Status', dataIndex: 'status', key: 'status' },
+          { title: 'Personnel', dataIndex: 'personnel', key: 'personnel' },
         ]}
+        dataSource={summaryData?.maintenance?.actuals?.latestRows || []}
+      />
+    </div>
+  );
+
+  const maintenanceAbnormalsSummary = (
+    <div style={{ padding: '12px 0' }}>
+      <Row gutter={16}>
+        <Col span={8}>
+          <Card variant="borderless" style={{ background: '#f8fafc' }} loading={loading}>
+            <Statistic title="Total Abnormal" value={summaryData?.maintenance?.abnormals?.total ?? 0} prefix={<ToolOutlined style={{ color: '#ff4d4f' }} />} />
+          </Card>
+        </Col>
+        <Col span={8}>
+          <Card variant="borderless" style={{ background: '#f8fafc' }} loading={loading}>
+            <Statistic title="Open" value={summaryData?.maintenance?.abnormals?.open ?? 0} styles={{ content: { color: '#ff4d4f' } }} />
+          </Card>
+        </Col>
+        <Col span={8}>
+          <Card variant="borderless" style={{ background: '#f8fafc' }} loading={loading}>
+            <Statistic title="Resolved" value={summaryData?.maintenance?.abnormals?.resolved ?? 0} styles={{ content: { color: '#52c41a' } }} />
+          </Card>
+        </Col>
+      </Row>
+
+      <Divider />
+      <Title level={5}>Recent Abnormal Findings</Title>
+      <Table
+        pagination={false}
+        size="small"
+        columns={[
+          { title: 'Aset', dataIndex: 'asset', key: 'asset' },
+          { title: 'Deskripsi', dataIndex: 'deskripsi', key: 'deskripsi' },
+          { title: 'Tindakan', dataIndex: 'tindakan', key: 'tindakan' },
+          { title: 'Status', dataIndex: 'status', key: 'status' },
+          { title: 'Resolved By', dataIndex: 'resolvedBy', key: 'resolvedBy' },
+        ]}
+        dataSource={summaryData?.maintenance?.abnormals?.latestRows || []}
       />
     </div>
   );
@@ -325,9 +353,14 @@ export default function SummaryPage() {
           children: maintenanceLogsheetSummary,
         },
         {
-          key: 'progress',
-          label: 'Progress (Monthly)',
-          children: maintenanceProgressSummary,
+          key: 'actuals',
+          label: 'Actuals',
+          children: maintenanceActualsSummary,
+        },
+        {
+          key: 'abnormals',
+          label: 'Abnormal Logs',
+          children: maintenanceAbnormalsSummary,
         },
       ]}
     />

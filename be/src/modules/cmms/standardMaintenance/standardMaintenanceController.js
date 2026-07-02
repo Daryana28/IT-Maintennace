@@ -757,6 +757,12 @@ export const saveAndGenerateSchedule = async (req, res) => {
     const savedCheckIds = [];
     const savedDetailIds = [];
     const savedSmIds = [];
+    const savedCheckSet = new Set();
+    const savedDetailSet = new Set();
+    const savedSmSet = new Set();
+    const smCache = new Map();
+    const detailCache = new Map();
+    const checkCache = new Map();
     const checkPlanMap = new Map();
 
     for (const [index, checkItem] of checks.entries()) {
@@ -768,17 +774,22 @@ export const saveAndGenerateSchedule = async (req, res) => {
       const dbSubPerangkat = checkItem.subPerangkat || '-';
 
       // 1. Find or create StandardMaintenance parent
-      let sm = await StandardMaintenance.findOne({
-        where: {
-          yearly_standard_id,
-          kategori: dbKategori,
-          subKategori: dbSubKategori,
-          namaPerangkat: dbNamaPerangkat,
-          tipePerangkat: dbTipePerangkat,
-          subPerangkat: dbSubPerangkat
-        },
-        transaction
-      });
+      const smKey = [yearly_standard_id, dbKategori, dbSubKategori, dbNamaPerangkat, dbTipePerangkat, dbSubPerangkat].join("||");
+      let sm = smCache.get(smKey);
+
+      if (!sm) {
+        sm = await StandardMaintenance.findOne({
+          where: {
+            yearly_standard_id,
+            kategori: dbKategori,
+            subKategori: dbSubKategori,
+            namaPerangkat: dbNamaPerangkat,
+            tipePerangkat: dbTipePerangkat,
+            subPerangkat: dbSubPerangkat
+          },
+          transaction
+        });
+      }
 
       if (!sm) {
         sm = await StandardMaintenance.create({
@@ -790,20 +801,27 @@ export const saveAndGenerateSchedule = async (req, res) => {
           subPerangkat: dbSubPerangkat
         }, { transaction });
       }
-      if (!savedSmIds.includes(sm.id)) {
+      smCache.set(smKey, sm);
+      if (!savedSmSet.has(sm.id)) {
         savedSmIds.push(sm.id);
+        savedSmSet.add(sm.id);
       }
 
       // 2. Find or create StandardMaintenanceDetail
       const dbFungsi = checkItem.fungsi || '-';
       const dbDeskripsi = checkItem.deskripsi || '-';
-      let smDetail = await StandardMaintenanceDetail.findOne({
-        where: {
-          standard_maintenance_id: sm.id,
-          fungsi: dbFungsi
-        },
-        transaction
-      });
+      const detailKey = `${sm.id}||${dbFungsi}`;
+      let smDetail = detailCache.get(detailKey);
+
+      if (!smDetail) {
+        smDetail = await StandardMaintenanceDetail.findOne({
+          where: {
+            standard_maintenance_id: sm.id,
+            fungsi: dbFungsi
+          },
+          transaction
+        });
+      }
 
       if (!smDetail) {
         smDetail = await StandardMaintenanceDetail.create({
@@ -814,26 +832,33 @@ export const saveAndGenerateSchedule = async (req, res) => {
       } else {
         await smDetail.update({ deskripsi: dbDeskripsi }, { transaction });
       }
-      if (!savedDetailIds.includes(smDetail.id)) {
+      detailCache.set(detailKey, smDetail);
+      if (!savedDetailSet.has(smDetail.id)) {
         savedDetailIds.push(smDetail.id);
+        savedDetailSet.add(smDetail.id);
       }
 
       // 3. Find or create StandardMaintenanceCheck
       let smCheck = null;
       if (checkItem.cekId) {
-        smCheck = await StandardMaintenanceCheck.findByPk(checkItem.cekId, { transaction });
+        smCheck = checkCache.get(`id:${checkItem.cekId}`) || await StandardMaintenanceCheck.findByPk(checkItem.cekId, { transaction });
       }
 
       if (!smCheck) {
-        smCheck = await StandardMaintenanceCheck.findOne({
-          where: {
-            standard_maintenance_detail_id: smDetail.id,
-            pengecekan: checkItem.pengecekan,
-            standard: checkItem.standard || '',
-            bagian: checkItem.bagian || ''
-          },
-          transaction
-        });
+        const checkKey = `${smDetail.id}||${checkItem.pengecekan}||${checkItem.standard || ''}||${checkItem.bagian || ''}`;
+        smCheck = checkCache.get(checkKey);
+        if (!smCheck) {
+          smCheck = await StandardMaintenanceCheck.findOne({
+            where: {
+              standard_maintenance_detail_id: smDetail.id,
+              pengecekan: checkItem.pengecekan,
+              standard: checkItem.standard || '',
+              bagian: checkItem.bagian || ''
+            },
+            transaction
+          });
+        }
+        if (smCheck) checkCache.set(checkKey, smCheck);
       }
 
       if (!smCheck) {
@@ -856,7 +881,9 @@ export const saveAndGenerateSchedule = async (req, res) => {
           alat: checkItem.alat || ''
         }, { transaction });
       }
+      checkCache.set(`id:${smCheck.id}`, smCheck);
       savedCheckIds.push(smCheck.id);
+      savedCheckSet.add(smCheck.id);
       checkPlanMap.set(smCheck.id, Array.isArray(checkItem.planned_dates) ? checkItem.planned_dates : []);
     }
 
@@ -880,7 +907,7 @@ export const saveAndGenerateSchedule = async (req, res) => {
         });
 
         for (const check of smChecks) {
-          if (!savedCheckIds.includes(check.id)) {
+          if (!savedCheckSet.has(check.id)) {
             // Check if this check has completed actual records
             const completedCount = await MaintenanceActual.count({
               where: {
@@ -911,7 +938,7 @@ export const saveAndGenerateSchedule = async (req, res) => {
           where: { standard_maintenance_detail_id: detail.id },
           transaction
         });
-        if (remainingChecksCount === 0 && !savedDetailIds.includes(detail.id)) {
+        if (remainingChecksCount === 0 && !savedDetailSet.has(detail.id)) {
           await detail.destroy({ transaction });
         }
       }
@@ -921,7 +948,7 @@ export const saveAndGenerateSchedule = async (req, res) => {
         where: { standard_maintenance_id: smItem.id },
         transaction
       });
-      if (remainingDetailsCount === 0 && !savedSmIds.includes(smItem.id)) {
+      if (remainingDetailsCount === 0 && !savedSmSet.has(smItem.id)) {
         await MaintenanceSchedule.destroy({
           where: { standard_maintenance_id: smItem.id },
           transaction

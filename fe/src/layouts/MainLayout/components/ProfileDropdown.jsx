@@ -91,13 +91,21 @@ export default function ProfileDropdown() {
    ]}
    placement="bottomRight"
   >
-   <button
-    type="button"
-    className="profile-chip"
-   >
-    <div className="profile-avatar">
-     {initial}
-    </div>
+    <button
+     type="button"
+     className="profile-chip"
+    >
+     <div className="profile-avatar">
+      {user?.profile_picture ? (
+       <img
+        src={user.profile_picture}
+        alt={name}
+        style={{ width: '100%', height: '100%', objectFit: 'cover', borderRadius: '50%' }}
+       />
+      ) : (
+       initial
+      )}
+     </div>
 
     <div className="profile-meta">
      <div className="profile-name">

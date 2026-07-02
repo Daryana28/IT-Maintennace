@@ -102,6 +102,8 @@ export default function ImportTab({ overrideCategory, yearlyStandardId, onImport
             setFileList([]);
             setParsedChecks([]);
             setCurrentStep(0);
+            checkMaintenanceExistence();
+            if (onImportSuccess) onImportSuccess();
           } else {
             message.error(res.data?.message || "Gagal mereset data");
           }
@@ -161,7 +163,15 @@ export default function ImportTab({ overrideCategory, yearlyStandardId, onImport
       });
 
       if (response.data.success) {
-        setSyncStatus(response.data.data);
+        const scheduleResponse = await axios.post('/maintenance-schedule/generate', {
+          yearly_standard_id: yearlyStandardId,
+        }, {
+          timeout: 10 * 60 * 1000
+        });
+        setSyncStatus({
+          ...(response.data.data || {}),
+          ...(scheduleResponse.data.data || {}),
+        });
         setCurrentStep(2); // Go to success step
         message.success('Jadwal maintenance berhasil disimpan dan disinkronkan');
         if (onImportSuccess) onImportSuccess();
@@ -255,7 +265,7 @@ export default function ImportTab({ overrideCategory, yearlyStandardId, onImport
               </div>
               <div style={{ display: 'flex', justify: 'space-between' }}>
                 <Text type="secondary">Perangkat Disinkronkan:</Text>
-                <Text strong style={{ color: '#52c41a' }}>{syncStatus?.schedules_synced || 0} Assets</Text>
+                <Text strong style={{ color: '#52c41a' }}>{syncStatus?.created ?? syncStatus?.schedules_synced ?? syncStatus?.saved_sm_ids?.length ?? 0} Schedule</Text>
               </div>
             </Card>,
             <Button key="back" type="primary" onClick={() => {

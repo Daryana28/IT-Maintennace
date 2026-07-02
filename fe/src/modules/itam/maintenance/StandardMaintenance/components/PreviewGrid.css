@@ -43,6 +43,13 @@
   text-align: left;
 }
 
+.selector-col {
+  min-width: 48px;
+  width: 48px;
+  text-align: center;
+  padding: 8px 10px;
+}
+
 .excel-th {
   background-color: #fafafa;
   font-weight: 600;
