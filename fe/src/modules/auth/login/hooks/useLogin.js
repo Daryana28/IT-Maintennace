@@ -118,7 +118,7 @@ export default function useLogin() {
 
     msg.success("Login berhasil");
 
-    navigate(
+   navigate(
      "/" +
      encodePath(
       "/itam/dashboard"
@@ -132,11 +132,20 @@ export default function useLogin() {
      setErrorShake(false);
     }, 450);
 
-    msg.error(
-     e?.response?.data
-      ?.message ||
-     "Username atau password salah"
-    );
+    const errorMessage =
+     e?.response?.data?.message ||
+     (e?.raw?.code === "ECONNABORTED"
+      ? "Koneksi ke server timeout"
+      : e?.raw?.message?.includes(
+          "Network Error"
+        ) ||
+        e?.raw?.message?.includes(
+          "ERR_CONNECTION"
+        )
+      ? "Backend tidak bisa diakses"
+      : "Username atau password salah");
+
+    msg.error(errorMessage);
    } finally {
     setSubmitting(false);
    }

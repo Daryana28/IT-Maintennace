@@ -16,7 +16,11 @@ const authService = {
   try {
    const { data } =
     await api.get(
-     "/auth/me"
+     "/auth/me",
+     {
+      // Do not hold the login screen for the full global timeout.
+      timeout: 3000,
+     }
     );
 
    return data;
