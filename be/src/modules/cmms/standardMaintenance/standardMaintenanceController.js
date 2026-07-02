@@ -1013,116 +1013,51 @@ export const resetStandardMaintenance = async (req, res) => {
       return res.status(400).json({ success: false, message: "yearly_standard_id dan kategori wajib diisi" });
     }
 
-    const sms = await StandardMaintenance.findAll({
+    const categoryAliases = expandStandardCategoryAliases(kategori);
+    const totalRows = await StandardMaintenance.count({
       where: {
         yearly_standard_id,
-        kategori: {
-          [Op.in]: expandStandardCategoryAliases(kategori)
-        }
+        kategori: { [Op.in]: categoryAliases },
       },
-      attributes: ["id"],
       transaction,
     });
 
-    const smIds = sms.map((item) => item.id);
-    if (smIds.length === 0) {
+    if (totalRows === 0) {
       await transaction.commit();
       return res.status(200).json({ success: true, message: "Tidak ada data standard maintenance untuk di-reset" });
     }
 
-    const schedules = await MaintenanceSchedule.findAll({
-      where: {
-        yearly_standard_id,
-        standard_maintenance_id: { [Op.in]: smIds },
-      },
-      attributes: ["id"],
-      transaction,
-    });
-    const scheduleIds = schedules.map((item) => item.id);
+    const replacements = { yearly_standard_id, categoryAliases };
+    const smFilter = `
+      SELECT id FROM dbo.standard_maintenances
+      WHERE yearly_standard_id = :yearly_standard_id
+      AND kategori IN (:categoryAliases)
+    `;
+    const scheduleFilter = `
+      SELECT id FROM dbo.maintenance_schedules
+      WHERE standard_maintenance_id IN (${smFilter})
+    `;
+    const detailFilter = `
+      SELECT id FROM dbo.standard_maintenance_details
+      WHERE standard_maintenance_id IN (${smFilter})
+    `;
+    const checkFilter = `
+      SELECT id FROM dbo.standard_maintenance_checks
+      WHERE standard_maintenance_detail_id IN (${detailFilter})
+    `;
+    const actualFilter = `
+      SELECT id FROM dbo.maintenance_actual
+      WHERE check_id IN (${checkFilter})
+      OR schedule_id IN (${scheduleFilter})
+    `;
 
-    const details = await StandardMaintenanceDetail.findAll({
-      where: { standard_maintenance_id: { [Op.in]: smIds } },
-      attributes: ["id"],
-      transaction,
-    });
-    const detailIds = details.map((item) => item.id);
-
-    const checks = detailIds.length > 0
-      ? await StandardMaintenanceCheck.findAll({
-          where: { standard_maintenance_detail_id: { [Op.in]: detailIds } },
-          attributes: ["id"],
-          transaction,
-        })
-      : [];
-    const checkIds = checks.map((item) => item.id);
-
-    const actuals = checkIds.length > 0
-      ? await MaintenanceActual.findAll({
-          where: { check_id: { [Op.in]: checkIds } },
-          attributes: ["id"],
-          transaction,
-        })
-      : [];
-    const actualIds = actuals.map((item) => item.id);
-
-    if (actualIds.length > 0) {
-      await MaintenanceAbnormalLog.destroy({
-        where: { actual_id: { [Op.in]: actualIds } },
-        transaction,
-      });
-    }
-
-    if (actualIds.length > 0 || scheduleIds.length > 0) {
-      const logSheetWhere = {};
-      if (actualIds.length > 0 && scheduleIds.length > 0) {
-        logSheetWhere[Op.or] = [
-          { actual_id: { [Op.in]: actualIds } },
-          { schedule_id: { [Op.in]: scheduleIds } },
-        ];
-      } else if (actualIds.length > 0) {
-        logSheetWhere.actual_id = { [Op.in]: actualIds };
-      } else if (scheduleIds.length > 0) {
-        logSheetWhere.schedule_id = { [Op.in]: scheduleIds };
-      }
-
-      await MaintenanceLogSheet.destroy({
-        where: logSheetWhere,
-        transaction,
-      });
-    }
-
-    if (actualIds.length > 0) {
-      await MaintenanceActual.destroy({
-        where: { id: { [Op.in]: actualIds } },
-        transaction,
-      });
-    }
-
-    if (checkIds.length > 0) {
-      await StandardMaintenanceCheck.destroy({
-        where: { id: { [Op.in]: checkIds } },
-        transaction,
-      });
-    }
-
-    if (detailIds.length > 0) {
-      await StandardMaintenanceDetail.destroy({
-        where: { id: { [Op.in]: detailIds } },
-        transaction,
-      });
-    }
-
-    if (scheduleIds.length > 0) {
-      await MaintenanceSchedule.destroy({
-        where: { id: { [Op.in]: scheduleIds } },
-        transaction,
-      });
-    }
-
-    await StandardMaintenance.destroy({
-      where: { id: { [Op.in]: smIds } },
-      transaction,
-    });
+    await sequelize.query(`DELETE FROM dbo.maintenance_abnormal_logs WHERE actual_id IN (${actualFilter})`, { replacements, transaction });
+    await sequelize.query(`DELETE FROM dbo.maintenance_log_sheets WHERE actual_id IN (${actualFilter}) OR schedule_id IN (${scheduleFilter})`, { replacements, transaction });
+    await sequelize.query(`DELETE FROM dbo.maintenance_actual WHERE id IN (${actualFilter})`, { replacements, transaction });
+    await sequelize.query(`DELETE FROM dbo.standard_maintenance_checks WHERE standard_maintenance_detail_id IN (${detailFilter})`, { replacements, transaction });
+    await sequelize.query(`DELETE FROM dbo.standard_maintenance_details WHERE standard_maintenance_id IN (${smFilter})`, { replacements, transaction });
+    await sequelize.query(`DELETE FROM dbo.maintenance_schedules WHERE standard_maintenance_id IN (${smFilter})`, { replacements, transaction });
+    await sequelize.query(`DELETE FROM dbo.standard_maintenances WHERE id IN (${smFilter})`, { replacements, transaction });
 
     await transaction.commit();
     return res.status(200).json({ success: true, message: "Reset standard maintenance dan schedule berhasil dilakukan" });

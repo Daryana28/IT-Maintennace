@@ -3,11 +3,8 @@ import { Card, Typography, Tabs, Row, Col, Statistic, Table, Divider } from 'ant
 import {
   DatabaseOutlined,
   ToolOutlined,
-  LineChartOutlined,
   ArrowUpOutlined,
   ArrowDownOutlined,
-  FormOutlined,
-  CheckCircleOutlined,
   DollarOutlined,
 } from '@ant-design/icons';
 import http from '@/shared/services/apiClient';
@@ -20,7 +17,7 @@ export default function SummaryPage() {
   const [activeTab, setActiveTab] = useState('asset');
   const [activeAssetTab, setActiveAssetTab] = useState('total');
   const [activeBudgetTab, setActiveBudgetTab] = useState('progress');
-  const [activeMaintenanceTab, setActiveMaintenanceTab] = useState('logsheet');
+  const [activeMaintenanceTab, setActiveMaintenanceTab] = useState('actuals');
 
   const [summaryData, setSummaryData] = useState(null);
   const [loading, setLoading] = useState(false);
@@ -229,31 +226,6 @@ export default function SummaryPage() {
     />
   );
 
-  const maintenanceLogsheetSummary = (
-    <div style={{ padding: '12px 0' }}>
-      <Row gutter={16}>
-        <Col span={24}>
-          <Card variant="borderless" style={{ background: '#f8fafc' }} loading={loading}>
-            <Statistic title="Total Logsheet" value={summaryData?.maintenance?.logsheets?.total ?? 0} prefix={<FormOutlined style={{ color: '#1677ff' }} />} />
-          </Card>
-        </Col>
-      </Row>
-
-      <Divider />
-      <Title level={5}>Logsheet Summary</Title>
-      <Table
-        pagination={false}
-        size="small"
-        columns={[
-          { title: 'No. Logsheet', dataIndex: 'logNo', key: 'logNo' },
-          { title: 'Aset', dataIndex: 'asset', key: 'asset' },
-          { title: 'Tanggal', dataIndex: 'date', key: 'date' },
-        ]}
-        dataSource={summaryData?.maintenance?.logsheets?.latest || []}
-      />
-    </div>
-  );
-
   const maintenanceActualsSummary = (
     <div style={{ padding: '12px 0' }}>
       <Row gutter={16}>
@@ -347,11 +319,6 @@ export default function SummaryPage() {
       onChange={setActiveMaintenanceTab}
       type="line"
       items={[
-        {
-          key: 'logsheet',
-          label: 'Logsheet',
-          children: maintenanceLogsheetSummary,
-        },
         {
           key: 'actuals',
           label: 'Actuals',

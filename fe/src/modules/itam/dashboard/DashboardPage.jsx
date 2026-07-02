@@ -1,5 +1,5 @@
 import { useState, useEffect } from "react";
-import { Row, Col, Card, Typography, Table, Tag, Button, Progress, Avatar, Space, Modal, message } from "antd";
+import { Row, Col, Card, Typography, Table, Tag, Button, Progress, Avatar, Space, Modal, Tabs, message } from "antd";
 import { PieChart, Pie, Cell, Tooltip as RechartsTooltip, ResponsiveContainer, BarChart, Bar, XAxis, YAxis, CartesianGrid, Legend } from "recharts";
 import {
   PieChartOutlined,
@@ -11,6 +11,7 @@ import {
   UserOutlined,
   MoreOutlined,
   CheckCircleOutlined,
+  WarningOutlined,
 } from "@ant-design/icons";
 import http from "@/shared/services/apiClient";
 import "./DashboardPage.css";
@@ -122,12 +123,8 @@ const opBudgetColumns = [
 // Maintenance Logsheet
 
 export default function Dashboard() {
-  const [isModalVisible, setIsModalVisible] = useState(false);
-  const [selectedLog, setSelectedLog] = useState(null);
-  
   const [assetBudgets, setAssetBudgets] = useState([]);
   const [operationalBudgets, setOperationalBudgets] = useState([]);
-  const [maintLogs, setMaintLogs] = useState([]);
   const [maintActuals, setMaintActuals] = useState({ total: 0, done: 0, pending: 0, rows: [] });
   const [maintAbnormals, setMaintAbnormals] = useState({ total: 0, open: 0, resolved: 0, rows: [] });
   const [loading, setLoading] = useState(false);
@@ -139,7 +136,6 @@ export default function Dashboard() {
       if (res.data.success) {
         setAssetBudgets(res.data.data.assetBudgets || []);
         setOperationalBudgets(res.data.data.operationalBudgets || []);
-        setMaintLogs(res.data.data.maintenanceLogs || []);
         setMaintActuals(res.data.data.maintenanceActuals || { total: 0, done: 0, pending: 0, rows: [] });
         setMaintAbnormals(res.data.data.maintenanceAbnormals || { total: 0, open: 0, resolved: 0, rows: [] });
       }
@@ -155,37 +151,11 @@ export default function Dashboard() {
     fetchDashboardData();
   }, []);
 
-  const handleViewLog = (record) => {
-    setSelectedLog(record);
-    setIsModalVisible(true);
-  };
-
   const tableProps = {
     pagination: false,
     size: "small",
     scroll: { y: 250 },
   };
-
-  const maintLogColumns = [
-    { title: "DATE", dataIndex: "date", key: "date", render: (text) => <strong>{text}</strong> },
-    { title: "CODE", dataIndex: "code", key: "code" },
-    {
-      title: "PERSONNEL",
-      dataIndex: "personnel",
-      key: "personnel",
-      render: (name) => (
-        <Space>
-          <Avatar size="small" icon={<UserOutlined />} />
-          <span>{name}</span>
-        </Space>
-      )
-    },
-    {
-      title: "",
-      key: "action",
-      render: (_, record) => <Button size="small" onClick={() => handleViewLog(record)}>View Log</Button>,
-    },
-  ];
 
   const actualColumns = [
     { title: "TANGGAL", dataIndex: "tanggal", key: "tanggal", render: (text) => <strong>{text}</strong> },
@@ -262,61 +232,69 @@ export default function Dashboard() {
       </section>
 
       {/* MAINTENANCE SECTION */}
-      <Row gutter={[24, 24]}>
-        <Col xs={24} xl={24}>
-          <SectionHeader
-            icon={<ToolOutlined />}
-            title="Maintenance Logsheet"
-            subtitle="Riwayat aktivitas pemeliharaan aset dan infrastruktur IT yang telah dilakukan."
-          />
-          <Card title="Maintenance Activity Log" hoverable variant="borderless" className="table-card" style={{ height: '380px' }}>
-            <Table dataSource={maintLogs} columns={maintLogColumns} loading={loading} {...tableProps} />
-          </Card>
-        </Col>
-      </Row>
-
-      {/* MAINTENANCE ACTUALS SECTION */}
-      <Row gutter={[24, 24]} style={{ marginTop: 24 }}>
-        <Col xs={24} xl={24}>
-          <SectionHeader
-            icon={<CheckCircleOutlined />}
-            title="Maintenance Actuals"
-            subtitle={`Total: ${maintActuals.total} | Done: ${maintActuals.done} | Pending: ${maintActuals.pending}`}
-          />
-          <Card title="Actual Maintenance Entries" hoverable variant="borderless" className="table-card" style={{ height: '380px' }}>
-            <Table dataSource={maintActuals.rows} columns={actualColumns} loading={loading} {...tableProps} />
-          </Card>
-        </Col>
-      </Row>
-
-      {/* MAINTENANCE ABNORMAL LOGS SECTION */}
       <Row gutter={[24, 24]} style={{ marginTop: 24 }}>
         <Col xs={24} xl={24}>
           <SectionHeader
             icon={<ToolOutlined />}
-            title="Maintenance Abnormal Logs"
-            subtitle={`Total: ${maintAbnormals.total} | Open: ${maintAbnormals.open} | Resolved: ${maintAbnormals.resolved}`}
+            title="Maintenance Logs"
+            subtitle="Riwayat aktivitas pemeliharaan aset dan infrastruktur IT."
           />
-          <Card title="Abnormal Findings" hoverable variant="borderless" className="table-card" style={{ height: '380px' }}>
-            <Table dataSource={maintAbnormals.rows} columns={abnormalColumns} loading={loading} {...tableProps} />
+          <Card hoverable variant="borderless" className="table-card" style={{ height: '420px' }}
+            title={
+              <Space>
+                <span>Maintenance Logs</span>
+                <Tag color="blue">{maintActuals.total + maintAbnormals.total} Total</Tag>
+              </Space>
+            }
+          >
+            <Tabs
+              defaultActiveKey="actuals"
+              items={[
+                {
+                  key: 'actuals',
+                  label: (
+                    <span>
+                      <CheckCircleOutlined /> Actuals
+                      <Tag color="green" style={{ marginLeft: 6 }}>{maintActuals.done}</Tag>
+                      <Tag color="orange">{maintActuals.pending} pending</Tag>
+                    </span>
+                  ),
+                  children: (
+                    <Table
+                      dataSource={maintActuals.rows}
+                      columns={actualColumns}
+                      loading={loading}
+                      pagination={false}
+                      size="small"
+                      scroll={{ y: 280 }}
+                    />
+                  ),
+                },
+                {
+                  key: 'abnormals',
+                  label: (
+                    <span>
+                      <WarningOutlined /> Abnormal Logs
+                      <Tag color="red" style={{ marginLeft: 6 }}>{maintAbnormals.open} open</Tag>
+                      <Tag color="green">{maintAbnormals.resolved} resolved</Tag>
+                    </span>
+                  ),
+                  children: (
+                    <Table
+                      dataSource={maintAbnormals.rows}
+                      columns={abnormalColumns}
+                      loading={loading}
+                      pagination={false}
+                      size="small"
+                      scroll={{ y: 280 }}
+                    />
+                  ),
+                },
+              ]}
+            />
           </Card>
         </Col>
       </Row>
-
-      <Modal
-        title="Maintenance Log Detail"
-        open={isModalVisible}
-        onCancel={() => setIsModalVisible(false)}
-        footer={null}
-      >
-        {selectedLog && (
-          <div>
-            <p><strong>Date:</strong> {selectedLog.date}</p>
-            <p><strong>Code:</strong> {selectedLog.code}</p>
-            <p><strong>Personnel:</strong> {selectedLog.personnel}</p>
-          </div>
-        )}
-      </Modal>
     </div>
   );
 }
