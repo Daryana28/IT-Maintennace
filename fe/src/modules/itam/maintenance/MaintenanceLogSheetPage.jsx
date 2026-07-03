@@ -108,6 +108,36 @@ export default function MaintenanceLogSheetPage({ overrideCategory }) {
     });
   };
 
+  const getAssetOrDeviceLabel = (record) => {
+    const schedule = record.actual?.schedule;
+    const asset = schedule?.asset;
+    const standard =
+      schedule?.StandardMaintenance ||
+      record.actual?.check?.standard_maintenance_detail?.standard_maintenance;
+
+    const normalizedHostname = String(asset?.hostname || "").trim();
+    if (normalizedHostname && normalizedHostname !== "-") {
+      return normalizedHostname;
+    }
+
+    const normalizedAssetName = String(asset?.asset_name || "").trim();
+    if (normalizedAssetName && normalizedAssetName !== "-") {
+      return normalizedAssetName;
+    }
+
+    const normalizedDevice = String(standard?.namaPerangkat || "").trim();
+    if (normalizedDevice && normalizedDevice !== "-") {
+      return normalizedDevice;
+    }
+
+    const normalizedSubDevice = String(standard?.subPerangkat || "").trim();
+    if (normalizedSubDevice && normalizedSubDevice !== "-") {
+      return normalizedSubDevice;
+    }
+
+    return "-";
+  };
+
   const columns = [
     {
       title: "Tanggal Temuan",
@@ -119,11 +149,7 @@ export default function MaintenanceLogSheetPage({ overrideCategory }) {
       title: "Aset / Perangkat",
       key: "asset",
       width: 200,
-      render: (_, record) => {
-        const asset = record.actual?.schedule?.asset;
-        if (!asset) return "-";
-        return asset.hostname && asset.hostname !== "-" ? asset.hostname : asset.nama_asset;
-      },
+      render: (_, record) => getAssetOrDeviceLabel(record),
     },
     {
       title: "Pengecekan",

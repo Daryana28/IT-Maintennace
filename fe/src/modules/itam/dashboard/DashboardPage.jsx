@@ -1,132 +1,76 @@
 import { useState, useEffect } from "react";
-import { Row, Col, Card, Typography, Table, Tag, Button, Progress, Avatar, Space, Modal, Tabs, message } from "antd";
-import { PieChart, Pie, Cell, Tooltip as RechartsTooltip, ResponsiveContainer, BarChart, Bar, XAxis, YAxis, CartesianGrid, Legend } from "recharts";
-import {
-  PieChartOutlined,
-  ToolOutlined,
-  DesktopOutlined,
-  ReloadOutlined,
-  CalendarOutlined,
-  FundProjectionScreenOutlined,
-  UserOutlined,
-  MoreOutlined,
-  CheckCircleOutlined,
-  WarningOutlined,
-} from "@ant-design/icons";
+import { Row, Col, Card, Table, Tag, Button, Progress, Space, Tabs, Badge, message } from "antd";
+import { ReloadOutlined, WarningOutlined } from "@ant-design/icons";
 import http from "@/shared/services/apiClient";
 import "./DashboardPage.css";
 
-const { Title, Text } = Typography;
+const ASSET_BUDGET_SCHEDULE_STORAGE_KEY = "itam.assetBudgetSchedule.items.v1";
+const OPERATIONAL_BUDGET_SCHEDULE_STORAGE_KEY = "itam.operationalBudgetSchedule.items.v1";
+const BUDGET_STAGE_OPTIONS = ["Quotation", "PV", "PO", "Delivery", "Implementation", "Completion", "Invoice"];
 
-// SECTION HEAD COMPONENT
-const SectionHeader = ({ icon, title, subtitle }) => {
-  return (
-    <div className="section-head-wrap" style={{ marginTop: '24px', marginBottom: '16px' }}>
-      <div className="section-head-icon-box" style={{ background: '#e6f7ff', padding: '12px', borderRadius: '8px', color: '#1890ff' }}>{icon}</div>
-      <div className="section-head-text-wrap">
-        <h2 className="section-head-title" style={{ fontSize: '18px', fontWeight: 'bold' }}>{title}</h2>
-        <p className="section-head-subtitle" style={{ fontSize: '13px', color: '#8c8c8c' }}>{subtitle}</p>
-      </div>
-    </div>
-  );
+const hasRangeFilled = (range) => Boolean(range?.start && range?.end);
+const isBudgetScheduleItemClosed = (item) =>
+  BUDGET_STAGE_OPTIONS.every((stage) => {
+    const planRange = item?.stages?.[stage]?.plan;
+    const actualRange = item?.stages?.[stage]?.actual;
+    if (!hasRangeFilled(planRange)) return true;
+    return hasRangeFilled(actualRange);
+  });
+
+const loadBudgetScheduleItems = (storageKey) => {
+  if (typeof window === "undefined") return [];
+
+  try {
+    const raw = window.localStorage.getItem(storageKey);
+    const parsed = JSON.parse(raw || "[]");
+    return Array.isArray(parsed) ? parsed : [];
+  } catch {
+    return [];
+  }
 };
 
-// --- MOCK DATA ---
+const buildBudgetProgressLocalSummary = () => {
+  const assetItems = loadBudgetScheduleItems(ASSET_BUDGET_SCHEDULE_STORAGE_KEY);
+  const operationalItems = loadBudgetScheduleItems(OPERATIONAL_BUDGET_SCHEDULE_STORAGE_KEY);
 
-// Budget
-// Budget
+  const summarize = (items, category) => {
+    const total = items.length;
+    const completed = items.filter((item) => isBudgetScheduleItemClosed(item)).length;
+    const progress = Math.max(total - completed, 0);
+    return {
+      key: category === "Asset Budget" ? "asset" : "operational",
+      category,
+      total,
+      progress,
+      completed,
+    };
+  };
 
-const budgetColumns = [
-  { title: "PO DATE", dataIndex: "poDate", key: "poDate" },
-  { title: "BUDGET CODE", dataIndex: "budgetCode", key: "budgetCode" },
-  { title: "ITEM NAME", dataIndex: "itemName", key: "itemName" },
-  { title: "INITIAL BUDGET", dataIndex: "initialBudget", key: "initialBudget" },
-  {
-    title: "STATUS",
-    dataIndex: "status",
-    key: "status",
-    render: (status) => {
-      let color = "default";
-      switch(status) {
-        case "Plan": color = "default"; break;
-        case "PV": color = "blue"; break;
-        case "PO": color = "cyan"; break;
-        case "Delivery": color = "orange"; break;
-        case "Installation": color = "purple"; break;
-        case "Invoice": color = "magenta"; break;
-        case "Closed": color = "green"; break;
-        default: color = "default";
-      }
-      return <Tag color={color}>{status}</Tag>;
-    },
-  },
-  {
-    title: "",
-    key: "action",
-    render: () => <Button type="text" icon={<MoreOutlined />} />
-  }
-];
+  const assetSummary = summarize(assetItems, "Asset Budget");
+  const operationalSummary = summarize(operationalItems, "Operational Budget");
 
-const nextThreeMonths = Array.from({ length: 3 }, (_, index) => {
-  const date = new Date(new Date().getFullYear(), new Date().getMonth() + index, 1);
-  return date.toLocaleString("en-US", { month: "short" });
-});
-
-const opBudgetColumns = [
-  { title: "BUDGET CODE", dataIndex: "budgetCode", key: "budgetCode", width: 120 },
-  { title: "ITEM NAME", dataIndex: "itemName", key: "itemName", width: 140 },
-  ...nextThreeMonths.map(m => ({
-    title: m.toUpperCase(),
-    key: m.toLowerCase(),
-    width: 110,
-    render: (_, record) => {
-      const plan = record[`${m.toLowerCase()}Plan`];
-      const actual = record[`${m.toLowerCase()}Actual`];
-      const formatCurrency = (val) => new Intl.NumberFormat("id-ID", { notation: "compact", compactDisplay: "short" }).format(val);
-      return (
-        <div style={{ fontSize: '12px', display: 'flex', flexDirection: 'column', gap: '6px' }}>
-          <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
-            <span style={{ color: '#64748b', fontSize: '10px', background: '#f1f5f9', padding: '2px 6px', borderRadius: '4px', fontWeight: 500 }}>Plan</span>
-            <span style={{ color: '#475569', fontWeight: 500 }}>{formatCurrency(plan)}</span>
-          </div>
-          <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
-            <span style={{ color: '#059669', fontSize: '10px', background: '#ecfdf5', padding: '2px 6px', borderRadius: '4px', fontWeight: 600 }}>Act</span>
-            <span style={{ color: '#059669', fontWeight: 700 }}>{formatCurrency(actual)}</span>
-          </div>
-        </div>
-      );
-    }
-  })),
-  {
-    title: "STATUS",
-    dataIndex: "status",
-    key: "status",
-    width: 90,
-    align: "center",
-    render: (status) => {
-      let color = "default";
-      switch(status) {
-        case "Plan": color = "default"; break;
-        case "PV": color = "blue"; break;
-        case "PO": color = "cyan"; break;
-        case "Delivery": color = "orange"; break;
-        case "Installation": color = "purple"; break;
-        case "Invoice": color = "magenta"; break;
-        case "Closed": color = "green"; break;
-        default: color = "default";
-      }
-      return <Tag color={color}>{status}</Tag>;
-    },
-  }
-];
-
-// Maintenance Logsheet
+  return {
+    total: assetSummary.total + operationalSummary.total,
+    progress: assetSummary.progress + operationalSummary.progress,
+    completed: assetSummary.completed + operationalSummary.completed,
+    overview: [assetSummary, operationalSummary],
+  };
+};
 
 export default function Dashboard() {
-  const [assetBudgets, setAssetBudgets] = useState([]);
-  const [operationalBudgets, setOperationalBudgets] = useState([]);
-  const [maintActuals, setMaintActuals] = useState({ total: 0, done: 0, pending: 0, rows: [] });
-  const [maintAbnormals, setMaintAbnormals] = useState({ total: 0, open: 0, resolved: 0, rows: [] });
+  const [assetSummary, setAssetSummary] = useState({
+    total: 0,
+    active: 0,
+    nonActive: 0,
+    damaged: 0,
+    inService: 0,
+    acquisitionValue: 0,
+    depreciationValue: 0,
+    bookValue: 0,
+    topCategories: [],
+  });
+  const [maintAbnormals, setMaintAbnormals] = useState({ total: 0, open: 0, inProgress: 0, resolved: 0, rows: [] });
+  const [budgetProgressLocalSummary, setBudgetProgressLocalSummary] = useState(() => buildBudgetProgressLocalSummary());
   const [loading, setLoading] = useState(false);
 
   const fetchDashboardData = async () => {
@@ -134,10 +78,18 @@ export default function Dashboard() {
       setLoading(true);
       const res = await http.get('/dashboard/summary');
       if (res.data.success) {
-        setAssetBudgets(res.data.data.assetBudgets || []);
-        setOperationalBudgets(res.data.data.operationalBudgets || []);
-        setMaintActuals(res.data.data.maintenanceActuals || { total: 0, done: 0, pending: 0, rows: [] });
-        setMaintAbnormals(res.data.data.maintenanceAbnormals || { total: 0, open: 0, resolved: 0, rows: [] });
+        setAssetSummary(res.data.data.assetSummary || {
+          total: 0,
+          active: 0,
+          nonActive: 0,
+          damaged: 0,
+          inService: 0,
+          acquisitionValue: 0,
+          depreciationValue: 0,
+          bookValue: 0,
+          topCategories: [],
+        });
+        setMaintAbnormals(res.data.data.maintenanceAbnormals || { total: 0, open: 0, inProgress: 0, resolved: 0, rows: [] });
       }
     } catch (error) {
       console.error(error);
@@ -151,47 +103,50 @@ export default function Dashboard() {
     fetchDashboardData();
   }, []);
 
-  const tableProps = {
-    pagination: false,
-    size: "small",
-    scroll: { y: 250 },
-  };
+  useEffect(() => {
+    const refreshBudgetProgressSummary = () => {
+      setBudgetProgressLocalSummary(buildBudgetProgressLocalSummary());
+    };
 
-  const actualColumns = [
-    { title: "TANGGAL", dataIndex: "tanggal", key: "tanggal", render: (text) => <strong>{text}</strong> },
-    { title: "ASSET", dataIndex: "asset", key: "asset" },
-    {
-      title: "STATUS",
-      dataIndex: "status",
-      key: "status",
-      render: (status) => <Tag color={status === 'ACTUAL' ? 'green' : 'orange'}>{status}</Tag>,
-    },
-    { title: "LEGEND", dataIndex: "legend", key: "legend" },
-    {
-      title: "PERSONNEL",
-      dataIndex: "personnel",
-      key: "personnel",
-      render: (name) => (
-        <Space>
-          <Avatar size="small" icon={<UserOutlined />} />
-          <span>{name}</span>
-        </Space>
-      )
-    },
-  ];
+    refreshBudgetProgressSummary();
+    window.addEventListener("storage", refreshBudgetProgressSummary);
+
+    return () => {
+      window.removeEventListener("storage", refreshBudgetProgressSummary);
+    };
+  }, []);
 
   const abnormalColumns = [
-    { title: "ASSET", dataIndex: "asset", key: "asset" },
+    { title: "ASET / PERANGKAT", dataIndex: "asset", key: "asset", ellipsis: true },
     { title: "DESKRIPSI", dataIndex: "deskripsi", key: "deskripsi", ellipsis: true },
     { title: "TINDAKAN", dataIndex: "tindakan", key: "tindakan", ellipsis: true },
     {
       title: "STATUS",
       dataIndex: "status",
       key: "status",
-      render: (status) => <Tag color={status === 'RESOLVED' ? 'green' : 'red'}>{status}</Tag>,
+      render: (status) => {
+        const normalizedStatus = String(status || '').toUpperCase();
+        let color = 'red';
+        if (normalizedStatus === 'RESOLVED') color = 'green';
+        else if (normalizedStatus !== 'OPEN') color = 'orange';
+        return <Tag color={color}>{normalizedStatus || '-'}</Tag>;
+      },
     },
     { title: "RESOLVED BY", dataIndex: "resolvedBy", key: "resolvedBy" },
     { title: "RESOLVED AT", dataIndex: "resolvedAt", key: "resolvedAt" },
+  ];
+
+  const assetStatItems = [
+    { key: "total", label: "Total Asset", value: assetSummary.total, tone: "blue" },
+    { key: "active", label: "Asset Aktif", value: assetSummary.active, tone: "green" },
+    { key: "damaged", label: "Aset Rusak/Disposal", value: assetSummary.damaged, tone: "red" },
+    { key: "service", label: "Aset di-Service", value: assetSummary.inService, tone: "orange" },
+  ];
+
+  const budgetProgressStatItems = [
+    { key: "total", label: "Total Budget Progress", value: budgetProgressLocalSummary.total, tone: "blue" },
+    { key: "progress", label: "On Progress", value: budgetProgressLocalSummary.progress, tone: "orange" },
+    { key: "completed", label: "Completed", value: budgetProgressLocalSummary.completed, tone: "green" },
   ];
 
   return (
@@ -200,15 +155,10 @@ export default function Dashboard() {
       <div className="dashboard-page-head">
         <div>
           <h1 className="dashboard-page-title">Dashboard</h1>
-          <div className="dashboard-page-subtitle">Welcome to ITAM Platform</div>
+          {/* <div className="dashboard-page-subtitle">Welcome to ITAM Platform</div> */}
         </div>
 
         <div className="dashboard-actions">
-          <div className="dashboard-status-badge">
-            <span className="status-dot" />
-            System Operational
-          </div>
-
           <Button type="default" icon={<ReloadOutlined />} onClick={fetchDashboardData} loading={loading} className="dashboard-refresh-btn">
             Refresh Data
           </Button>
@@ -219,13 +169,84 @@ export default function Dashboard() {
       <section className="section-wrap">
         <Row gutter={[24, 24]}>
           <Col xs={24} xl={12}>
-            <Card title="Asset Budget (BA)" hoverable variant="borderless" className="table-card" style={{ height: '380px' }}>
-              <Table dataSource={assetBudgets} columns={budgetColumns} loading={loading} {...tableProps} />
+            <Card title="Asset Management" hoverable variant="borderless" className="table-card asset-summary-dashboard-card">
+              <div className="asset-summary-card">
+                <div className="asset-summary-card__section">
+                  <div className="asset-summary-card__section-title">Asset Count</div>
+                  <div className="asset-summary-card__stat-grid">
+                    {assetStatItems.map((item) => (
+                      <div key={item.key} className={`asset-summary-card__stat asset-summary-card__stat--${item.tone}`}>
+                        <div className="asset-summary-card__stat-label">{item.label}</div>
+                        <div className="asset-summary-card__stat-value">{item.value}</div>
+                      </div>
+                    ))}
+                  </div>
+                </div>
+
+                <div className="asset-summary-card__section">
+                  <div className="asset-summary-card__section-title">Top Categories</div>
+                  <div className="asset-summary-card__category-list">
+                    {(assetSummary.topCategories || []).map((item) => (
+                      <div key={item.key} className="asset-summary-card__category-row">
+                        <div className="asset-summary-card__category-meta">
+                          <span className="asset-summary-card__category-name">{item.category}</span>
+                          <span className="asset-summary-card__category-count">{item.count} asset</span>
+                        </div>
+                        <Progress
+                          percent={Number(item.percent || 0)}
+                          size="small"
+                          strokeColor="#1677ff"
+                          trailColor="#e5edf8"
+                          format={(percent) => `${percent}%`}
+                        />
+                      </div>
+                    ))}
+                  </div>
+                </div>
+              </div>
             </Card>
           </Col>
           <Col xs={24} xl={12}>
-            <Card title="Operational Budget (Next 3 Months)" hoverable variant="borderless" className="table-card" style={{ height: '380px' }}>
-              <Table dataSource={operationalBudgets} columns={opBudgetColumns} loading={loading} {...tableProps} />
+            <Card title="Budget" hoverable variant="borderless" className="table-card asset-summary-dashboard-card">
+              <div className="asset-summary-card">
+                <div className="asset-summary-card__section">
+                  <div className="asset-summary-card__section-title">Budget Progress</div>
+                  <div className="asset-summary-card__stat-grid">
+                    {budgetProgressStatItems.map((item) => (
+                      <div key={item.key} className={`asset-summary-card__stat asset-summary-card__stat--${item.tone}`}>
+                        <div className="asset-summary-card__stat-label">{item.label}</div>
+                        <div className="asset-summary-card__stat-value">{item.value}</div>
+                      </div>
+                    ))}
+                  </div>
+                </div>
+
+                <div className="asset-summary-card__section">
+                  <div className="asset-summary-card__section-title">Budget Progress Overview</div>
+                  <div className="asset-summary-card__category-list">
+                    {(budgetProgressLocalSummary.overview || []).map((item) => (
+                      <div key={item.key} className="asset-summary-card__category-row">
+                        <div className="asset-summary-card__category-meta">
+                          <span className="asset-summary-card__category-name">{item.category}</span>
+                          <span className="asset-summary-card__category-count">
+                            {item.completed} / {item.total} completed
+                          </span>
+                        </div>
+                        <Progress
+                          percent={item.total > 0 ? Number(((item.completed / item.total) * 100).toFixed(1)) : 0}
+                          size="small"
+                          strokeColor="#52c41a"
+                          trailColor="#e5edf8"
+                          format={(percent) => `${percent}%`}
+                        />
+                        <span className="asset-summary-card__category-count">
+                          On progress: {item.progress}
+                        </span>
+                      </div>
+                    ))}
+                  </div>
+                </div>
+              </div>
             </Card>
           </Col>
         </Row>
@@ -234,60 +255,43 @@ export default function Dashboard() {
       {/* MAINTENANCE SECTION */}
       <Row gutter={[24, 24]} style={{ marginTop: 24 }}>
         <Col xs={24} xl={24}>
-          <SectionHeader
-            icon={<ToolOutlined />}
-            title="Maintenance Logs"
-            subtitle="Riwayat aktivitas pemeliharaan aset dan infrastruktur IT."
-          />
           <Card hoverable variant="borderless" className="table-card" style={{ height: '420px' }}
             title={
               <Space>
-                <span>Maintenance Logs</span>
-                <Tag color="blue">{maintActuals.total + maintAbnormals.total} Total</Tag>
+                <span>Maintenance</span>
+                {/* <Tag color="blue">{maintAbnormals.total} Total</Tag> */}
               </Space>
             }
           >
             <Tabs
-              defaultActiveKey="actuals"
+              defaultActiveKey="abnormals"
               items={[
-                {
-                  key: 'actuals',
-                  label: (
-                    <span>
-                      <CheckCircleOutlined /> Actuals
-                      <Tag color="green" style={{ marginLeft: 6 }}>{maintActuals.done}</Tag>
-                      <Tag color="orange">{maintActuals.pending} pending</Tag>
-                    </span>
-                  ),
-                  children: (
-                    <Table
-                      dataSource={maintActuals.rows}
-                      columns={actualColumns}
-                      loading={loading}
-                      pagination={false}
-                      size="small"
-                      scroll={{ y: 280 }}
-                    />
-                  ),
-                },
                 {
                   key: 'abnormals',
                   label: (
-                    <span>
-                      <WarningOutlined /> Abnormal Logs
-                      <Tag color="red" style={{ marginLeft: 6 }}>{maintAbnormals.open} open</Tag>
-                      <Tag color="green">{maintAbnormals.resolved} resolved</Tag>
-                    </span>
+                    <Space size={8}>
+                      <WarningOutlined /> Logsheets
+                      <Badge count={maintAbnormals.open} size="small" style={{ backgroundColor: '#ff4d4f' }} />
+                      <Badge count={maintAbnormals.inProgress} size="small" style={{ backgroundColor: '#faad14' }} />
+                      <Badge count={maintAbnormals.resolved} size="small" style={{ backgroundColor: '#52c41a' }} />
+                    </Space>
                   ),
                   children: (
-                    <Table
-                      dataSource={maintAbnormals.rows}
-                      columns={abnormalColumns}
-                      loading={loading}
-                      pagination={false}
-                      size="small"
-                      scroll={{ y: 280 }}
-                    />
+                    <>
+                      <div style={{ display: 'flex', gap: 12, marginBottom: 12, flexWrap: 'wrap' }}>
+                        <Tag color="red">{maintAbnormals.open} open</Tag>
+                        <Tag color="orange">{maintAbnormals.inProgress} in progress</Tag>
+                        <Tag color="green">{maintAbnormals.resolved} resolved</Tag>
+                      </div>
+                      <Table
+                        dataSource={maintAbnormals.rows}
+                        columns={abnormalColumns}
+                        loading={loading}
+                        pagination={false}
+                        size="small"
+                        scroll={{ y: 244 }}
+                      />
+                    </>
                   ),
                 },
               ]}

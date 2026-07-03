@@ -117,6 +117,172 @@
   overflow-y: auto !important;
 }
 
+.asset-summary-dashboard-card {
+  height: 620px;
+}
+
+.asset-summary-dashboard-card .ant-card-body {
+  overflow: hidden;
+  padding: 14px 16px;
+  min-height: 0;
+}
+
+.asset-summary-card {
+  display: flex;
+  flex-direction: column;
+  gap: 12px;
+  flex: 1;
+  min-height: 0;
+  height: 100%;
+  overflow-y: auto;
+  overflow-x: hidden;
+  padding-right: 4px;
+}
+
+.asset-summary-card__section {
+  border: 1px solid #edf2f7;
+  border-radius: 12px;
+  padding: 12px 14px;
+  background: linear-gradient(180deg, #ffffff 0%, #f8fbff 100%);
+  flex-shrink: 0;
+}
+
+.asset-summary-card__section-title {
+  font-size: 12px;
+  font-weight: 700;
+  letter-spacing: 0.04em;
+  text-transform: uppercase;
+  color: #7a8ca8;
+  margin-bottom: 10px;
+}
+
+.asset-summary-card__stat-grid {
+  display: grid;
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+  gap: 12px;
+}
+
+.asset-summary-card__stat {
+  border-radius: 10px;
+  padding: 10px 12px;
+  border: 1px solid #edf2f7;
+  background: #fff;
+  box-shadow: none;
+}
+
+.asset-summary-card__stat--blue {
+  border-color: #dbe7f5;
+}
+
+.asset-summary-card__stat--green {
+  border-color: #dbe7f5;
+}
+
+.asset-summary-card__stat--red {
+  border-color: #dbe7f5;
+}
+
+.asset-summary-card__stat--orange {
+  border-color: #dbe7f5;
+}
+
+.asset-summary-card__stat--neutral {
+  border-color: #dbe7f5;
+}
+
+.asset-summary-card__stat-label {
+  font-size: 12px;
+  color: #7a8ca8;
+  margin-bottom: 6px;
+}
+
+.asset-summary-card__stat-value {
+  font-size: 24px;
+  line-height: 1;
+  font-weight: 700;
+  color: #102a43;
+}
+
+.asset-summary-card__value-list,
+.asset-summary-card__category-list {
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+}
+
+.asset-summary-card__value-row {
+  display: flex;
+  align-items: flex-start;
+  gap: 10px;
+}
+
+.asset-summary-card__value-dot {
+  width: 10px;
+  height: 10px;
+  border-radius: 50%;
+  margin-top: 6px;
+  flex-shrink: 0;
+}
+
+.asset-summary-card__value-dot--blue {
+  background: #1677ff;
+}
+
+.asset-summary-card__value-dot--red {
+  background: #ff4d4f;
+}
+
+.asset-summary-card__value-dot--green {
+  background: #52c41a;
+}
+
+.asset-summary-card__value-copy {
+  display: flex;
+  flex-direction: column;
+  gap: 2px;
+}
+
+.asset-summary-card__value-label {
+  font-size: 12px;
+  color: #7a8ca8;
+}
+
+.asset-summary-card__value-number {
+  font-size: 15px;
+  font-weight: 700;
+  color: #102a43;
+}
+
+.asset-summary-card__category-row {
+  display: flex;
+  flex-direction: column;
+  gap: 6px;
+}
+
+.asset-summary-card__category-meta {
+  display: flex;
+  justify-content: space-between;
+  gap: 12px;
+  align-items: center;
+}
+
+.asset-summary-card__category-name {
+  font-size: 13px;
+  font-weight: 600;
+  color: #102a43;
+}
+
+.asset-summary-card__category-count {
+  font-size: 12px;
+  color: #7a8ca8;
+}
+
+@media (max-width: 1400px) {
+  .asset-summary-card__stat-grid {
+    grid-template-columns: 1fr;
+  }
+}
+
 /* NEW KPI CARDS based on image */
 .kpi-card {
   border-radius: 8px;

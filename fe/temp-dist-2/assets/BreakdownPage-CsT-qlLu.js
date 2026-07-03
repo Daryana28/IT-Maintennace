@@ -1,0 +1,1 @@
+import"./chunk-DECur_0Z.js";import{t as e}from"./react-DhTzgwgF.js";import{t}from"./jsx-runtime-D2guwa18.js";e();var n=t(),r=()=>(0,n.jsx)(`div`,{className:`p-4`,children:(0,n.jsx)(`h1`,{className:`text-2xl font-bold`,children:`Breakdown Page`})});export{r as default};

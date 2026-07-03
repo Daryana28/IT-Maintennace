@@ -1,0 +1,1 @@
+function e(e=`/`){try{return btoa(e)}catch{return``}}function t(e=``){try{return atob(e)}catch{return`/`}}function n(e=``){try{return atob(e).startsWith(`/`)}catch{return!1}}export{e as n,n as r,t};

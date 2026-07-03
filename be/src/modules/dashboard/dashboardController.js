@@ -1,8 +1,242 @@
-import { AssetBudget, MaintenanceActual, MaintenanceAbnormalLog, MaintenanceLogSheet, MaintenanceSchedule, Asset, AssetCategory, User, sequelize } from "../../models/index.js";
+import { AssetBudget, MaintenanceActual, MaintenanceAbnormalLog, MaintenanceLogSheet, MaintenanceSchedule, StandardMaintenance, StandardMaintenanceCheck, StandardMaintenanceDetail, Asset, AssetCategory, User, sequelize } from "../../models/index.js";
 import { Op } from "sequelize";
 
 const currency = (value) => `Rp ${Number(value || 0).toLocaleString('id-ID')}`;
 const compactMonthKey = (date) => String(date).slice(0, 7);
+const AUDIT_KMC_INVESTMENT_CODE_MAP = {
+  hardware: ["26F01", "26F02", "26F03", "26F04"],
+  software: ["26F05", "26F06"],
+};
+
+const toNumber = (value) => Number(value || 0);
+const normalizeBudgetCode = (value) => String(value || "").trim().toUpperCase();
+const formatRupiahValue = (value) => `Rp. ${toNumber(value).toLocaleString("id-ID")}`;
+const getAuditKmcAmount = (row) =>
+  toNumber(row.initial_plan || row.budget || row.purchase_price || row.price_pengajuan || 0);
+const getAuditKmcLabel = (row) => String(row.subject || row.item_name || row.budget_code || "-").trim();
+const HARDWARE_SUMMARY_TABS = [
+  { key: "pc", label: "PC", aliases: ["pc", "personal computer", "desktop", "workstation", "all in one", "pc industrial", "laptop"] },
+  { key: "cctv", label: "CCTV", aliases: ["cctv", "nvr", "camera"] },
+  { key: "gathering", label: "GATHERING", aliases: ["gathering", "teleconference", "wireless display transmiter", "camera pocket", "podcast"] },
+  { key: "scanner", label: "SCANNER", aliases: ["scanner", "scanners", "barcode scanner", "bht"] },
+  { key: "accessdoor", label: "ACCESSDOOR", aliases: ["accessdoor", "acces door", "access door", "reader", "fingerprint", "face attendance", "suprema"] },
+];
+
+const buildAuditKmcSectionRow = (key, item, rows = []) => {
+  const normalizedRows = rows.filter(Boolean);
+  const amount = normalizedRows.reduce((sum, row) => sum + getAuditKmcAmount(row), 0);
+  const groupedContents = Array.from(
+    normalizedRows.reduce((map, row) => {
+      const budgetCode = normalizeBudgetCode(row.budget_code) || "-";
+      const label = getAuditKmcLabel(row);
+      const groupKey = `${budgetCode}__${label}`;
+      const current = map.get(groupKey) || {
+        budgetCode,
+        label,
+        amount: 0,
+      };
+
+      current.amount += getAuditKmcAmount(row);
+      map.set(groupKey, current);
+      return map;
+    }, new Map()).values()
+  )
+    .sort((left, right) => left.budgetCode.localeCompare(right.budgetCode))
+    .map((entry) => `${entry.budgetCode} - ${entry.label} (${formatRupiahValue(entry.amount)})`);
+
+  return {
+    key,
+    item,
+    localCurrency: formatRupiahValue(amount),
+    mainContents: groupedContents,
+  };
+};
+
+const buildEmptyAuditKmcSection = (key, title, rowLabels) => ({
+  key,
+  title,
+  rows: [
+    ...rowLabels.map(([rowKey, item]) => ({
+      key: rowKey,
+      item,
+      localCurrency: "",
+      mainContents: [],
+    })),
+    {
+      key: "total",
+      item: "Total",
+      localCurrency: "",
+      mainContents: [],
+      isTotal: true,
+    },
+  ],
+});
+
+const buildAuditKmcSections = (budgetRows = []) => {
+  const hardwareRows = budgetRows.filter((row) =>
+    AUDIT_KMC_INVESTMENT_CODE_MAP.hardware.includes(normalizeBudgetCode(row.budget_code))
+  );
+  const softwareRows = budgetRows.filter((row) =>
+    AUDIT_KMC_INVESTMENT_CODE_MAP.software.includes(normalizeBudgetCode(row.budget_code))
+  );
+
+  const hardware = buildAuditKmcSectionRow("hardware", "Hardware", hardwareRows);
+  const software = buildAuditKmcSectionRow("software", "Software", softwareRows);
+  const investmentTotal = toNumber(
+    hardwareRows.reduce((sum, row) => sum + getAuditKmcAmount(row), 0) +
+      softwareRows.reduce((sum, row) => sum + getAuditKmcAmount(row), 0)
+  );
+
+  return [
+    {
+      key: "investment",
+      title: "Investment for adoption of IT",
+      rows: [
+        hardware,
+        software,
+        {
+          key: "total",
+          item: "Total",
+          localCurrency: formatRupiahValue(investmentTotal),
+          mainContents: [],
+          isTotal: true,
+        },
+      ],
+    },
+    buildEmptyAuditKmcSection("expense", "Expense for IT", [
+      ["rental", "Rental fee"],
+      ["maintenance", "Maintenance and repair fee"],
+    ]),
+  ];
+};
+
+function normalizeText(value = "") {
+  return String(value || "").trim().toLowerCase();
+}
+
+function getScheduleDeviceLabel(schedule, fallbackStandard = null) {
+  const asset = schedule?.asset;
+  const standard = schedule?.StandardMaintenance || fallbackStandard;
+
+  const hostname = String(asset?.hostname || "").trim();
+  if (hostname && hostname !== "-") return hostname;
+
+  const assetName = String(asset?.asset_name || "").trim();
+  if (assetName && assetName !== "-") return assetName;
+
+  const deviceName = String(standard?.namaPerangkat || "").trim();
+  if (deviceName && deviceName !== "-") return deviceName;
+
+  const subDeviceName = String(standard?.subPerangkat || "").trim();
+  if (subDeviceName && subDeviceName !== "-") return subDeviceName;
+
+  return "-";
+}
+
+function getActualDeviceLabel(actual) {
+  const fallbackStandard = actual?.check?.standard_maintenance_detail?.standard_maintenance;
+  return getScheduleDeviceLabel(actual?.schedule, fallbackStandard);
+}
+
+async function getUnifiedAssetStatusSummary() {
+  const [total, active, damaged, inService] = await Promise.all([
+    Asset.count(),
+    Asset.count({ where: { status: 'ACTIVE' } }),
+    Asset.count({ where: { status: { [Op.in]: ['NON ACTIVE', 'DISPOSE', 'DISPOSED', 'DISPOSAL'] } } }),
+    Asset.count({ where: { status: { [Op.in]: ['SERVICE', 'REPAIR'] } } }),
+  ]);
+
+  return {
+    total,
+    active,
+    damaged,
+    inService,
+    nonActive: Math.max(total - active, 0),
+  };
+}
+
+function getAssetCategoryChainNames(assetRow = {}) {
+  const currentCategoryName = assetRow?.category?.category_name || "";
+  const parentCategoryName = assetRow?.category?.parent?.category_name || "";
+  return [currentCategoryName, parentCategoryName]
+    .map((item) => String(item || "").trim())
+    .filter(Boolean);
+}
+
+function isSoftwareAssetSummaryRow(assetRow = {}) {
+  return getAssetCategoryChainNames(assetRow)
+    .map(normalizeText)
+    .includes("software hardware");
+}
+
+function resolveFallbackAssetType(assetRow = {}) {
+  const chainNames = getAssetCategoryChainNames(assetRow);
+  const nonGenericName = chainNames.find((name) => {
+    const normalized = normalizeText(name);
+    return normalized && normalized !== "hardware" && normalized !== "software hardware" && normalized !== "lainnya";
+  });
+
+  if (nonGenericName) {
+    return String(nonGenericName).trim().toUpperCase();
+  }
+
+  return String(assetRow?.asset_name || "LAINNYA").trim().toUpperCase();
+}
+
+function resolveAssetSummaryCategory(assetRow = {}) {
+  if (isSoftwareAssetSummaryRow(assetRow)) {
+    return "Software";
+  }
+
+  const valuesToCheck = [
+    assetRow?.asset_name,
+    assetRow?.hostname,
+    ...getAssetCategoryChainNames(assetRow),
+  ]
+    .map(normalizeText)
+    .filter(Boolean);
+
+  const matchedTab = HARDWARE_SUMMARY_TABS.find((tab) =>
+    tab.aliases.some((alias) => {
+      const normalizedAlias = normalizeText(alias);
+      return valuesToCheck.some(
+        (value) =>
+          value === normalizedAlias ||
+          value.includes(normalizedAlias) ||
+          normalizedAlias.includes(value)
+      );
+    })
+  );
+
+  if (matchedTab) {
+    return matchedTab.label;
+  }
+
+  return resolveFallbackAssetType(assetRow);
+}
+
+function buildAssetCategorySummary(assetRows = [], totalAsset = 0) {
+  const categoryMap = new Map();
+
+  assetRows.forEach((assetRow, index) => {
+    const categoryLabel = resolveAssetSummaryCategory(assetRow) || `Category ${index + 1}`;
+    const current = categoryMap.get(categoryLabel) || {
+      key: normalizeText(categoryLabel).replace(/\s+/g, "-") || `category-${index + 1}`,
+      category: categoryLabel,
+      count: 0,
+    };
+
+    current.count += 1;
+    categoryMap.set(categoryLabel, current);
+  });
+
+  return Array.from(categoryMap.values())
+    .sort((left, right) => right.count - left.count || left.category.localeCompare(right.category))
+    .map((item) => ({
+      ...item,
+      percent: totalAsset > 0 ? Number(((item.count / totalAsset) * 100).toFixed(1)) : 0,
+    }));
+}
 
 const dummyAssetBudgets = [
   { key: 'dummy-ba-1', poDate: '2026-07-05', budgetCode: 'BA-2026-001', itemName: 'Laptop Replacement', initialBudget: currency(185000000), status: 'PO' },
@@ -36,6 +270,58 @@ const getBudgetStatus = (budget) => {
   if (budget.review) return 'PV';
   return 'Plan';
 };
+
+function buildBudgetProgressSummary(budgetRows = [], options = {}) {
+  const {
+    pendingLimit = 10,
+    includeOperationalPlaceholder = false,
+  } = options;
+
+  const normalizedRows = Array.isArray(budgetRows) ? budgetRows : [];
+  const rowsWithStatus = normalizedRows.map((item) => ({
+    ...item,
+    summaryStatus: getBudgetStatus(item),
+  }));
+
+  const completedRows = rowsWithStatus.filter((item) => item.summaryStatus === "Closed");
+  const progressRows = rowsWithStatus.filter((item) => ["PV", "PO"].includes(item.summaryStatus));
+  const pendingRows = rowsWithStatus.filter((item) => item.summaryStatus === "Plan");
+
+  const overview = [
+    {
+      key: "asset",
+      category: "Asset Budget",
+      total: rowsWithStatus.length,
+      progress: progressRows.length,
+      completed: completedRows.length,
+    },
+  ];
+
+  if (includeOperationalPlaceholder) {
+    overview.push({
+      key: "operational",
+      category: "Operational Budget",
+      total: 0,
+      progress: 0,
+      completed: 0,
+    });
+  }
+
+  return {
+    total: rowsWithStatus.length,
+    completed: completedRows.length,
+    progress: progressRows.length,
+    pending: pendingRows.length,
+    pendingRows: pendingRows.slice(0, pendingLimit).map((item) => ({
+      key: item.id,
+      code: item.budget_code || "-",
+      category: "Asset",
+      item: item.item_name || item.subject || "-",
+      status: item.summaryStatus,
+    })),
+    overview,
+  };
+}
 
 const buildOperationalBudgets = (assetBudgets) => {
   const now = new Date();
@@ -73,6 +359,33 @@ const buildOperationalBudgets = (assetBudgets) => {
 
 export const getDashboardSummary = async (req, res) => {
   try {
+    const assetStatusSummary = await getUnifiedAssetStatusSummary();
+    const totalAsset = assetStatusSummary.total;
+    const activeAsset = assetStatusSummary.active;
+    const nonActiveAsset = assetStatusSummary.nonActive;
+    const damagedAsset = assetStatusSummary.damaged;
+    const inServiceAsset = assetStatusSummary.inService;
+    const assetSummaryRows = await Asset.findAll({
+      attributes: ["asset_id", "asset_name", "hostname", "category_id"],
+      include: [
+        {
+          model: AssetCategory,
+          as: "category",
+          required: false,
+          attributes: ["category_id", "category_name", "parent_id"],
+          include: [
+            {
+              model: AssetCategory,
+              as: "parent",
+              required: false,
+              attributes: ["category_id", "category_name"],
+            },
+          ],
+        },
+      ],
+      order: [["asset_id", "ASC"]],
+    });
+
     const assetBudgets = await AssetBudget.findAll({
       limit: 7,
       order: [['created_at', 'DESC']]
@@ -84,6 +397,14 @@ export const getDashboardSummary = async (req, res) => {
       raw: true,
     });
 
+    const categorySummary = buildAssetCategorySummary(assetSummaryRows, totalAsset);
+
+    const acquisitionValue = allBudgetRows.reduce((sum, item) => sum + Number(item.purchase_price || item.price_pengajuan || item.budget || item.initial_plan || 0), 0);
+    const bookValue = allBudgetRows.reduce((sum, item) => sum + Number(item.budget || item.purchase_price || item.price_pengajuan || item.initial_plan || 0), 0);
+    const depreciationValue = acquisitionValue > 0
+      ? Math.max(acquisitionValue - bookValue, 0)
+      : 0;
+
     const maintenanceLogs = await MaintenanceLogSheet.findAll({
       limit: 10,
       order: [['tanggal_temuan', 'DESC']],
@@ -93,9 +414,14 @@ export const getDashboardSummary = async (req, res) => {
           as: 'schedule',
           include: [
             {
+              model: StandardMaintenance,
+              as: 'StandardMaintenance',
+              attributes: ['namaPerangkat', 'subPerangkat'],
+            },
+            {
               model: Asset,
               as: 'asset',
-              attributes: ['asset_name', 'asset_code']
+              attributes: ['asset_name', 'asset_code', 'hostname']
             }
           ]
         },
@@ -109,7 +435,7 @@ export const getDashboardSummary = async (req, res) => {
 
     // Formatting maintenance logs for frontend
     const formattedLogs = maintenanceLogs.map(log => {
-      const assetInfo = log.schedule?.asset ? `${log.schedule.asset.asset_name} (${log.schedule.asset.asset_code})` : 'Unknown Asset';
+      const assetInfo = getScheduleDeviceLabel(log.schedule);
       return {
         key: log.id,
         date: new Date(log.tanggal_temuan).toLocaleDateString('en-US', { weekday: 'long', month: 'short', day: 'numeric' }),
@@ -129,6 +455,40 @@ export const getDashboardSummary = async (req, res) => {
     }));
 
     const operationalBudgets = buildOperationalBudgets(allBudgetRows);
+    const budgetProgressSummary = buildBudgetProgressSummary(allBudgetRows, { pendingLimit: 4 });
+    const budgetRowsWithStatus = allBudgetRows.map((item) => ({
+      ...item,
+      dashboardStatus: getBudgetStatus(item),
+      dashboardAmount: Number(item.initial_plan || item.budget || item.purchase_price || item.price_pengajuan || 0),
+    }));
+    const completedBudgetRows = budgetRowsWithStatus.filter((item) => item.dashboardStatus === "Closed");
+    const progressBudgetRows = budgetRowsWithStatus.filter((item) => ["PV", "PO"].includes(item.dashboardStatus));
+    const pendingBudgetSourceRows = budgetRowsWithStatus.filter((item) => item.dashboardStatus === "Plan");
+    const completedBudgets = budgetProgressSummary.completed;
+    const progressBudgets = budgetProgressSummary.progress;
+    const pendingBudgets = budgetProgressSummary.pending;
+    const pendingBudgetRows = budgetProgressSummary.pendingRows.map((item) => ({
+      key: item.key,
+      code: item.code,
+      itemName: item.item,
+      status: item.status,
+    }));
+    const totalBudgetValue = budgetRowsWithStatus.reduce((sum, item) => sum + item.dashboardAmount, 0);
+    const completedBudgetValue = completedBudgetRows.reduce((sum, item) => sum + item.dashboardAmount, 0);
+    const progressBudgetValue = progressBudgetRows.reduce((sum, item) => sum + item.dashboardAmount, 0);
+    const pendingBudgetValue = pendingBudgetSourceRows.reduce((sum, item) => sum + item.dashboardAmount, 0);
+    const completionRate = allBudgetRows.length > 0 ? Number(((completedBudgets / allBudgetRows.length) * 100).toFixed(1)) : 0;
+    const progressRate = allBudgetRows.length > 0 ? Number(((progressBudgets / allBudgetRows.length) * 100).toFixed(1)) : 0;
+    const statusBreakdown = [
+      { key: "closed", label: "Completed", count: completedBudgets, percent: completionRate },
+      { key: "progress", label: "On Progress", count: progressBudgets, percent: progressRate },
+      {
+        key: "pending",
+        label: "Pending",
+        count: pendingBudgets,
+        percent: allBudgetRows.length > 0 ? Number(((pendingBudgets / allBudgetRows.length) * 100).toFixed(1)) : 0,
+      },
+    ];
 
     // Maintenance Actuals
     const totalActuals = await MaintenanceActual.count();
@@ -139,7 +499,18 @@ export const getDashboardSummary = async (req, res) => {
       limit: 10,
       order: [['tanggal', 'DESC']],
       include: [
-        { model: MaintenanceSchedule, as: 'schedule', include: [{ model: Asset, as: 'asset', attributes: ['asset_name', 'asset_code'] }] },
+        {
+          model: MaintenanceSchedule,
+          as: 'schedule',
+          include: [
+            {
+              model: StandardMaintenance,
+              as: 'StandardMaintenance',
+              attributes: ['namaPerangkat', 'subPerangkat'],
+            },
+            { model: Asset, as: 'asset', attributes: ['asset_name', 'asset_code', 'hostname'] }
+          ]
+        },
         { model: User, as: 'creator', attributes: ['full_name'] },
       ],
     });
@@ -149,13 +520,14 @@ export const getDashboardSummary = async (req, res) => {
       tanggal: a.tanggal,
       status: a.status,
       legend: a.legend,
-      asset: a.schedule?.asset ? `${a.schedule.asset.asset_name} (${a.schedule.asset.asset_code})` : '-',
+      asset: getScheduleDeviceLabel(a.schedule),
       personnel: a.creator?.full_name || '-',
     }));
 
     // Maintenance Abnormal Logs
     const totalAbnormals = await MaintenanceAbnormalLog.count();
     const openAbnormals = await MaintenanceAbnormalLog.count({ where: { status_temuan: 'OPEN' } });
+    const inProgressAbnormals = await MaintenanceAbnormalLog.count({ where: { status_temuan: { [Op.notIn]: ['OPEN', 'RESOLVED'] } } });
     const resolvedAbnormals = await MaintenanceAbnormalLog.count({ where: { status_temuan: 'RESOLVED' } });
 
     const recentAbnormals = await MaintenanceAbnormalLog.findAll({
@@ -166,7 +538,38 @@ export const getDashboardSummary = async (req, res) => {
           model: MaintenanceActual,
           as: 'actual',
           include: [
-            { model: MaintenanceSchedule, as: 'schedule', include: [{ model: Asset, as: 'asset', attributes: ['asset_name', 'asset_code'] }] },
+            {
+              model: MaintenanceSchedule,
+              as: 'schedule',
+              include: [
+                {
+                  model: StandardMaintenance,
+                  as: 'StandardMaintenance',
+                  attributes: ['namaPerangkat', 'subPerangkat'],
+                },
+                { model: Asset, as: 'asset', attributes: ['asset_name', 'asset_code', 'hostname'] }
+              ]
+            },
+            {
+              model: StandardMaintenanceCheck,
+              as: 'check',
+              required: false,
+              include: [
+                {
+                  model: StandardMaintenanceDetail,
+                  as: 'standard_maintenance_detail',
+                  required: false,
+                  include: [
+                    {
+                      model: StandardMaintenance,
+                      as: 'standard_maintenance',
+                      required: false,
+                      attributes: ['namaPerangkat', 'subPerangkat'],
+                    }
+                  ]
+                }
+              ]
+            }
           ],
         },
         { model: User, as: 'resolver', attributes: ['full_name'] },
@@ -178,7 +581,7 @@ export const getDashboardSummary = async (req, res) => {
       deskripsi: a.deskripsi_kerusakan || '-',
       tindakan: a.tindakan || '-',
       status: a.status_temuan,
-      asset: a.actual?.schedule?.asset ? `${a.actual.schedule.asset.asset_name} (${a.actual.schedule.asset.asset_code})` : '-',
+      asset: getActualDeviceLabel(a.actual),
       resolvedBy: a.resolver?.full_name || '-',
       resolvedAt: a.resolved_at ? new Date(a.resolved_at).toLocaleDateString() : '-',
     }));
@@ -186,6 +589,32 @@ export const getDashboardSummary = async (req, res) => {
     return res.status(200).json({
       success: true,
       data: {
+        assetSummary: {
+          total: totalAsset || 0,
+          active: activeAsset || 0,
+          nonActive: nonActiveAsset || 0,
+          damaged: damagedAsset || 0,
+          inService: inServiceAsset || 0,
+          acquisitionValue,
+          depreciationValue,
+          bookValue,
+          topCategories: categorySummary.slice(0, 4),
+        },
+        budgetSummary: {
+          total: allBudgetRows.length,
+          progress: progressBudgets,
+          completed: completedBudgets,
+          pending: pendingBudgets,
+          completionRate,
+          progressRate,
+          totalValue: totalBudgetValue,
+          completedValue: completedBudgetValue,
+          progressValue: progressBudgetValue,
+          pendingValue: pendingBudgetValue,
+          statusBreakdown,
+          pendingRows: pendingBudgetRows,
+          auditKmcSections: buildAuditKmcSections(allBudgetRows),
+        },
         assetBudgets: formattedBudgets.length ? formattedBudgets : dummyAssetBudgets,
         maintenanceLogs: formattedLogs.length ? formattedLogs : dummyMaintenanceLogs,
         operationalBudgets: operationalBudgets.length ? operationalBudgets : dummyOperationalBudgets,
@@ -198,6 +627,7 @@ export const getDashboardSummary = async (req, res) => {
         maintenanceAbnormals: {
           total: totalAbnormals,
           open: openAbnormals,
+          inProgress: inProgressAbnormals,
           resolved: resolvedAbnormals,
           rows: formattedAbnormals,
         },
@@ -212,51 +642,40 @@ export const getDashboardSummary = async (req, res) => {
 export const getFullSummary = async (req, res) => {
   try {
     // 1. Asset Summary
-    const totalAsset = await Asset.count();
-    const activeAsset = await Asset.count({ where: { status: 'ACTIVE' } });
-    const damagedAsset = await Asset.count({ where: { status: 'DISPOSAL' } }); // Mock status
-    const inServiceAsset = await Asset.count({ where: { status: 'SERVICE' } }); // Mock status
-
-    // Group by category (simplified mock for category counts since we'd need nested joins)
-    // We'll return hardcoded category stats for simplicity or fetch true counts if possible
-    // Let's do true counts:
-    const assetCategories = await Asset.findAll({
-      attributes: [
-        'category_id',
-        [sequelize.fn('COUNT', sequelize.col('asset_id')), 'count']
+    const assetStatusSummary = await getUnifiedAssetStatusSummary();
+    const totalAsset = assetStatusSummary.total;
+    const activeAsset = assetStatusSummary.active;
+    const damagedAsset = assetStatusSummary.damaged;
+    const inServiceAsset = assetStatusSummary.inService;
+    const assetSummaryRows = await Asset.findAll({
+      attributes: ["asset_id", "asset_name", "hostname", "category_id"],
+      include: [
+        {
+          model: AssetCategory,
+          as: "category",
+          required: false,
+          attributes: ["category_id", "category_name", "parent_id"],
+          include: [
+            {
+              model: AssetCategory,
+              as: "parent",
+              required: false,
+              attributes: ["category_id", "category_name"],
+            },
+          ],
+        },
       ],
-      group: ['category_id'],
-      raw: true
+      order: [["asset_id", "ASC"]],
     });
-
-    const categoryRows = await AssetCategory.findAll({ raw: true });
-    const categoryNameById = new Map(categoryRows.map((item) => [item.category_id, item.category_name]));
-    const categorySummary = assetCategories.map((item, index) => {
-      const count = Number(item.count || 0);
-      return {
-        key: String(item.category_id || index + 1),
-        category: categoryNameById.get(item.category_id) || `Category ${item.category_id || index + 1}`,
-        count,
-        percent: totalAsset > 0 ? `${((count / totalAsset) * 100).toFixed(1)}%` : '0%',
-      };
-    });
+    const categorySummary = buildAssetCategorySummary(assetSummaryRows, totalAsset);
 
     // 2. Budget Summary
-    const totalBudgets = await AssetBudget.count();
-    const completedBudgets = await AssetBudget.count({ where: { payment_date_1: { [Op.ne]: null } } });
-    const progressBudgets = totalBudgets - completedBudgets;
-
     const budgetRows = await AssetBudget.findAll({ raw: true, order: [['created_at', 'DESC']] });
-    const pendingBudgetRows = budgetRows
-      .filter((item) => !item.payment_date_1 && !item.payment_date_2 && !item.payment_date_3)
-      .slice(0, 10)
-      .map((item) => ({
-        key: item.id,
-        code: item.budget_code || '-',
-        category: 'Asset',
-        item: item.item_name || item.subject || '-',
-        status: getBudgetStatus(item),
-      }));
+    const auditKmcSections = buildAuditKmcSections(budgetRows);
+    const budgetProgressSummary = buildBudgetProgressSummary(budgetRows, {
+      pendingLimit: 10,
+      includeOperationalPlaceholder: true,
+    });
 
     const acquisitionValue = budgetRows.reduce((sum, item) => sum + Number(item.purchase_price || item.price_pengajuan || item.budget || item.initial_plan || 0), 0);
     const bookValue = budgetRows.reduce((sum, item) => sum + Number(item.budget || item.purchase_price || item.price_pengajuan || item.initial_plan || 0), 0);
@@ -272,6 +691,7 @@ export const getFullSummary = async (req, res) => {
 
     const totalAbnormals = await MaintenanceAbnormalLog.count();
     const openAbnormals = await MaintenanceAbnormalLog.count({ where: { status_temuan: 'OPEN' } });
+    const inProgressAbnormals = await MaintenanceAbnormalLog.count({ where: { status_temuan: { [Op.notIn]: ['OPEN', 'RESOLVED'] } } });
     const resolvedAbnormals = await MaintenanceAbnormalLog.count({ where: { status_temuan: 'RESOLVED' } });
 
     // Latest Logsheets for table
@@ -279,7 +699,18 @@ export const getFullSummary = async (req, res) => {
       limit: 5,
       order: [['tanggal_temuan', 'DESC']],
       include: [
-        { model: MaintenanceSchedule, as: 'schedule', include: [{ model: Asset, as: 'asset', attributes: ['asset_name'] }] }
+        {
+          model: MaintenanceSchedule,
+          as: 'schedule',
+          include: [
+            {
+              model: StandardMaintenance,
+              as: 'StandardMaintenance',
+              attributes: ['namaPerangkat', 'subPerangkat'],
+            },
+            { model: Asset, as: 'asset', attributes: ['asset_name', 'hostname'] }
+          ]
+        }
       ]
     });
 
@@ -288,7 +719,18 @@ export const getFullSummary = async (req, res) => {
       limit: 5,
       order: [['tanggal', 'DESC']],
       include: [
-        { model: MaintenanceSchedule, as: 'schedule', include: [{ model: Asset, as: 'asset', attributes: ['asset_name'] }] },
+        {
+          model: MaintenanceSchedule,
+          as: 'schedule',
+          include: [
+            {
+              model: StandardMaintenance,
+              as: 'StandardMaintenance',
+              attributes: ['namaPerangkat', 'subPerangkat'],
+            },
+            { model: Asset, as: 'asset', attributes: ['asset_name', 'hostname'] }
+          ]
+        },
         { model: User, as: 'creator', attributes: ['full_name'] },
       ],
     });
@@ -302,7 +744,38 @@ export const getFullSummary = async (req, res) => {
           model: MaintenanceActual,
           as: 'actual',
           include: [
-            { model: MaintenanceSchedule, as: 'schedule', include: [{ model: Asset, as: 'asset', attributes: ['asset_name'] }] },
+            {
+              model: MaintenanceSchedule,
+              as: 'schedule',
+              include: [
+                {
+                  model: StandardMaintenance,
+                  as: 'StandardMaintenance',
+                  attributes: ['namaPerangkat', 'subPerangkat'],
+                },
+                { model: Asset, as: 'asset', attributes: ['asset_name', 'hostname'] }
+              ]
+            },
+            {
+              model: StandardMaintenanceCheck,
+              as: 'check',
+              required: false,
+              include: [
+                {
+                  model: StandardMaintenanceDetail,
+                  as: 'standard_maintenance_detail',
+                  required: false,
+                  include: [
+                    {
+                      model: StandardMaintenance,
+                      as: 'standard_maintenance',
+                      required: false,
+                      attributes: ['namaPerangkat', 'subPerangkat'],
+                    }
+                  ]
+                }
+              ]
+            }
           ],
         },
         { model: User, as: 'resolver', attributes: ['full_name'] },
@@ -317,7 +790,10 @@ export const getFullSummary = async (req, res) => {
           active: activeAsset || 421,
           damaged: damagedAsset || 18,
           inService: inServiceAsset || 13,
-          categories: categorySummary.length ? categorySummary : [
+          categories: categorySummary.length ? categorySummary.map((item) => ({
+            ...item,
+            percent: `${Number(item.percent || 0).toFixed(1)}%`,
+          })) : [
             { key: 'dummy-cat-1', category: 'Laptop / PC', count: 210, percent: '46.4%' },
             { key: 'dummy-cat-2', category: 'Server', count: 32, percent: '7.1%' },
             { key: 'dummy-cat-3', category: 'Network Devices', count: 48, percent: '10.6%' },
@@ -329,24 +805,22 @@ export const getFullSummary = async (req, res) => {
             byCategory: categorySummary.length ? categorySummary.slice(0, 5).map((item) => ({
               key: item.key,
               category: item.category,
-              acquisitionValue: currency(Math.round((acquisitionValue || 4520000000) * (Number(String(item.percent).replace('%', '')) / 100 || 0.2))),
-              bookValue: currency(Math.round((bookValue || 2630000000) * (Number(String(item.percent).replace('%', '')) / 100 || 0.2))),
+              acquisitionValue: currency(Math.round((acquisitionValue || 4520000000) * ((Number(item.percent) || 0) / 100 || 0.2))),
+              bookValue: currency(Math.round((bookValue || 2630000000) * ((Number(item.percent) || 0) / 100 || 0.2))),
             })) : dummyAssetValueByCategory
           }
         },
         budget: {
-          total: totalBudgets || 28,
-          completed: completedBudgets || 8,
-          progress: progressBudgets || 20,
-          pending: pendingBudgetRows.length || 20,
-          pendingRows: pendingBudgetRows.length ? pendingBudgetRows : [
+          total: budgetProgressSummary.total,
+          completed: budgetProgressSummary.completed,
+          progress: budgetProgressSummary.progress,
+          pending: budgetProgressSummary.pending,
+          auditKmcSections,
+          pendingRows: budgetProgressSummary.pendingRows.length ? budgetProgressSummary.pendingRows : [
             { key: 'dummy-pending-1', code: 'BA-2026-014', category: 'Asset', item: 'Laptop Manager', status: 'Waiting Approval' },
             { key: 'dummy-pending-2', code: 'BA-2026-018', category: 'Asset', item: 'Switch Core', status: 'Waiting PO' },
           ],
-          overview: [
-            { key: 'asset', category: 'Asset Budget', total: totalBudgets || 3, progress: progressBudgets || 2, completed: completedBudgets || 1 },
-            { key: 'operational', category: 'Operational Budget', total: budgetRows.length || 3, progress: progressBudgets || 2, completed: completedBudgets || 1 },
-          ]
+          overview: budgetProgressSummary.overview,
         },
         maintenance: {
           logsheets: {
@@ -356,7 +830,7 @@ export const getFullSummary = async (req, res) => {
             latest: latestLogs.length ? latestLogs.map(l => ({
               key: l.id,
               logNo: `LOG-${l.id}`,
-              asset: l.schedule?.asset?.asset_name || 'Unknown',
+              asset: getScheduleDeviceLabel(l.schedule),
               date: new Date(l.tanggal_temuan).toLocaleDateString(),
               status: l.status_temuan === 'RESOLVED' ? 'Disetujui' : 'Menunggu Approval'
             })) : dummyMaintenanceLogs.map((item) => ({
@@ -379,20 +853,21 @@ export const getFullSummary = async (req, res) => {
               key: a.id,
               tanggal: a.tanggal,
               status: a.status,
-              asset: a.schedule?.asset?.asset_name || '-',
+              asset: getScheduleDeviceLabel(a.schedule),
               personnel: a.creator?.full_name || '-',
             })),
           },
           abnormals: {
             total: totalAbnormals || 0,
             open: openAbnormals || 0,
+            inProgress: inProgressAbnormals || 0,
             resolved: resolvedAbnormals || 0,
             latestRows: latestAbnormals.map(a => ({
               key: a.id,
               deskripsi: a.deskripsi_kerusakan || '-',
               tindakan: a.tindakan || '-',
               status: a.status_temuan,
-              asset: a.actual?.schedule?.asset?.asset_name || '-',
+              asset: getActualDeviceLabel(a.actual),
               resolvedBy: a.resolver?.full_name || '-',
             })),
           },

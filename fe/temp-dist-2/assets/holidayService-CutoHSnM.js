@@ -1,0 +1,1 @@
+import{i as e}from"./authStore-54ZCGskN.js";var t={getAll:async()=>(await e.get(`/holidays`)).data,create:async t=>(await e.post(`/holidays`,t)).data,delete:async t=>(await e.delete(`/holidays/${t}`)).data};export{t};
