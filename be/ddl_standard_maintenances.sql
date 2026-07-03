@@ -42,8 +42,8 @@ GO
 CREATE TABLE [dbo].[standard_maintenance_checks] (
     [id] BIGINT IDENTITY(1,1) NOT NULL,
     [standard_maintenance_detail_id] BIGINT NOT NULL,
-    [pengecekan] NVARCHAR(255) NULL,
-    [standard] NVARCHAR(255) NULL,
+    [pengecekan] NVARCHAR(MAX) NULL,
+    [standard] NVARCHAR(MAX) NULL,
     [periodik] NVARCHAR(100) NULL,
     [bagian] NVARCHAR(255) NULL,
     [metode] NVARCHAR(255) NULL,

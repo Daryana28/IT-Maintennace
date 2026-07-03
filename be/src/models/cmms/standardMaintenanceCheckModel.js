@@ -14,11 +14,11 @@ export default (sequelize) =>
         allowNull: false,
       },
       pengecekan: {
-        type: DataTypes.STRING(255),
+        type: DataTypes.TEXT,
         allowNull: true,
       },
       standard: {
-        type: DataTypes.STRING(255),
+        type: DataTypes.TEXT,
         allowNull: true,
       },
       periodik: {

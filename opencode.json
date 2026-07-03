@@ -1,0 +1,14 @@
+{
+  "$schema": "https://opencode.ai/config.json",
+  "mcp": {
+    "gitnexus": {
+      "type": "local",
+      "command": ["gitnexus", "mcp"]
+    }
+  },
+  "permission": {
+    "gitnexus_query": "allow",
+    "gitnexus_context": "allow",
+    "gitnexus_impact": "allow"
+  }
+}
